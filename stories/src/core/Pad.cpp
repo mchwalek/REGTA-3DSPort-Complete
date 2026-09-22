@@ -2206,11 +2206,43 @@ CPad::AffectFrom3DS()
 	PCTempJoyState.RightStickY = (int32)(-ry * 128.0f);
 }
 
-bool
-CPad::Get3DSFreeAim()
+void
+CPad::Update3DSFreeAim()
 {
-	const u32 shoulderChord = KEY_L | KEY_R;
-	return !ArePlayerControlsDisabled() && (hidKeysHeld() & shoulderChord) == shoulderChord;
+	/* PS2 LCS: "While targeting, tap Free Aim to enter Free Aim mode" (GXT
+	 * VIC4/HELP42). Latches on an L press-edge while R (Target) is held;
+	 * survives until Target is released, a vehicle is entered, or the
+	 * player ped is gone. GetTarget() already returns false whenever
+	 * player controls are disabled, so that exit case is covered for free.
+	 *
+	 * Known accepted quirk: in CURMODE 3, GetTarget() itself reads
+	 * LeftShoulder1, so the L-edge and GetTarget()==true can coincide on
+	 * the very first press in that alternate control layout. CPad::Mode
+	 * defaults to 0 and nothing in the 3DS build ever sets it to 3, so
+	 * this is unreachable in practice and intentionally not special-cased. */
+	if ( b3DSFreeAimActive )
+	{
+		if ( !GetTarget() || FindPlayerVehicle() || !FindPlayerPed() )
+		{
+			CCamera::m_bUseMouse3rdPerson = false;
+			CCamera::bFreeCam = b3DSFreeAimSavedFreeCam;
+			b3DSFreeAimActive = false;
+		}
+	}
+	else if ( GetTarget() && !FindPlayerVehicle() && FindPlayerPed() &&
+	          NewState.LeftShoulder1 && !OldState.LeftShoulder1 )
+	{
+		b3DSFreeAimSavedFreeCam = CCamera::bFreeCam;
+		CCamera::m_bUseMouse3rdPerson = true;
+		CCamera::bFreeCam = true;
+		b3DSFreeAimActive = true;
+	}
+}
+
+bool
+CPad::Is3DSFreeAimActive()
+{
+	return b3DSFreeAimActive;
 }
 
 #endif
@@ -2569,6 +2601,7 @@ void CPad::Update(int16 pad)
 		--JustOutOfFrontend;
 #ifdef _3DS
 	UpdateWeaponSuppression();
+	Update3DSFreeAim();
 #endif
 }
 
@@ -2788,6 +2821,11 @@ int16 CPad::GetPedWalkLeftRight(void)
 	if ( ArePlayerControlsDisabled() )
 		return 0;
 
+#ifdef _3DS
+	if ( Is3DSFreeAimActive() )
+		return 0;
+#endif
+
 	switch (CURMODE)
 	{
 		case 0:
@@ -2820,6 +2858,11 @@ int16 CPad::GetPedWalkUpDown(void)
 {
 	if ( ArePlayerControlsDisabled() )
 		return 0;
+
+#ifdef _3DS
+	if ( Is3DSFreeAimActive() )
+		return 0;
+#endif
 
 	switch (CURMODE)
 	{
@@ -3629,7 +3672,7 @@ bool CPad::ShiftTargetRightJustDown(void)
 	if ( ArePlayerControlsDisabled() )
 		return false;
 
-	return !!(NewState.LeftShoulder1 && !OldState.LeftShoulder1) || !!(NewState.RightShoulder2 && !OldState.RightShoulder2);
+	return !!(NewState.RightShoulder2 && !OldState.RightShoulder2);
 }
 
 bool CPad::GetAnaloguePadUp(void)
@@ -3883,7 +3926,11 @@ int16 CPad::SniperModeLookUpDown(void)
 
 int16 CPad::LookAroundLeftRight(void)
 {
+#ifdef _3DS
+	float axis = GetPad(0)->Is3DSFreeAimActive() ? GetPad(0)->NewState.LeftStickX : GetPad(0)->NewState.RightStickX;
+#else
 	float axis = GetPad(0)->NewState.RightStickX;
+#endif
 
 	if ( Abs(axis) > 85 && !GetLookBehindForPed() )
 		return (int16) ( (axis + ( ( axis > 0 ) ? -85 : 85) )
@@ -3898,7 +3945,11 @@ int16 CPad::LookAroundLeftRight(void)
 
 int16 CPad::LookAroundUpDown(void)
 {
+#ifdef _3DS
+	int16 axis = GetPad(0)->Is3DSFreeAimActive() ? GetPad(0)->NewState.LeftStickY : GetPad(0)->NewState.RightStickY;
+#else
 	int16 axis = GetPad(0)->NewState.RightStickY;
+#endif
 #ifdef FIX_BUGS
 	axis = -axis;
 #endif

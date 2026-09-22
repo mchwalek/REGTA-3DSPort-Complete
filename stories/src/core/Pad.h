@@ -161,6 +161,8 @@ public:
 	int8 JustOutOfFrontend;
 #ifdef _3DS
 	bool bSuppressWeaponUntilRelease;
+	bool b3DSFreeAimActive;
+	bool b3DSFreeAimSavedFreeCam;
 #endif
 	int8 bApplyBrakes;
 	char CheatString[12];
@@ -320,7 +322,8 @@ public:
 
 #ifdef _3DS
 	void AffectFrom3DS();
-	bool Get3DSFreeAim();
+	void Update3DSFreeAim();
+	bool Is3DSFreeAimActive();
 	static bool Is3DSTouchOverlayVisible();
 #endif
 
