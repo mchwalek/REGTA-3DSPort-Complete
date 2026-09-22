@@ -936,10 +936,6 @@ switchDetectDone:
 	}
 }
 
-#ifdef _3DS
-static bool g3DSSuppressRifleFireUntilRelease;
-#endif
-
 void
 CPlayerPed::PlayerControlM16(CPad *padUsed)
 {
@@ -955,21 +951,11 @@ CPlayerPed::PlayerControlM16(CPad *padUsed)
 	}
 
 	if (!padUsed->GetTarget() && !m_attachedTo) {
-#ifdef _3DS
-		g3DSSuppressRifleFireUntilRelease = false;
-#endif
 		RestorePreviousState();
 		TheCamera.ClearPlayerWeaponMode();
 	}
 
-#ifdef _3DS
-	if (g3DSSuppressRifleFireUntilRelease && !padUsed->GetWeapon())
-		g3DSSuppressRifleFireUntilRelease = false;
-#endif
 	if (padUsed->GetWeapon()
-#ifdef _3DS
-		&& !g3DSSuppressRifleFireUntilRelease
-#endif
 		&& CTimer::GetTimeInMilliseconds() > GetWeapon()->m_nTimer) {
 		if (GetWeapon()->m_eWeaponState == WEAPONSTATE_OUT_OF_AMMO) {
 			DMAudio.PlayFrontEndSound(SOUND_WEAPON_SNIPER_SHOT_NO_ZOOM, 0.f);
@@ -1407,27 +1393,14 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
 
 	if (!m_pFire) {
 		eWeaponType weapon = GetWeapon()->m_eWeaponType;
-		bool enterFreeAim = false;
-#ifdef _3DS
-		enterFreeAim = weaponInfo->IsFlagSet(WEAPONFLAG_CANAIM) && padUsed->Get3DSFreeAim() &&
-			!TheCamera.Using1stPersonWeaponMode();
-#endif
 		if (weapon == WEAPONTYPE_ROCKETLAUNCHER || weapon == WEAPONTYPE_SNIPERRIFLE ||
 			weapon == WEAPONTYPE_LASERSCOPE ||
-#ifdef _3DS
-			enterFreeAim ||
-#else
+#ifndef _3DS
 			weapon == WEAPONTYPE_M4 || weapon == WEAPONTYPE_RUGER || weapon == WEAPONTYPE_M60 ||
 #endif
 			weapon == WEAPONTYPE_CAMERA) {
 
-			if (padUsed->TargetJustDown() || TheCamera.m_bJustJumpedOutOf1stPersonBecauseOfTarget || enterFreeAim) {
-#ifdef _3DS
-				if (enterFreeAim) {
-					ClearWeaponTarget();
-					g3DSSuppressRifleFireUntilRelease = padUsed->GetWeapon();
-				}
-#endif
+			if (padUsed->TargetJustDown() || TheCamera.m_bJustJumpedOutOf1stPersonBecauseOfTarget) {
 #ifdef FREE_CAM
 				if (CCamera::bFreeCam && TheCamera.Cams[0].Using3rdPersonMouseCam()) {
 					m_fRotationCur = CGeneral::LimitRadianAngle(-TheCamera.Orientation);
