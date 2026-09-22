@@ -1553,6 +1553,11 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
 		if (m_pPointGunAt) {
 			// what??
 			if (!m_pPointGunAt
+#ifdef _3DS
+				/* Free aim replaces lock-on as on PS2: dropping the target here
+				 * lets the camera leave MODE_SYPHON for the free-aim camera. */
+				|| padUsed->Is3DSFreeAimActive()
+#endif
 #ifdef FREE_CAM
 				|| (!CCamera::bFreeCam && CCamera::m_bUseMouse3rdPerson)
 #else
