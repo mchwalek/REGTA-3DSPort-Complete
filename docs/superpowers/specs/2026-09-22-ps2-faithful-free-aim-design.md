@@ -57,9 +57,12 @@ duration of a free-aim input, and delete the first-person routing entirely.
   already mapped to `"CIRCLE PAD"` in `Messages.cpp:671`).
 - **Release R**: exit free aim. (PS2's GXT has no exit instruction; this is
   the chosen 3DS-port convention — free aim is a sub-mode of targeting.)
-- Movement while free aiming: unchanged stock behavior
-  (`WEAPONFLAG_CANAIM_WITHARM` already permits walking with pistol-class
-  weapons and roots the player for rifles/shotguns).
+- Movement while free aiming: the player is fully rooted for all weapons
+  while the latch is active (`GetPedWalkLeftRight`/`UpDown` return 0), not
+  the stock `WEAPONFLAG_CANAIM_WITHARM`-gated walk-with-pistol behavior. The
+  3DS has a single physical Circle Pad shared between movement and
+  aim-adjustment (unlike PC's separate mouse+WASD), so once it's repurposed
+  for aim adjustment while latched, it can't simultaneously drive movement.
 - Sniper rifle / rocket launcher / camera keep their own dedicated scopes,
   untouched.
 
