@@ -667,7 +667,7 @@ Get3DSControlTokenString(const wchar *in, wchar *out)
 		{ "AMBUY", "A" },
 		{ "AMEXI", "B" },
 		{ "AMMOV", "CIRCLE PAD / D-PAD" },
-		{ "FREE1", "L + R" },
+		{ "FREE1", "L" },
 		{ "FREE2", "CIRCLE PAD" },
 		{ "PDLOO", "C-STICK" },
 		{ "TRSK", "A" },

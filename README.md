@@ -620,7 +620,9 @@ prompts for those.
 - Nintendo button prompts throughout menus, shops and tutorials.
 - A confirms; B returns, including all three games' shops.
 - Adjusted Circle Pad and C-stick dead zones; fixed camera drift after transitions.
-- R for third-person rifle aim; L + R for first-person aim.
+- R for third-person aim; L + R for first-person rifle aim in III and Vice
+  City. Liberty City Stories instead free-aims in third person: tap L while
+  holding R, then use the Circle Pad to adjust aim, matching PS2 LCS.
 - A/B for sniper zoom in/out.
 - Clearer weapon sights at 3DS resolution.
 - VC/LCS map: Y marker, ZR/R zoom, L legend, B back.
