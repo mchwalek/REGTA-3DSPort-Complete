@@ -1,6 +1,6 @@
 ---
 name: gta-3ds-input-mapping
-description: Explains how 3DS button input maps to in-game menu accept/cancel, shop prompts, and script pad polling across the III (re3), miami (reVC), and stories (reLCS) game trees. Use when changing what button confirms/cancels a menu, remapping Circle/Cross/Square/Triangle, editing Pad.h/Pad.cpp/Frontend.cpp/ControllerConfig.cpp/Script5.cpp, fixing a shop or Ammu-Nation button prompt, investigating why a printed button letter (A/B/X/Y) doesn't match what works, or asking about CPad::GuiSelect/GuiBack/AffectFrom3DS/Nintendo3DSButtons.
+description: Explains how 3DS button input maps to in-game menu accept/cancel, shop prompts, and script pad polling across the III (re3), miami (reVC), and stories (reLCS) game trees. Use when changing what button confirms/cancels a menu, remapping Circle/Cross/Square/Triangle, editing Pad.h/Pad.cpp/Frontend.cpp/ControllerConfig.cpp/Script5.cpp, fixing a shop or Ammu-Nation button prompt, investigating why a printed button letter (A/B/X/Y) doesn't match what works, adding pad logic that combines multiple button/state reads (risk of CPad::Mode/CURMODE collisions), or asking about CPad::GuiSelect/GuiBack/AffectFrom3DS/Nintendo3DSButtons.
 ---
 
 # GTA 3DS input mapping (menu accept/cancel and shops)
@@ -87,6 +87,37 @@ resume paths do not. The `JustOutOfFrontend` field in `Pad.h`/`Pad.cpp`
 exists for exactly this kind of guard but is never armed anywhere in the
 codebase (dead machinery) — arming it is the correct fix if this risk needs
 mitigating rather than just tested around.
+
+## Known behavioral risk: `CPad::Mode` remaps button semantics underneath you
+
+`stories/src/core/Pad.cpp`'s `CURMODE` macro reads `CPad::Mode`, a 0-3
+control-scheme selector the player can change in-game (Options → Controller
+Settings → `MENUACTION_CTRLCONFIG`, `Frontend.cpp` ~line 5330). This menu
+entry is NOT dead on 3DS — it's gated on `GAMEPAD_MENU`, which is defined
+whenever `GTA_HANDHELD` is defined (`config.h`), and `GTA_HANDHELD` is always
+defined under `_3DS`. So all 4 modes are reachable on real hardware, not just
+the default Mode 0.
+
+Several `CPad` accessors switch which physical button they read *per Mode* —
+e.g. `GetTarget()` reads `NewState.RightShoulder1` (R) in Modes 0/1/2 but
+`NewState.LeftShoulder1` (L) in Mode 3. Any new pad logic that combines a
+semantic query like `GetTarget()` with a raw button-edge check on a
+*different* button can collapse into the same button in Mode 3 without any
+compile-time signal. This is exactly how a real bug shipped and was later
+fixed: the third-person free-aim latch (`CPad::Update3DSFreeAim()`,
+`Update3DSFreeAim`/`Is3DSFreeAimActive`) latches on "L press-edge while
+`GetTarget()` is true" (tap L while holding R). In Mode 3 that collapses to
+"L press-edge while L is held" — i.e. a bare L tap with no R involved at
+all — because `GetTarget()` itself reads `LeftShoulder1` in that mode. The
+fix added an explicit `CURMODE != 3` guard rather than touching the shared
+`GetTarget()`; free aim is simply unreachable in Mode 3 as a result (see
+`stories/src/core/Pad.cpp`, the `Update3DSFreeAim` comment block, and
+`scripts/tests/test_3ds_free_aim_latch.py`'s Mode-3 scenario).
+
+**Lesson:** when adding pad logic that reads more than one button/state
+together, check its behavior across all 4 `CURMODE` values, not just the
+default (Mode 0) — a combination that looks like two independent buttons in
+one mode can be the same button in another.
 
 ## Where NOT to look
 

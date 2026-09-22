@@ -347,6 +347,49 @@ structure, store offset) before generalizing a guessed identity across many
 call sites — a single swapped identity corrupts every decode that depends on
 it.
 
+## Case study: proving a control mechanism exists from GXT text alone, no disassembly needed
+
+Not every "what does PS2 actually do" question needs ELF disassembly. The
+3DS port's manual/free-aim investigation (reported symptom: aiming a pistol
+on 3DS snapped to first-person with a permanently drifting reticle, while
+the PS2 screenshot showed Toni aiming in third person with his arm raised)
+was resolved almost entirely from the GXT text file, extracted with
+`iso9660.py extract ... /TEXT/ENGLISH.GXT ...` and parsed with a small
+custom key/value reader (table+key → string, same format `CText`/`CMessages`
+use at runtime — no need to reverse the GXT loader itself, just replicate
+its trivial fixed-width record layout).
+
+A regex sweep of all ~5700 entries for `/aim/i` turned up:
+- `MAIN/FEC_FRA` = `"Free Aim"` — a first-class controller action name.
+- `MAIN/FEC_LFA` = `"Look\Fine Aim"`.
+- `VIC4/HELP42` = `"~w~While targeting, tap~h~ ~k~ ~FREE1~ ~w~to enter ~h~Free
+  Aim mode~w~, then use the~h~ ~k~ ~FREE2~ ~w~to adjust your aim."` — a
+  tutorial string that fully specifies the mechanic's shape: it's a **tap
+  (edge-triggered, not held)**, entered **while already holding Target**,
+  and adjusted with a **second, distinct control** (`FREE2`).
+
+That was enough to prove PS2 has a genuine third-person Free Aim mode (not
+merely lock-on), with tap-while-targeting semantics — without disassembling
+a single instruction of camera or aim code. The disassembly-free approach
+only breaks down for two things: (1) exactly which physical button `FEC_FRA`
+is bound to (GXT text doesn't encode bindings — for that, PS2's on-foot
+control-label tables in the ELF had to be found and aligned against reLCS's
+own `DrawControllerSetupScreen` slot ordering in `Frontend.cpp`, since LCS
+inherited VC's slot layout and VC's crouch slot — unused in LCS — turned out
+to hold `FEC_FRA`); (2) whether any of the ~15 free-aim-mode readers already
+dead-compiled into reLCS (all gated behind the always-false-on-3DS
+`CCamera::m_bUseMouse3rdPerson`/`Using3rdPersonMouseCam()`) matched what the
+GXT described, which required reading `stories/src/peds/PlayerPed.cpp`,
+`Cam.cpp`, and `Hud.cpp` directly, not the PS2 binary.
+
+**Lesson:** before reaching for `elf_tools.py`/disassembly, grep the GXT for
+the feature's own vocabulary (control-action names in the `MAIN` table,
+tutorial/help strings in the level-specific tables) — GTA's tutorial text is
+often precise enough to fully specify a mechanic's trigger and semantics on
+its own. Only fall back to ELF disassembly for facts strings can't carry:
+physical button bindings, numeric constants, camera offsets, animation
+selection logic.
+
 ## Case study: PS2 disassembly proving a port mechanism doesn't exist at all
 
 Not every investigation resolves into a wrong constant or swapped VA —
