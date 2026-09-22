@@ -154,8 +154,8 @@ B returns or leaves. Weapon and vehicle actions depend on what Toni is doing.
 | B | Jump; zoom out in supported weapon sights |
 | Y | Enter a vehicle or perform the current vehicle interaction |
 | X | Fire or use the equipped weapon |
-| R | Aim; rifles use third-person auto-aim |
-| L + R | First-person rifle aim |
+| R | Aim; third-person lock-on when a target is available |
+| Tap L while holding R | Free aim; adjust with the Circle Pad |
 | ZL / ZR | Cycle weapons; change target while locked on where supported |
 | L | Re-centre the camera |
 | R3 touch button | Look behind |
