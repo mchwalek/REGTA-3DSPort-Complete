@@ -123,6 +123,21 @@ and a map file literally named `.map`. None of these are checked in.
    `CFont::LoadButtons`, `stories/src/renderer/Font.cpp:186-214`, for the
    established pattern) — never call `LoadTxd` on a path you haven't
    independently confirmed exists. See `git log --grep="console hang"`.
+9. **`CPad::Mode` (0-3, the in-game Controller Settings control scheme) is
+   reachable on 3DS and remaps which physical button some `CPad` accessors
+   read — shared by all three trees.** `GAMEPAD_MENU` (which exposes
+   `MENUACTION_CTRLCONFIG`, letting the player cycle `Mode`) is defined
+   whenever `GTA_HANDHELD` is defined, and `_3DS` always defines
+   `GTA_HANDHELD` — so this isn't dead PC-only menu code. `CPad::GetTarget()`
+   for example reads `RightShoulder1` (R) in Modes 0/1/2 but
+   `LeftShoulder1` (L) in Mode 3. New pad logic that combines a semantic
+   query like `GetTarget()` with a raw check on a *different* button can
+   collapse onto the same button in Mode 3 with no compile-time signal —
+   this shipped as a real bug in the 3DS free-aim latch
+   (`stories/src/core/Pad.cpp`'s `Update3DSFreeAim`, fixed by an explicit
+   `CURMODE != 3` guard; see `git log --grep="CURMODE 3"` and the
+   `gta-3ds-input-mapping` skill). Test any new multi-button pad logic
+   against all 4 `CURMODE` values, not just the default.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 
