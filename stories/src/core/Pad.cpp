@@ -2232,7 +2232,8 @@ CPad::Update3DSFreeAim()
 	 * read LeftShoulder1 instead of RightShoulder1, so Target and the L
 	 * latch trigger would collapse onto the same button in that layout.
 	 * Excluding CURMODE 3 keeps the latch requiring a genuine, distinct
-	 * Target press. */
+	 * Target press -- the tradeoff is that Free Aim is entirely
+	 * unreachable in CURMODE 3, since L doubles as Target there. */
 	if ( b3DSFreeAimActive )
 	{
 		if ( !GetTarget() || FindPlayerVehicle() || !FindPlayerPed() )

@@ -10,6 +10,8 @@ against a minimal C++ stub, and asserts the latch's enter/exit state machine:
   5. holding L with no fresh press-edge -> does not re-latch
   6. CCamera::bFreeCam save/restore is correct when the user's Free Cam
      option was already on before latching
+  7. CURMODE 3 (Target remapped onto L) never latches, even with a fresh
+     L press-edge and GetTarget() true
 """
 import subprocess
 import tempfile
@@ -169,6 +171,19 @@ int main() {
 	pad.Update3DSFreeAim();
 	assert(!pad.Is3DSFreeAimActive());
 	assert(CCamera::bFreeCam);
+
+	/* Scenario 7: CURMODE 3 remaps GetTarget() onto LeftShoulder1, so an L
+	 * press-edge with GetTarget() true must NOT latch -- otherwise a bare L
+	 * tap in that layout would incorrectly enter free aim. */
+	CCamera::bFreeCam = false;
+	pad.Mode = 3;
+	pad.target = true;
+	pad.OldState.LeftShoulder1 = false;
+	pad.NewState.LeftShoulder1 = true;
+	pad.Update3DSFreeAim();
+	assert(!pad.Is3DSFreeAimActive());
+	assert(!CCamera::m_bUseMouse3rdPerson);
+	assert(!CCamera::bFreeCam);
 
 	printf("ok\n");
 	return 0;
