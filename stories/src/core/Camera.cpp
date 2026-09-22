@@ -244,8 +244,16 @@ CCamera::Init(void)
 	m_uiTransitionState = 0;
 	m_uiTimeTransitionStart = 0;
 	m_bLookingAtPlayer = true;
+#ifdef _3DS
+	/* PS2 LCS draws the third-person free-aim crosshair at exact screen
+	 * centre (raster_width/2, raster_height/2), reverse-engineered from
+	 * SLUS_214.23 VA 0x2b6588 -- not the 0.53/0.4 PC values below. */
+	m_f3rdPersonCHairMultX = 0.5f;
+	m_f3rdPersonCHairMultY = 0.5f;
+#else
 	m_f3rdPersonCHairMultX = 0.53f;
 	m_f3rdPersonCHairMultY = 0.4f;
+#endif
 	m_fAvoidTheGeometryProbsTimer = 0.0f;
 	m_nAvoidTheGeometryProbsDirn = 0;
 }
