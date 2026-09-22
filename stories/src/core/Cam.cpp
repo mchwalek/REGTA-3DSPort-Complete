@@ -182,7 +182,10 @@ CCam::Process(void)
 		Process_BehindCar(CameraTarget, TargetOrientation, SpeedVar, TargetSpeedVar);
 		break;
 	case MODE_FOLLOWPED:
-#ifdef PC_PLAYER_CONTROLS
+	/* 3DS: m_bUseMouse3rdPerson is only ever true while the free-aim latch is
+	 * held, so this routes free aim to the aim camera instead of the free cam,
+	 * whose Shooting snap-back would drag the view back behind the player. */
+#if defined(PC_PLAYER_CONTROLS) || defined(_3DS)
 		if(CCamera::m_bUseMouse3rdPerson)
 			Process_FollowPedWithMouse(CameraTarget, TargetOrientation, SpeedVar, TargetSpeedVar);
 		else
