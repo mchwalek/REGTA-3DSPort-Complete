@@ -3936,11 +3936,15 @@ int16 CPad::SniperModeLookUpDown(void)
 int16 CPad::LookAroundLeftRight(void)
 {
 #ifdef _3DS
-	/* The fast branch below is a mouse-era response cliff: crossing 85 makes
-	 * the output drop from ~149 back to ~4.  Free aim uses the linear fine
-	 * branch over the whole stick range instead. */
+	/* PS2 LCS's free-aim stick reader (SLUS_214.23 VA 0x172408) has no
+	 * deadzone and no piecewise gain -- it returns the raw axis and lets
+	 * the camera (CCam::Process_FollowPedWithMouse) apply a quadratic
+	 * response. Match that here; the deadzone/fast-branch shaping below
+	 * is PC-mouse-era and has no PS2 counterpart for free aim. */
 	const bool freeAim = GetPad(0)->Is3DSFreeAimActive();
 	float axis = freeAim ? GetPad(0)->NewState.LeftStickX : GetPad(0)->NewState.RightStickX;
+	if ( freeAim )
+		return (int16)axis;
 #else
 	const bool freeAim = false;
 	float axis = GetPad(0)->NewState.RightStickX;
@@ -3960,8 +3964,6 @@ int16 CPad::LookAroundLeftRight(void)
 int16 CPad::LookAroundUpDown(void)
 {
 #ifdef _3DS
-	/* Free aim matches the horizontal deadzone (10, not 40) so both axes start
-	 * moving at the same stick deflection, and skips the fast branch. */
 	const bool freeAim = GetPad(0)->Is3DSFreeAimActive();
 	int16 axis = freeAim ? GetPad(0)->NewState.LeftStickY : GetPad(0)->NewState.RightStickY;
 #else
@@ -3974,14 +3976,20 @@ int16 CPad::LookAroundUpDown(void)
 	if (CPad::bInvertLook4Pad)
 		axis = -axis;
 
-	const int16 deadzone = freeAim ? 10 : 40;
+#ifdef _3DS
+	/* See LookAroundLeftRight: PS2's free-aim stick reader has no deadzone
+	 * or piecewise gain, only the raw axis -- shaping happens in the
+	 * camera. */
+	if ( freeAim )
+		return axis;
+#endif
 
 	if ( !freeAim && Abs(axis) > 85 && !GetLookBehindForPed() )
 		return (int16) ( (axis + ( ( axis > 0 ) ? -85 : 85) )
 							* (127.0f / 32.0f) ); // 3.96875f
 
-	else if ( TheCamera.Cams[0].Using3rdPersonMouseCam() && Abs(axis) > deadzone )
-		return (int16) ( (axis + ( ( axis > 0 ) ? -deadzone : deadzone) )
+	else if ( TheCamera.Cams[0].Using3rdPersonMouseCam() && Abs(axis) > 40 )
+		return (int16) ( (axis + ( ( axis > 0 ) ? -40 : 40) )
 							* (127.0f / 64.0f) ); // 1.984375f
 
 	return 0;

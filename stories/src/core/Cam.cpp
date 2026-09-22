@@ -1401,7 +1401,30 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 		if(UseMouse){
 			BetaOffset = LookLeftRight * TheCamera.m_fMouseAccelHorzntl * FOV/80.0f;
 			AlphaOffset = LookUpDown * TheCamera.m_fMouseAccelVertical * FOV/80.0f;
-		}else{
+		}else
+#ifdef _3DS
+		if(CPad::GetPad(0)->Is3DSFreeAimActive()){
+			/* PS2 LCS's free-aim camera stick response (SLUS_214.23 VA
+			 * 0x281700-0x281828): a signed-quadratic curve with no deadzone,
+			 * plus exponential smoothing of the resulting angular velocity.
+			 * Decoded constants: sensitivity 0.007f (used squared),
+			 * horizontal gain 1/1120, vertical gain 1/1866.67 (= horizontal
+			 * gain * 0.6, the same ratio as the mouse path above), and
+			 * smoothing base 0.8 while the stick is deflected >= 2.0, else
+			 * 0.5 (settles faster near centre). */
+			const float sens2 = 0.007f * 0.007f;
+			const float dt = CTimer::GetTimeStep();
+			float targetBeta = LookLeftRight * Abs(LookLeftRight) * sens2 * (1.0f/1120.0f) * FOV * dt;
+			float targetAlpha = LookUpDown * Abs(LookUpDown) * sens2 * (0.6f/1120.0f) * FOV * dt;
+			float smoothBase = (Abs(LookLeftRight) >= 2.0f || Abs(LookUpDown) >= 2.0f) ? 0.8f : 0.5f;
+			float a = pow(smoothBase, dt);
+			BetaSpeed = a*BetaSpeed + (1.0f - a)*targetBeta;
+			AlphaSpeed = a*AlphaSpeed + (1.0f - a)*targetAlpha;
+			BetaOffset = BetaSpeed;
+			AlphaOffset = AlphaSpeed;
+		}else
+#endif
+		{
 			BetaOffset = LookLeftRight * fStickSens * (1.0f/14.0f) * FOV/80.0f * CTimer::GetTimeStep();
 			AlphaOffset = LookUpDown * fStickSens * (0.6f/14.0f) * FOV/80.0f * CTimer::GetTimeStep();
 		}
