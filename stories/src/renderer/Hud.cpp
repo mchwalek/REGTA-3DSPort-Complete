@@ -1942,7 +1942,7 @@ void CHud::DrawAfterFade()
 				CFont::SetScale(SCREEN_SCALE_X(1.04f), SCREEN_SCALE_Y(1.6f));
 
 			CFont::SetPropOn();
-			CFont::SetRightJustifyWrap(SCALE_AND_CENTER_X(0.0f));
+			CFont::SetRightJustifyWrap(0.0f);
 			CFont::SetRightJustifyOn();
 			CFont::SetFontStyle(FONT_BANK);
 			if (FrontEndMenuManager.m_PrefsUseWideScreen)
@@ -1981,7 +1981,7 @@ void CHud::DrawAfterFade()
 			CFont::SetDropShadowPosition(2);
 			CFont::SetDropColor(CRGBA(0, 0, 0, titleAlpha));
 			CFont::SetColor(CRGBA(MISSIONTITLE_COLOR.r, MISSIONTITLE_COLOR.g, MISSIONTITLE_COLOR.b, titleAlpha));
-			CFont::PrintString(PSP_SCREEN_SCALE_FROM_RIGHT(24.0f), PSP_SCREEN_SCALE_FROM_BOTTOM(16.0f), m_BigMessage[1]);
+			CFont::PrintStringFromBottom(PSP_SCREEN_SCALE_FROM_RIGHT(24.0f), PSP_SCREEN_SCALE_FROM_BOTTOM(16.0f), m_BigMessage[1]);
 		} else {
 			m_ZoneFadeTimer = 0;
 			BigMessageX[1] = SCREEN_SCALE_FROM_RIGHT(DEFAULT_SCREEN_WIDTH + 60.0f);
