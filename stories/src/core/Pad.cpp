@@ -1199,6 +1199,12 @@ void CPad::Clear(bool bResetPlayerControls)
 	JustOutOfFrontend = 0;
 #ifdef _3DS
 	bSuppressWeaponUntilRelease = false;
+	if ( b3DSFreeAimActive )
+	{
+		CCamera::m_bUseMouse3rdPerson = false;
+		CCamera::bFreeCam = b3DSFreeAimSavedFreeCam;
+		b3DSFreeAimActive = false;
+	}
 #endif
 	bApplyBrakes = false;
 
@@ -2092,6 +2098,12 @@ void CPad::AffectFromXinput(uint32 pad)
 }
 #endif
 
+#ifdef DETECT_PAD_INPUT_SWITCH
+#define CURMODE (IsAffectedByController ? Mode : 0)
+#else
+#define CURMODE (Mode)
+#endif
+
 #ifdef _3DS
 static void
 Apply3DSRadialDeadzone(float &x, float &y, float deadzone)
@@ -2215,11 +2227,12 @@ CPad::Update3DSFreeAim()
 	 * player ped is gone. GetTarget() already returns false whenever
 	 * player controls are disabled, so that exit case is covered for free.
 	 *
-	 * Known accepted quirk: in CURMODE 3, GetTarget() itself reads
-	 * LeftShoulder1, so the L-edge and GetTarget()==true can coincide on
-	 * the very first press in that alternate control layout. CPad::Mode
-	 * defaults to 0 and nothing in the 3DS build ever sets it to 3, so
-	 * this is unreachable in practice and intentionally not special-cased. */
+	 * CURMODE 3 (reachable via the 3DS Options > Controller Settings menu,
+	 * GAMEPAD_MENU's MENUACTION_CTRLCONFIG) remaps GetTarget() itself to
+	 * read LeftShoulder1 instead of RightShoulder1, so Target and the L
+	 * latch trigger would collapse onto the same button in that layout.
+	 * Excluding CURMODE 3 keeps the latch requiring a genuine, distinct
+	 * Target press. */
 	if ( b3DSFreeAimActive )
 	{
 		if ( !GetTarget() || FindPlayerVehicle() || !FindPlayerPed() )
@@ -2229,7 +2242,7 @@ CPad::Update3DSFreeAim()
 			b3DSFreeAimActive = false;
 		}
 	}
-	else if ( GetTarget() && !FindPlayerVehicle() && FindPlayerPed() &&
+	else if ( CURMODE != 3 && GetTarget() && !FindPlayerVehicle() && FindPlayerPed() &&
 	          NewState.LeftShoulder1 && !OldState.LeftShoulder1 )
 	{
 		b3DSFreeAimSavedFreeCam = CCamera::bFreeCam;
@@ -2681,11 +2694,6 @@ CPad *CPad::GetPad(int32 pad)
 {
 	return &Pads[pad];
 }
-#ifdef DETECT_PAD_INPUT_SWITCH
-#define CURMODE (IsAffectedByController ? Mode : 0)
-#else
-#define CURMODE (Mode)
-#endif
 
 int16 CPad::GetSteeringLeftRight(void)
 {
