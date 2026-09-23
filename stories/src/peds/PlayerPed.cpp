@@ -1502,16 +1502,10 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
 						// This is a seperate ped state just for pointing gun. Used for target button
 						SetPointGunAt(nil);
 					}
-#ifdef _3DS
-					if (padUsed->Is3DSFreeAimActive())
-						/* PS2 re-aims the ped's desired heading at the free-aim
-						 * target every frame (SLUS_214.23 VA 0x34bd50-0x34bdc4),
-						 * so the body turns to track the camera instead of only
-						 * the torso IK swivelling in place. This is what bounds
-						 * PS2's apparent yaw range -- there's no hard camera
-						 * clamp, the player simply turns with the aim. */
-						m_fRotationDest = limitedCam;
-#endif
+					/* PS2 keeps the player's body heading fixed while free
+					 * aiming -- only the torso IK (SetAimFlag above) and the
+					 * camera track the stick; the yaw cone is enforced by the
+					 * camera instead (see Cam.cpp's free-aim block). */
 				} else {
 					m_fRotationDest = limitedCam;
 					changedHeadingRate = 2;
