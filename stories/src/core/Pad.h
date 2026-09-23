@@ -163,6 +163,7 @@ public:
 	bool bSuppressWeaponUntilRelease;
 	bool b3DSFreeAimActive;
 	bool b3DSFreeAimSavedFreeCam;
+	bool b3DSFreeAimEnteredThisFrame;
 #endif
 	int8 bApplyBrakes;
 	char CheatString[12];
@@ -324,6 +325,7 @@ public:
 	void AffectFrom3DS();
 	void Update3DSFreeAim();
 	bool Is3DSFreeAimActive();
+	bool Is3DSFreeAimEnteredThisFrame();
 	static bool Is3DSTouchOverlayVisible();
 #endif
 

@@ -12,6 +12,8 @@ against a minimal C++ stub, and asserts the latch's enter/exit state machine:
      option was already on before latching
   7. CURMODE 3 (Target remapped onto L) never latches, even with a fresh
      L press-edge and GetTarget() true
+  8. the entry frame is flagged via Is3DSFreeAimEnteredThisFrame(), and only
+     that frame; unlatching snaps the camera behind the player
 """
 import subprocess
 import tempfile
@@ -57,6 +59,14 @@ class Test3DSFreeAimLatch(unittest.TestCase):
             "bool\nCPad::Is3DSFreeAimActive()", "bool Is3DSFreeAimActive()"
         )
 
+        entered_fn = extract_function(
+            source, "bool\nCPad::Is3DSFreeAimEnteredThisFrame()"
+        )
+        entered_fn = entered_fn.replace(
+            "bool\nCPad::Is3DSFreeAimEnteredThisFrame()",
+            "bool Is3DSFreeAimEnteredThisFrame()",
+        )
+
         # The real function body references the CURMODE macro (added by
         # Task 1's fix round to exclude Mode 3 -- the remapped-Target
         # controller layout -- from latch entry). Match Pad.cpp's simplest
@@ -73,6 +83,14 @@ struct CCamera {
 };
 bool CCamera::m_bUseMouse3rdPerson = false;
 bool CCamera::bFreeCam = false;
+
+/* Stands in for the real TheCamera global: only the one method the latch
+ * calls on unlatch is needed, tracked via a call counter. */
+struct TheCameraStub {
+	int snapBehindCalls = 0;
+	void SetCameraDirectlyBehindForFollowPed_CamOnAString() { ++snapBehindCalls; }
+};
+static TheCameraStub TheCamera;
 
 struct CVehicle {};
 struct CPed {};
@@ -93,11 +111,12 @@ struct CPad {
 	ButtonState OldState;
 	bool b3DSFreeAimActive = false;
 	bool b3DSFreeAimSavedFreeCam = false;
+	bool b3DSFreeAimEnteredThisFrame = false;
 	bool target = false;
 
 	bool GetTarget() { return target; }
 
-""" + update_fn + "\n\n" + active_fn + r"""
+""" + update_fn + "\n\n" + active_fn + "\n\n" + entered_fn + r"""
 };
 
 int main() {
@@ -112,19 +131,25 @@ int main() {
 	assert(pad.Is3DSFreeAimActive());
 	assert(CCamera::m_bUseMouse3rdPerson);
 	assert(CCamera::bFreeCam);
+	/* Scenario 8: the entry frame is flagged, exactly once. */
+	assert(pad.Is3DSFreeAimEnteredThisFrame());
 
 	/* Scenario 5: holding L with no fresh edge does not re-latch after an
 	 * unlatch (checked further down); first, hold steady this frame. */
 	pad.OldState.LeftShoulder1 = true;
 	pad.Update3DSFreeAim();
 	assert(pad.Is3DSFreeAimActive());
+	assert(!pad.Is3DSFreeAimEnteredThisFrame());
 
-	/* Scenario 2: releasing target unlatches and restores bFreeCam. */
+	/* Scenario 2: releasing target unlatches, restores bFreeCam, and snaps
+	 * the camera behind the player (PS2-faithful exit). */
 	pad.target = false;
+	int snapsBefore = TheCamera.snapBehindCalls;
 	pad.Update3DSFreeAim();
 	assert(!pad.Is3DSFreeAimActive());
 	assert(!CCamera::m_bUseMouse3rdPerson);
 	assert(!CCamera::bFreeCam);
+	assert(TheCamera.snapBehindCalls == snapsBefore + 1);
 
 	/* Scenario 5 continued: L is still held (no release/re-press edge);
 	 * re-targeting must NOT re-latch. */
