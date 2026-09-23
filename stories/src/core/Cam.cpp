@@ -1349,6 +1349,18 @@ int16 nFadeControlThreshhold = 45;
 float fDefaultAlphaOrient = -0.22f;
 float fMouseAvoidGeomReturnRate = 0.92f;
 
+#ifdef _3DS
+/* Turn-in state for a fresh (non-lock-on) free-aim entry: PS2 doesn't snap
+ * the camera to face behind the player either -- it moves Beta toward the
+ * target by at most 0.1 rad * timestep per frame (SLUS_214.23 VA
+ * 0x2815e0-0x2816fc), only skipping that clamp on a genuine camera-mode
+ * (re)initialisation, which never happens just from toggling free aim.
+ * File-scope like the other Process_FollowPedWithMouse tuning constants
+ * above: there's only ever one player camera turning in at a time. */
+static bool s3DSFreeAimTurningIn = false;
+static float s3DSFreeAimGoalBeta = 0.0f;
+#endif
+
 void
 CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrientation, float, float)
 {
@@ -1420,15 +1432,20 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 				BetaSpeed = 0.0f;
 				AlphaSpeed = 0.0f;
 				/* PS2 places a fresh free-aim point along the ped's forward
-				 * (SLUS_214.23 fn 0x34ed08), so the camera starts behind the
-				 * player; only a lock-on -> free-aim toggle keeps the previous
-				 * yaw, which reLCS carries via m_fTransitionBeta below. Without
-				 * this check, whatever Beta CCam::Init() or the previous
-				 * camera mode left behind (including a stale value) is what
-				 * made free aim appear to enter at "a seemingly random
-				 * direction" on a fresh (non-lock-on) entry. */
-				if(!TheCamera.m_bUseTransitionBeta)
-					Beta = TargetOrientation + PI;
+				 * (SLUS_214.23 fn 0x34ed08), so the camera turns to face
+				 * behind the player; only a lock-on -> free-aim toggle keeps
+				 * the previous yaw, which reLCS carries via m_fTransitionBeta
+				 * below. Without this check, whatever Beta CCam::Init() or
+				 * the previous camera mode left behind (including a stale
+				 * value) is what made free aim appear to enter at "a
+				 * seemingly random direction" on a fresh (non-lock-on)
+				 * entry. Ease toward it below instead of snapping. */
+				if(!TheCamera.m_bUseTransitionBeta){
+					s3DSFreeAimTurningIn = true;
+					s3DSFreeAimGoalBeta = CGeneral::LimitRadianAngle(TargetOrientation + PI);
+				}else{
+					s3DSFreeAimTurningIn = false;
+				}
 				Alpha = Asin(Clamp(Front.z, -1.0f, 1.0f));
 				/* Don't let a snap-behind request from the previous free-aim
 				 * exit (SetCameraDirectlyBehindForFollowPed_CamOnAString)
@@ -1446,6 +1463,11 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 			AlphaSpeed = a*AlphaSpeed + (1.0f - a)*targetAlpha;
 			BetaOffset = BetaSpeed;
 			AlphaOffset = AlphaSpeed;
+			if(s3DSFreeAimTurningIn)
+				/* Hold off on stick yaw while easing in from a fresh entry
+				 * so the two don't fight; the turn-in step below moves Beta
+				 * instead. */
+				BetaOffset = 0.0f;
 		}else
 #endif
 		{
@@ -1474,6 +1496,16 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 	while(Beta >= PI) Beta -= 2*PI;
 	while(Beta < -PI) Beta += 2*PI;
 #ifdef _3DS
+	if(s3DSFreeAimTurningIn){
+		const float step = 0.1f * CTimer::GetTimeStep();
+		float rel = CGeneral::LimitRadianAngle(s3DSFreeAimGoalBeta - Beta);
+		if(Abs(rel) <= step){
+			Beta = s3DSFreeAimGoalBeta;
+			s3DSFreeAimTurningIn = false;
+		}else{
+			Beta = CGeneral::LimitRadianAngle(Beta + (rel > 0.0f ? step : -step));
+		}
+	}
 	if(CPad::GetPad(0)->Is3DSFreeAimActive()){
 		/* PS2 LCS's free-aim yaw cone (SLUS_214.23 VA 0x34a4a0, the 110.0
 		 * constant at VA 0x34ab9c): the aim direction is confined to +-110
