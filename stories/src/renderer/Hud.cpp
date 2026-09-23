@@ -265,6 +265,45 @@ DrawLaserScopeCenterCross()
 	CSprite2d::DrawRect(CRect(cx - 1.5f, cy - 0.5f, cx + 1.5f, cy + 0.5f), colour);
 	CSprite2d::DrawRect(CRect(cx - 0.5f, cy - 1.5f, cx + 0.5f, cy + 1.5f), colour);
 }
+
+static void
+DrawSolidStandardSight(float cx, float cy)
+{
+	/* Pixel-snap so the ring polygons and the centre dot share one origin.
+	 * cx/cy commonly land exactly on a pixel boundary (e.g. 400*0.5=200.0),
+	 * so a naive 1px-wide dot rect straddles that boundary and renders
+	 * visibly off-centre against the (symmetric) ring. */
+	const float px = floorf(cx) + 0.5f;
+	const float py = floorf(cy) + 0.5f;
+	const int32 segments = 32;
+	/* PS2's siteM16 sprite has an outer half-extent of 14x15 HUD units
+	 * (SLUS_214.23 VA 0x2b6588) -- match that size for the hand-drawn ring
+	 * too, instead of the old 12x12 half-extent. */
+	const float outerRadiusX = SCREEN_SCALE_X(14.0f);
+	const float outerRadiusY = SCREEN_SCALE_Y(15.0f);
+	const float thickness = 1.0f;
+	const float innerRadiusX = Max(outerRadiusX - thickness, 0.0f);
+	const float innerRadiusY = Max(outerRadiusY - thickness, 0.0f);
+	const CRGBA colour(240, 240, 240, 255);
+
+	for(int32 i = 0; i < segments; i++) {
+		const float angle0 = TWOPI * i / segments;
+		const float angle1 = TWOPI * (i + 1) / segments;
+		const float innerX0 = px + Cos(angle0) * innerRadiusX;
+		const float innerY0 = py + Sin(angle0) * innerRadiusY;
+		const float innerX1 = px + Cos(angle1) * innerRadiusX;
+		const float innerY1 = py + Sin(angle1) * innerRadiusY;
+		const float outerX0 = px + Cos(angle0) * outerRadiusX;
+		const float outerY0 = py + Sin(angle0) * outerRadiusY;
+		const float outerX1 = px + Cos(angle1) * outerRadiusX;
+		const float outerY1 = py + Sin(angle1) * outerRadiusY;
+		CSprite2d::Draw2DPolygon(innerX0, innerY0, innerX1, innerY1,
+			outerX0, outerY0, outerX1, outerY1, colour);
+	}
+
+	CSprite2d::DrawRect(CRect(px - 0.5f, py - 0.5f,
+		px + 0.5f, py + 0.5f), colour);
+}
 #endif
 
 // TODO(LCS): some things were reversed from LCS but not all
@@ -330,20 +369,13 @@ void CHud::Draw()
 				f3rdY -= SCREEN_SCALE_Y(2.0f);
 #endif
 #ifdef _3DS
-				/* PS2 LCS draws the same siteM16 sprite for every weapon in this
-				 * mode, at a fixed half-extent of 14 raster px (10.5 in
-				 * anamorphic widescreen) on its 640x448-ish framebuffer --
-				 * reverse-engineered from SLUS_214.23 VA 0x2b6588. 14.0/15.0
-				 * here are that constant converted into this port's 640x480
-				 * HUD-unit space (matches the PS2 screenshot measurement of a
-				 * ~13.3x14.5px outer ring exactly). */
-				rect.left = f3rdX - SCREEN_SCALE_X(14.0f);
-				rect.top = f3rdY - SCREEN_SCALE_Y(15.0f);
-				rect.right = f3rdX + SCREEN_SCALE_X(14.0f);
-				rect.bottom = f3rdY + SCREEN_SCALE_Y(15.0f);
-
-				Sprites[HUD_SITEM16].Draw(CRect(rect), CRGBA(255, 255, 255, 255),
-					0.0f, 0.0f,  1.0f, 0.0f,  0.0f, 1.0f,  1.0f, 1.0f);
+				/* PS2 LCS's siteM16 sprite (SLUS_214.23 VA 0x2b6588) is a
+				 * small ring+dot at a fixed half-extent of 14 raster px
+				 * (10.5 anamorphic) on its 640x448-ish framebuffer. The
+				 * sprite's own texel resolution looks soft blown up on this
+				 * screen, so draw a hand-drawn ring at the same PS2-derived
+				 * size instead (see DrawSolidStandardSight). */
+				DrawSolidStandardSight(f3rdX, f3rdY);
 #else
 				if (playerPed && (WeaponType == WEAPONTYPE_M4 || WeaponType == WEAPONTYPE_RUGER || WeaponType == WEAPONTYPE_M60)) {
 					rect.left = f3rdX - SCREEN_SCALE_X(32.0f * 0.6f);
