@@ -5,8 +5,10 @@ description: Build the reLCS (Grand Theft Auto Liberty City Stories) 3DS port wi
 
 # reLCS 3DS build
 
-This repo (`$WORKSPACE_ROOT`) is NOT self-contained: the devkitARM SDK and
-host packaging tools live outside `repo/`, at the workspace root.
+This repo is NOT self-contained: the devkitARM SDK and host packaging tools
+live outside `repo/`, at the workspace root. `$WORKSPACE_ROOT` is the parent
+directory containing `repo/`, `sdk-r55/`, and `hosttools/` (set it in your
+shell, not in this repo).
 
 ## Required environment (every build/package command)
 
