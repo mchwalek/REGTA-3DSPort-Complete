@@ -277,10 +277,13 @@ DrawSolidStandardSight(float cx, float cy)
 	const float py = floorf(cy) + 0.5f;
 	const int32 segments = 32;
 	/* PS2's siteM16 sprite has an outer half-extent of 14x15 HUD units
-	 * (SLUS_214.23 VA 0x2b6588) -- match that size for the hand-drawn ring
-	 * too, instead of the old 12x12 half-extent. */
-	const float outerRadiusX = SCREEN_SCALE_X(14.0f);
-	const float outerRadiusY = SCREEN_SCALE_Y(15.0f);
+	 * (SLUS_214.23 VA 0x2b6588). Drawn here 50% larger (21x22.5) than that
+	 * proportional match -- on the 3DS top screen's 240 vertical pixels a
+	 * PS2-exact ring measures only ~13px across, and user testing found it
+	 * too small to read; this is a deliberate legibility deviation from PS2
+	 * fidelity, not a bug. */
+	const float outerRadiusX = SCREEN_SCALE_X(21.0f);
+	const float outerRadiusY = SCREEN_SCALE_Y(22.5f);
 	const float thickness = 1.0f;
 	const float innerRadiusX = Max(outerRadiusX - thickness, 0.0f);
 	const float innerRadiusY = Max(outerRadiusY - thickness, 0.0f);
