@@ -1441,6 +1441,14 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 				 * seemingly random direction" on a fresh (non-lock-on)
 				 * entry. Ease toward it below instead of snapping. */
 				if(!TheCamera.m_bUseTransitionBeta){
+					/* Re-derive the start yaw from world geometry -- valid
+					 * regardless of whether FollowPed or FollowPed_Rotation
+					 * (opposite Beta sign convention: Target->Source vs
+					 * Source->Target) ran last frame. Without this, turning
+					 * in from whatever Beta the previous camera mode left
+					 * behind could start 180 degrees off (or, coincidentally,
+					 * snap instantly) whenever Display->FreeCam was on. */
+					Beta = CGeneral::GetATanOfXY(Source.x - TargetCoors.x, Source.y - TargetCoors.y);
 					s3DSFreeAimTurningIn = true;
 					s3DSFreeAimGoalBeta = CGeneral::LimitRadianAngle(TargetOrientation + PI);
 				}else{
