@@ -4,8 +4,8 @@ set -eu
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 hosttools="$script_dir/../hosttools/3dslink"
 
-game=${1:-relcs}
-ip=${2:-192.168.1.16}
+game=${1:?specify a game: re3|revc|relcs}
+ip=${2:-${N3DS_IP:?set N3DS_IP or pass the 3DS IP as the second argument}}
 
 case "$game" in
 	re3|III|iii)
@@ -22,7 +22,8 @@ case "$game" in
 		;;
 	*)
 		echo "Unknown game: $game" >&2
-		echo "Usage: ./redeploy.sh [re3|revc|relcs] [3ds-ip]" >&2
+		echo "Usage: ./deploy.sh <re3|revc|relcs> [3ds-ip]" >&2
+		echo "3ds-ip defaults to \$N3DS_IP if not given." >&2
 		exit 2
 		;;
 esac

@@ -5,13 +5,15 @@ description: Build the reLCS (Grand Theft Auto Liberty City Stories) 3DS port wi
 
 # reLCS 3DS build
 
-This repo (`/home/max/lcs_3ds`) is NOT self-contained: the devkitARM SDK and
-host packaging tools live outside `repo/`, at the workspace root.
+This repo is NOT self-contained: the devkitARM SDK and host packaging tools
+live outside `repo/`, at the workspace root. `$WORKSPACE_ROOT` is the parent
+directory containing `repo/`, `sdk-r55/`, and `hosttools/` (set it in your
+shell, not in this repo).
 
 ## Required environment (every build/package command)
 
 ```sh
-export DEVKITPRO=/home/max/lcs_3ds/sdk-r55
+export DEVKITPRO=$WORKSPACE_ROOT/sdk-r55
 export DEVKITARM=$DEVKITPRO/devkitARM
 export PATH="$DEVKITARM/bin:$DEVKITPRO/tools/bin:$PATH"
 ```
@@ -26,8 +28,8 @@ message.
 ## Full build
 
 ```sh
-DEVKITPRO=/home/max/lcs_3ds/sdk-r55 DEVKITARM=/home/max/lcs_3ds/sdk-r55/devkitARM \
-  /home/max/lcs_3ds/repo/scripts/build.sh relcs
+DEVKITPRO=$WORKSPACE_ROOT/sdk-r55 DEVKITARM=$WORKSPACE_ROOT/sdk-r55/devkitARM \
+  $WORKSPACE_ROOT/repo/scripts/build.sh relcs
 ```
 
 Aliases accepted: `lcs`, `stories`. This runs
@@ -53,7 +55,7 @@ rebuilding — do not touch III/miami's `build/` dirs unnecessarily).
 ## Single-file compile (fast iteration / syntax check)
 
 ```sh
-make -C /home/max/lcs_3ds/repo/stories/build -f GNUmakefile \
+make -C $WORKSPACE_ROOT/repo/stories/build -f GNUmakefile \
   LOADING_PIPELINE=1 BOTTOM_LOADING=1 BOTTOM_RADAR=1 \
   obj/src/core/BottomScreen3DS.o
 ```
@@ -69,10 +71,10 @@ script (table-driven over re3/revc/relcs). It now accepts an optional list of
 games — you do NOT need all three ELFs built:
 
 ```sh
-BANNERTOOL=/home/max/lcs_3ds/hosttools/bannertool \
-MAKEROM=/home/max/lcs_3ds/hosttools/makerom \
-THREEDSXTOOL=/home/max/lcs_3ds/sdk-r55/tools/bin/3dsxtool \
-  /home/max/lcs_3ds/repo/packaging/production_cia/build_production.sh relcs
+BANNERTOOL=$WORKSPACE_ROOT/hosttools/bannertool \
+MAKEROM=$WORKSPACE_ROOT/hosttools/makerom \
+THREEDSXTOOL=$WORKSPACE_ROOT/sdk-r55/tools/bin/3dsxtool \
+  $WORKSPACE_ROOT/repo/packaging/production_cia/build_production.sh relcs
 ```
 
 Omit the trailing `relcs` to package all three games (each requires its own
@@ -91,7 +93,7 @@ sized artifact, not as an exact-match regression test.
 
 `$DEVKITPRO/tools/bin` does **not** ship `3dslink` (only `3dsxdump 3dsxtool
 bin2s bmp2bin generate_compile_commands mkromfs3ds padbin picasso raw2c
-smdhtool`). If `/home/max/lcs_3ds/hosttools/3dslink` doesn't already exist,
+smdhtool`). If `$WORKSPACE_ROOT/hosttools/3dslink` doesn't already exist,
 build it — it's a tiny host tool (zlib is its only dependency) with no
 autotools output committed, so a plain autoreconf/configure won't work
 out of the box:
@@ -99,7 +101,7 @@ out of the box:
 ```sh
 git clone --depth 1 https://github.com/devkitPro/3dslink.git /tmp/opencode/3dslink
 gcc -O2 -std=gnu99 -DPACKAGE_STRING='"3dslink 0.6.3"' \
-  -o /home/max/lcs_3ds/hosttools/3dslink \
+  -o $WORKSPACE_ROOT/hosttools/3dslink \
   /tmp/opencode/3dslink/host/src/main.c -lz
 ```
 
@@ -110,7 +112,7 @@ Usage — the 3DS must already be sitting in Homebrew Launcher (or another
 netloader-capable app) waiting for a connection; it listens on TCP/UDP 17491:
 
 ```sh
-/home/max/lcs_3ds/hosttools/3dslink -a <3DS-LAN-IP> stories/build/relcs.3dsx
+$WORKSPACE_ROOT/hosttools/3dslink -a <3DS-LAN-IP> stories/build/relcs.3dsx
 ```
 
 Add `-s` to keep a server running after upload so the console's stdout/stderr
@@ -123,8 +125,8 @@ relaunch Homebrew Launcher on-device before the next attempt.
 ## Verification after a build/packaging change
 
 ```sh
-python3 -m unittest discover -s /home/max/lcs_3ds/repo/scripts/tests -p 'test_*.py'
-/home/max/lcs_3ds/repo/scripts/verify-layout.sh
+python3 -m unittest discover -s $WORKSPACE_ROOT/repo/scripts/tests -p 'test_*.py'
+$WORKSPACE_ROOT/repo/scripts/verify-layout.sh
 ```
 
 `test_3ds_world_and_menus.py`'s `test_compiled_menus` needs `DEVKITARM`

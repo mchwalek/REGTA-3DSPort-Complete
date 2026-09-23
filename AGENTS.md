@@ -31,10 +31,12 @@ agent tends to get wrong.
 ## Build
 
 The vendored toolchain in this workspace is **not** at the default
-`/opt/devkitpro` location. Export before building:
+`/opt/devkitpro` location. `$WORKSPACE_ROOT` is the parent directory
+containing `repo/`, `sdk-r55/`, and `hosttools/` (set it in your shell,
+not in this repo). Export before building:
 
 ```sh
-export DEVKITPRO=/home/max/lcs_3ds/sdk-r55
+export DEVKITPRO=$WORKSPACE_ROOT/sdk-r55
 export DEVKITARM=$DEVKITPRO/devkitARM
 export PATH="$DEVKITARM/bin:$DEVKITPRO/tools/bin:$PATH"
 ```

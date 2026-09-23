@@ -69,7 +69,7 @@ candidate down?) before treating a stack scan as a trustworthy backtrace.
 ## Symbolizing
 
 ```sh
-export DEVKITPRO=/home/max/lcs_3ds/sdk-r55 DEVKITARM=$DEVKITPRO/devkitARM
+export DEVKITPRO=$WORKSPACE_ROOT/sdk-r55 DEVKITARM=$DEVKITPRO/devkitARM
 export PATH="$DEVKITARM/bin:$PATH"
 arm-none-eabi-addr2line -f -C -e stories/build/relcs.elf 0x002e0350
 ```
