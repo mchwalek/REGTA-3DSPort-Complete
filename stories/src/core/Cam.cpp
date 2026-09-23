@@ -1419,14 +1419,22 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 				 * moment ago. */
 				BetaSpeed = 0.0f;
 				AlphaSpeed = 0.0f;
-				/* Also re-derive Beta/Alpha from the camera's actual current
-				 * geometry rather than trusting whatever CCam::Init() or the
-				 * previous camera mode left behind -- on a SYPHON->FOLLOWPED
-				 * transition Init() zeroes Beta to 0.0f (world east), which is
-				 * what made free aim appear to enter at "a seemingly random
-				 * direction" instead of wherever the camera actually was. */
-				Beta = CGeneral::GetATanOfXY(Source.x - TargetCoors.x, Source.y - TargetCoors.y);
+				/* PS2 places a fresh free-aim point along the ped's forward
+				 * (SLUS_214.23 fn 0x34ed08), so the camera starts behind the
+				 * player; only a lock-on -> free-aim toggle keeps the previous
+				 * yaw, which reLCS carries via m_fTransitionBeta below. Without
+				 * this check, whatever Beta CCam::Init() or the previous
+				 * camera mode left behind (including a stale value) is what
+				 * made free aim appear to enter at "a seemingly random
+				 * direction" on a fresh (non-lock-on) entry. */
+				if(!TheCamera.m_bUseTransitionBeta)
+					Beta = TargetOrientation + PI;
 				Alpha = Asin(Clamp(Front.z, -1.0f, 1.0f));
+				/* Don't let a snap-behind request from the previous free-aim
+				 * exit (SetCameraDirectlyBehindForFollowPed_CamOnAString)
+				 * leak a stale heading into this entry via lines below. */
+				TheCamera.m_bCamDirectlyBehind = false;
+				TheCamera.m_bCamDirectlyInFront = false;
 			}
 			const float sens2 = 0.007f * 0.007f;
 			const float dt = CTimer::GetTimeStep();
