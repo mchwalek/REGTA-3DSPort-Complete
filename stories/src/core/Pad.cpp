@@ -2234,6 +2234,7 @@ CPad::Update3DSFreeAim()
 	 * Excluding CURMODE 3 keeps the latch requiring a genuine, distinct
 	 * Target press -- the tradeoff is that Free Aim is entirely
 	 * unreachable in CURMODE 3, since L doubles as Target there. */
+	b3DSFreeAimEnteredThisFrame = false;
 	if ( b3DSFreeAimActive )
 	{
 		if ( !GetTarget() || FindPlayerVehicle() || !FindPlayerPed() )
@@ -2241,6 +2242,12 @@ CPad::Update3DSFreeAim()
 			CCamera::m_bUseMouse3rdPerson = false;
 			CCamera::bFreeCam = b3DSFreeAimSavedFreeCam;
 			b3DSFreeAimActive = false;
+			/* PS2 LCS snaps the camera behind the player when Free Aim ends
+			 * (SLUS_214.23 VA 0x34bab0-0x34c6c8, ClearWeaponTarget ->
+			 * ClearPlayerWeaponMode -> ResetStatics on the next camera mode
+			 * change). reLCS's camera doesn't take an equivalent mode-change
+			 * path here, so ask for the snap directly. */
+			TheCamera.SetCameraDirectlyBehindForFollowPed_CamOnAString();
 		}
 	}
 	else if ( CURMODE != 3 && GetTarget() && !FindPlayerVehicle() && FindPlayerPed() &&
@@ -2250,6 +2257,7 @@ CPad::Update3DSFreeAim()
 		CCamera::m_bUseMouse3rdPerson = true;
 		CCamera::bFreeCam = true;
 		b3DSFreeAimActive = true;
+		b3DSFreeAimEnteredThisFrame = true;
 	}
 }
 
@@ -2257,6 +2265,12 @@ bool
 CPad::Is3DSFreeAimActive()
 {
 	return b3DSFreeAimActive;
+}
+
+bool
+CPad::Is3DSFreeAimEnteredThisFrame()
+{
+	return b3DSFreeAimEnteredThisFrame;
 }
 
 #endif

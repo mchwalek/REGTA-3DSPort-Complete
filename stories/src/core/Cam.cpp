@@ -1412,6 +1412,14 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 			 * gain * 0.6, the same ratio as the mouse path above), and
 			 * smoothing base 0.8 while the stick is deflected >= 2.0, else
 			 * 0.5 (settles faster near centre). */
+			if(CPad::GetPad(0)->Is3DSFreeAimEnteredThisFrame()){
+				/* PS2 zeroes the equivalent angular speeds on a fresh camera
+				 * init (VA 0x281144-0x281150) rather than inheriting momentum
+				 * from whatever camera (lock-on, free cam) was active a
+				 * moment ago. */
+				BetaSpeed = 0.0f;
+				AlphaSpeed = 0.0f;
+			}
 			const float sens2 = 0.007f * 0.007f;
 			const float dt = CTimer::GetTimeStep();
 			float targetBeta = LookLeftRight * Abs(LookLeftRight) * sens2 * (1.0f/1120.0f) * FOV * dt;
@@ -1449,8 +1457,21 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 	Beta += BetaOffset;
 	while(Beta >= PI) Beta -= 2*PI;
 	while(Beta < -PI) Beta += 2*PI;
-	if(Alpha > DEGTORAD(45.0f)) Alpha = DEGTORAD(45.0f);
-	else if(Alpha < -DEGTORAD(89.5f)) Alpha = -DEGTORAD(89.5f);
+#ifdef _3DS
+	if(CPad::GetPad(0)->Is3DSFreeAimActive()){
+		/* PS2 LCS's free-aim pitch envelope (SLUS_214.23 VA 0x34a4a0): the aim
+		 * direction's angle from vertical is clamped to [50,110] degrees --
+		 * 40 degrees up, 20 degrees down from horizontal. Much tighter than
+		 * this camera's stock +45/-89.5 range, which allows pointing almost
+		 * straight down. */
+		if(Alpha > DEGTORAD(40.0f)) Alpha = DEGTORAD(40.0f);
+		else if(Alpha < -DEGTORAD(20.0f)) Alpha = -DEGTORAD(20.0f);
+	}else
+#endif
+	{
+		if(Alpha > DEGTORAD(45.0f)) Alpha = DEGTORAD(45.0f);
+		else if(Alpha < -DEGTORAD(89.5f)) Alpha = -DEGTORAD(89.5f);
+	}
 
 	// SA code
 #ifdef FREE_CAM
