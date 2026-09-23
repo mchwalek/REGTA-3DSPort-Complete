@@ -1549,7 +1549,18 @@ CCamera::CamControl(void)
 		}else if(ReqMode == CCam::MODE_FOLLOWPED){
 			bool syphonJumpCut = false;
 			if(Cams[ActiveCam].Mode == CCam::MODE_SYPHON || Cams[ActiveCam].Mode == CCam::MODE_SYPHON_CRIM_IN_FRONT)
-				if(!((CPed*)pTargetEntity)->CanWeRunAndFireWithWeapon())
+				if(!((CPed*)pTargetEntity)->CanWeRunAndFireWithWeapon()
+#ifdef _3DS
+				   /* On PS2, toggling lock-on -> free aim never changes the camera's
+				    * weapon mode at all, so the yaw is naturally kept (SLUS_214.23 VA
+				    * 0x34b21c/0x34b230: the mode is set once when aiming begins and
+				    * shared by both). reLCS's SYPHON->FOLLOWPED transition otherwise
+				    * runs through CCam::Init() for CANAIM_WITHARM weapons, which zeroes
+				    * Beta to 0.0f (world east) -- forcing the jump-cut path here instead
+				    * preserves the pre-transition angle via m_fTransitionBeta below. */
+				   || CPad::GetPad(0)->Is3DSFreeAimActive()
+#endif
+				)
 					syphonJumpCut = true;
 			if(Cams[ActiveCam].Mode == CCam::MODE_1STPERSON ||
 			   Cams[ActiveCam].Mode == CCam::MODE_SNIPER ||
