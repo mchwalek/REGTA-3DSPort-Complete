@@ -432,3 +432,68 @@ from source alone, disassemble the *equivalent PS2 code path* — it can prove
 the mechanism doesn't exist on PS2 in the form you assumed, which is more
 decisive than finding the "right" constant, because the whole mechanism is
 suspect, not just a value.
+
+## Case study: reverse-engineering third-person free-aim camera parameters (stick response, pitch/yaw envelope, turn-in rate)
+
+Building PS2-faithful third-person free aim (see the GXT case study above for
+how the mechanic's *existence* was proven) needed exact camera-motion
+constants no source fork had. All were pulled from `SLUS_214.23`
+disassembly around the free-aim/lock-on on-foot camera function (roughly VA
+`0x280e28`-`0x281e8c`):
+
+- **Stick response is quadratic**, not the piecewise-linear/deadzone curve
+  reLCS inherited from re3's PC mouse code. PS2 computes
+  `offset = sens² * |axis| * axis * gain * FOV * dt`, with `sens = 0.007`
+  (VA `gp-0xcc`), horizontal `gain = 1/1120`, vertical `gain = 0.6/1120` —
+  PS2's own vertical-to-horizontal ratio is exactly **0.6**, confirming
+  reLCS's inherited PC mouse-cam ratio (`1.0f/14.0f` vs `0.6f/14.0f`) was
+  already correct; a reported "vertical much slower than horizontal" bug
+  turned out to be reLCS's separate stick-deadzone code (`LookAroundUpDown`'s
+  deadzone 40 vs `LookAroundLeftRight`'s 10), not the camera gain — check the
+  deadzone/response curve before assuming a gain ratio is wrong.
+- **The result is smoothed exponentially**, not applied directly:
+  `speed = pow(base, dt)*speed + (1-pow(base,dt))*target`, with `base = 0.8`
+  while the stick is deflected ≥2.0 units, `base = 0.5` near centre (settles
+  faster).
+- **Pitch is clamped to [+40° up, −20° down]** (an `acos(dir.z)`
+  angle-from-vertical test against `[50°,110°]`, applied to the aim
+  direction, not the raw camera Alpha), with accept/reject hysteresis at the
+  boundary. This clamp only applies while the free-aim/lock-on flag is set;
+  the camera's own default on-foot clamp (read from a per-weapon-class
+  0x1c-stride table at VA `0x393698`) is `[+45°, −10°]` and is explicitly
+  skipped while free-aiming.
+- **Yaw is confined to a ±110° cone around the ped's forward** — enforced not
+  on the camera's Beta directly but on the free-aim target point (a dummy aim
+  entity PS2 attaches to `m_pPointGunAt`, VA `0x34a4a0`), with the same
+  hysteresis pattern as the pitch clamp. The ped's desired heading
+  (`m_fRotationDest`) is re-aimed at that point every frame while a lock-on
+  target exists, but is left untouched during plain free aim — the body
+  stays fixed and only the torso IK/camera track the stick, matching a
+  screenshot showing Toni's arm raised without his hips turning.
+- **A fresh camera entry (no pre-existing lock-on) eases in rather than
+  snapping**, at a flat rate independent of distance-to-target:
+  `step = 0.1 * dt` rad/frame (VA `0x2815e0-0x2816fc`), clamping the
+  per-frame Beta/Alpha step toward the goal. The alternative "instant"
+  1000.0f step only fires when the camera's `ResetStatics` flag is set —
+  i.e. on a genuine camera-*mode* change (exiting a vehicle, etc.), never
+  merely from toggling free aim on/off. This is why PS2's camera visibly
+  turns to face the aim direction over several frames instead of cutting.
+- **A lock-on target's camera additionally carries a fixed ±20° yaw / ∓3°
+  pitch "over the shoulder" offset** (VA `0x280fbc`/`0x280fd8`, smoothed in),
+  explicitly skipped whenever the free-aim flag is set (VA
+  `0x281564`-`0x281578`) — this is why free aim's crosshair sits at exact
+  screen centre while lock-on's sits offset to one side.
+
+These are exactly the kind of parameters worth pulling from the disc rather
+than tuning by feel: getting the pitch envelope, yaw cone, or turn-in rate
+wrong by eye took three separate user-reported "still feels off" rounds of
+on-device testing before the disassembly settled each one definitively — and
+a related but distinct bug (carrying a `CCam::Beta` value across an on-foot
+camera-mode dispatch switch whose two implementations use opposite sign
+conventions) turned out to need no PS2 reference at all, just careful
+reading of reLCS's own two camera functions — see `AGENTS.md`'s landmine on
+`CCam::Beta`'s sign convention for that one. See `stories/src/core/Cam.cpp`'s
+`Process_FollowPedWithMouse` (the `#ifdef _3DS
+if(CPad::GetPad(0)->Is3DSFreeAimActive())` blocks) for where these PS2
+values now live in reLCS, and `git log --grep="free aim"` /
+`--grep="free-aim"` for the full round-by-round derivation history.

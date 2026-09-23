@@ -135,9 +135,31 @@ and a map file literally named `.map`. None of these are checked in.
    collapse onto the same button in Mode 3 with no compile-time signal —
    this shipped as a real bug in the 3DS free-aim latch
    (`stories/src/core/Pad.cpp`'s `Update3DSFreeAim`, fixed by an explicit
-   `CURMODE != 3` guard; see `git log --grep="CURMODE 3"` and the
-   `gta-3ds-input-mapping` skill). Test any new multi-button pad logic
-   against all 4 `CURMODE` values, not just the default.
+    `CURMODE != 3` guard; see `git log --grep="CURMODE 3"` and the
+    `gta-3ds-input-mapping` skill). Test any new multi-button pad logic
+    against all 4 `CURMODE` values, not just the default.
+10. **`CCam::Beta`'s sign convention is not the same across every on-foot
+    camera mode — shared by all three trees (only exercised on 3DS via
+    reLCS's free aim).** `Process_FollowPed`/`Process_FollowPedWithMouse`
+    (`stories/src/core/Cam.cpp`) both use "Beta = direction Target→Source"
+    (`Front.x = Cos(Alpha)*-Cos(Beta)`, `Source = TargetCoors - Front*CamDist`).
+    `Process_FollowPed_Rotation` — active whenever the player has the
+    Display→FreeCam option on — uses the *opposite* convention, "Beta =
+    direction Source→Target" (`Beta = GetATanOfXY(-Dist.x, -Dist.y)` where
+    `Dist = Source - TargetCoors`). Carrying a raw `Beta` value across a
+    `Cam.cpp:184-198`-style dispatch switch between these modes (e.g. on a
+    `MODE_FOLLOWPED`→`MODE_FOLLOWPED` transition with no `ResetStatics`,
+    which the dispatch alone doesn't guard against) is silently 180° wrong.
+    This shipped as a real bug in the 3DS free-aim camera's "turn toward the
+    player's facing direction" entry easing, symptom was an entry angle that
+    was sometimes correct and sometimes an instant 180°-off snap depending
+    on which camera mode was active the previous frame — fixed by
+    re-deriving the starting `Beta` from world geometry
+    (`GetATanOfXY(Source.x - TargetCoors.x, Source.y - TargetCoors.y)`,
+    convention-independent) instead of trusting the inherited value; see
+    `git log --grep="camera's true yaw"`. Never carry a `CCam::Beta`/`Alpha`
+    value across a camera-mode dispatch switch without checking both modes'
+    conventions match.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 
