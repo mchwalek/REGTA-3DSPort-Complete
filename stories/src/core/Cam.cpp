@@ -1419,6 +1419,14 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 				 * moment ago. */
 				BetaSpeed = 0.0f;
 				AlphaSpeed = 0.0f;
+				/* Also re-derive Beta/Alpha from the camera's actual current
+				 * geometry rather than trusting whatever CCam::Init() or the
+				 * previous camera mode left behind -- on a SYPHON->FOLLOWPED
+				 * transition Init() zeroes Beta to 0.0f (world east), which is
+				 * what made free aim appear to enter at "a seemingly random
+				 * direction" instead of wherever the camera actually was. */
+				Beta = CGeneral::GetATanOfXY(Source.x - TargetCoors.x, Source.y - TargetCoors.y);
+				Alpha = Asin(Clamp(Front.z, -1.0f, 1.0f));
 			}
 			const float sens2 = 0.007f * 0.007f;
 			const float dt = CTimer::GetTimeStep();
@@ -1457,6 +1465,19 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 	Beta += BetaOffset;
 	while(Beta >= PI) Beta -= 2*PI;
 	while(Beta < -PI) Beta += 2*PI;
+#ifdef _3DS
+	if(CPad::GetPad(0)->Is3DSFreeAimActive()){
+		/* PS2 LCS's free-aim yaw cone (SLUS_214.23 VA 0x34a4a0, the 110.0
+		 * constant at VA 0x34ab9c): the aim direction is confined to +-110
+		 * degrees around the ped's forward. Toni's body stays put while free
+		 * aiming (see PlayerPed.cpp), so the cone is centred on the camera's
+		 * usual behind-the-player angle, TargetOrientation + PI. */
+		float coneCentre = CGeneral::LimitRadianAngle(TargetOrientation + PI);
+		float rel = CGeneral::LimitRadianAngle(Beta - coneCentre);
+		rel = Clamp(rel, -DEGTORAD(110.0f), DEGTORAD(110.0f));
+		Beta = CGeneral::LimitRadianAngle(coneCentre + rel);
+	}
+#endif
 #ifdef _3DS
 	if(CPad::GetPad(0)->Is3DSFreeAimActive()){
 		/* PS2 LCS's free-aim pitch envelope (SLUS_214.23 VA 0x34a4a0): the aim
