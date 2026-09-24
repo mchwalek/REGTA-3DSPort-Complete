@@ -143,9 +143,12 @@ int main() {
 	CVector pedForward(0.0f, 1.0f, 0.0f);
 	CVector pivot(0.0f, 0.0f, 0.6f);
 	float range = 30.0f;
-	/* Start the point straight down (180 degrees from vertical), well past
-	 * the 110-degree floor -- simulates a state outside the envelope. */
-	CVector point(0.0f, 0.001f, -range);
+	/* Start the point well past the 110-degree floor -- simulates a state
+	 * outside the envelope. Use a properly-conditioned 150-degree-from-
+	 * vertical direction (real horizontal component) rather than a near-
+	 * polar-singular one, so pitch isn't pinned across iterations. */
+	float theta = DEGTORAD(150.0f);
+	CVector point = pedPos + CVector(sinf(theta), 0.0f, cosf(theta))*range;
 	float prevYawRel = 0.0f;
 
 	CVector fromPed = point - pedPos;
@@ -230,7 +233,7 @@ int main() {
 	CVector pedForward(0.0f, 1.0f, 0.0f);
 	CVector pivot(0.0f, 0.0f, 0.6f);
 	float range = 30.0f;
-	CVector point = pedPos + pedForward*range;
+	CVector point = pivot + pedForward*range;
 	float prevYawRel = 0.0f;
 	CVector before = point;
 	float prevBefore = prevYawRel;
