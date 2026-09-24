@@ -1608,17 +1608,7 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
 	}
 
 	if (m_pPointGunAt) {
-		CVector markPos;
-		if (m_pPointGunAt->IsPed()) {
-			((CPed*)m_pPointGunAt)->m_pedIK.GetComponentPosition(markPos, PED_MID);
-		} else {
-			markPos = m_pPointGunAt->GetPosition();
-		}
-		if (bCanPointGunAtTarget) {
-			CWeaponEffects::MarkTarget(markPos, 64, 0, 0, 255, 0.8f);
-		} else {
-			CWeaponEffects::MarkTarget(markPos, 64, 32, 0, 255, 0.8f);
-		}
+		CWeaponEffects::MarkTarget(m_pPointGunAt->GetPosition(), 255, 0, 0, 255, m_pPointGunAt, 0.8f);
 	}
 	m_bHasLockOnTarget = m_pPointGunAt != nil;
 }
