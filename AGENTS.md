@@ -189,6 +189,43 @@ and a map file literally named `.map`. None of these are checked in.
     transcribing disassembly that itself never mentions the hazard — PS2's
     equivalent ray has the same self-collision risk, it's just not
     something disassembly of the *math* would ever surface.
+12. **`CEntity::GetBoundRect()` / `CPhysical::GetBoundRect()` are X/Y-plane
+    only — no Z, no height — identical (word-for-word for the `CPhysical`
+    override) across all three trees.** `CRect` (`src/math/Rect.h`, byte-
+    identical in III/miami/stories) has only `left/right/top/bottom` (x
+    min/max, y min/max); `CPhysical::GetBoundRect()` is literally
+    `CRect(center.x-radius, center.y-radius, center.x+radius,
+    center.y+radius)` built from `GetBoundCentre()`/`GetBoundRadius()` — a
+    horizontal square, not a bounding box. Any code that needs an entity's
+    *vertical* extent (e.g. offsetting a marker above a vehicle's roof) must
+    use `CEntity::GetColModel()->boundingBox.max.z -
+    boundingBox.min.z` instead — an idiom already established at multiple
+    call sites in every tree (e.g. `Entity.cpp` height calcs,
+    `Physical.cpp`'s `boundingBox.GetSize()` uses). This shipped as a real
+    bug in the reLCS lock-on reticle port (the vehicle marker's height
+    offset was computed from `GetBoundRect()`, which for a vehicle is just
+    `-2*GetBoundRadius()` — its horizontal footprint size, not its height),
+    caught in code review before merge; see `git log --grep="lock-on
+    reticle"`. `GetBoundRect()`'s name reads as "the entity's bounds" but it
+    is scoped to X/Y only — don't reach for it when Z is what's needed.
+13. **`CPed::m_fMaxHealth` (stories-only; III/miami have no such field) is
+    never initialized by the ped constructor and has exactly one writer in
+    the entire codebase.** `CPed::CPed` (`stories/src/peds/Ped.cpp`) sets
+    `m_fHealth = 100.0f` but never touches `m_fMaxHealth`
+    (`Ped.h:763`) — the only place anything ever assigns it is the
+    `COMMAND_SET_CHAR_MAX_HEALTH` script opcode
+    (`stories/src/control/Script9.cpp`), used for scripted mission
+    characters only. Every ordinary ped (pedestrians, generic gang members,
+    anything not touched by that opcode) has `m_fMaxHealth` holding
+    whatever the pool slot's memory last contained — 0.0f on a fresh slot,
+    or another ped's stale value on a recycled one. Any new code that reads
+    `m_fMaxHealth` (e.g. `m_fHealth / m_fMaxHealth` for a health ratio) must
+    guard the denominator (`maxHealth > 0.0f ? maxHealth : 100.0f`) and
+    clamp the result — a raw divide risks `+Inf`/UB on the common case, not
+    an edge case. This shipped as a real bug in the reLCS lock-on reticle
+    port (PS2 disassembly implied the field behaves like a normal ratio
+    denominator; the port's own codebase never populates it), caught in
+    code review before merge; see `git log --grep="lock-on reticle"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 

@@ -547,3 +547,74 @@ self-collision for the general rule — before adding any new LOS ray near the
 player ped, grep for how sibling LOS calls in the *same* function guard
 against this, even when the new call is a faithful transcription of PS2
 disassembly.
+
+## Case study: PS2-exact lock-on reticle (`CWeaponEffects`) — a whole feature silently wrong, not a constant
+
+reLCS's `stories/src/weapons/WeaponEffects.cpp` is unmodified reVC code (one
+commit, `init`) — it draws two counter-rotating `target256` rings, VC's
+lock-on reticle. Nobody had checked whether PS2 LCS draws the same thing.
+It doesn't: `target256`/`target256m`/`crosshair` don't exist anywhere in
+`SLES_541.35`. PS2 draws three static (non-spinning) `triangle16` sprites
+whose colour tracks the locked target's health, loaded from the `particle`
+TXD's `Init` (VA `0x2b60d8`) — a case where source archaeology (git log,
+public forks) turns up nothing because the port never touched the function
+since bootstrap; only disc disassembly reveals the whole approach is wrong,
+not merely a tunable constant.
+
+**Struct and functions found** (`gCrossHair`-equivalent at PS2 VA
+`0x60ba10`, ~0x38 bytes vs. the port's 0x1C):
+- `Init` (`0x2b60d8`): loads `triangle16`/`triangle16m` from `particle`,
+  default colour `(255,0,0,225)`.
+- `MarkTarget` (`0x2b61c8`, args `pos, r,g,b,a, CEntity *target, size`):
+  **returns immediately if `target` is unchanged from the stored one** — a
+  change-detection gate, not a per-frame re-init. Ped targets get forced
+  colour `(0,255,0,225)`; the RGB is then scaled by a health ratio via an
+  RGB→HSV→RGB round trip (`V = ratio`) — for PS2's own pure red/green
+  inputs this reduces to a plain per-channel multiply, so the port doesn't
+  need the HSV math, just `channel * ratio`.
+- `Render` (`0x2b6310`): re-reads the target entity's position **every
+  frame** (not just on `MarkTarget`), branches on entity type for the Z
+  source (ped: IK component 2 = `PED_MID`; vehicle: bounding-box-derived
+  offset — see the `GetBoundRect()` pitfall below), smooths Z by averaging
+  with the previous frame's Z, decays the *displayed* health ratio toward
+  the live one at a flat `0.1`/frame when it drops (a fade, not an instant
+  snap), then draws 3 `RenderOneXLUSprite_Rotate_Aspect` calls at **fixed**
+  angle offsets (`-0.8`, `π+0.8`, `π/2`) — the struct's rotation field is
+  written but never incremented anywhere else in the binary, so despite
+  looking like spin state it's dead: the triangles never rotate.
+- A separate, unrelated feature lives in the same PS2 function and must NOT
+  be ported alongside it: a full-screen red damage-flash overlay gated by a
+  different global (`gp+0x428`), decaying independently of the reticle.
+
+**Two Critical bugs this exposed in the port** (both caught by a
+whole-branch code review after task-level review passed, i.e. after a
+disassembly-faithful transcription still shipped real bugs — see
+AGENTS.md landmines #12–13 for the durable rules extracted from these):
+1. The disassembly's health-ratio math (`current / max`) transcribes
+   correctly, but **the port's own `CPed::m_fMaxHealth` field is a
+   stories-only addition the ped constructor never initializes** — its
+   only writer in the whole codebase is one script opcode
+   (`SET_CHAR_MAX_HEALTH`, mission characters only). A divide-by-
+   effectively-uninitialized on every ordinary ped is undefined behavior,
+   not an edge case. PS2 disassembly cannot reveal this — it's a fact about
+   *this port's* field lifecycle, invisible from the original binary's side
+   entirely, since PS2 has no equivalent uninitialized-field state to trip
+   over.
+2. The disassembly's vehicle Z-offset reads a bounding-box-shaped struct
+   and computes `top - bottom`; the natural reLCS translation was
+   `target->GetBoundRect()`, which compiles, type-checks, and *looks*
+   right, but `CEntity::GetBoundRect()` is X/Y-plane only (see AGENTS.md
+   landmine #12) — the "height" ends up being `-2*GetBoundRadius()`, the
+   vehicle's horizontal footprint, not its vertical extent. The fix was
+   `GetColModel()->boundingBox.max.z - boundingBox.min.z`, an idiom already
+   used elsewhere in the same codebase but not the first name that comes to
+   mind when transcribing a disassembled "bounding box" struct read.
+
+**Lesson:** disassembly tells you what PS2 computes; it does not tell you
+whether the port's own fields and helper functions actually hold the values
+your translation assumes they hold. After transcribing PS2 math into a
+reLCS equivalent, grep for every field/method used and verify — in *this*
+codebase, not the original — that it's actually populated/scoped the way
+the disassembly's variable naming implies. A method name like
+`GetBoundRect()` reading like "the entity's bounds" is exactly the kind of
+false friend a faithful transcription walks straight into.
