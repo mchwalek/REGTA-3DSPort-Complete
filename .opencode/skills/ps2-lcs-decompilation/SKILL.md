@@ -483,6 +483,34 @@ disassembly around the free-aim/lock-on on-foot camera function (roughly VA
   explicitly skipped whenever the free-aim flag is set (VA
   `0x281624`-`0x281638`) — this is why free aim's crosshair sits at exact
   screen centre while lock-on's sits offset to one side.
+- **The camera's pivot itself — not just the aim point — is offset off the
+  ped's own head**, built by a separate function (`TargetCoors` builder, VA
+  `0x27be28`, called before both the lock-on and free-aim branches so it
+  applies to each): `pivot = pedPos + (0,0,0.6f) + ped.GetRight()*0.55f`,
+  then LOS-probed from `pedPos+(0,0,0.6f)` to that point and snapped to
+  `hitPoint + hitNormal*0.1f` on hit. Easy to miss because it's a *different*
+  VA from the aim-point/pitch-envelope function (`0x34a680`) and from the
+  camera's Alpha/Beta easing (`0x280ee8`-`0x281f4c`) — the reticle sitting on
+  the ped's head is a **pivot** bug, not a pitch/yaw bug, and needs this
+  separate function's constants, not a tweak to the aim-point envelope.
+- **The camera itself has no Alpha (pitch) clamp at all while free-aiming**
+  (VA `0x281928`-`0x281988` skips the clamp when the free-aim flag is set) —
+  the `[50°,110°]` envelope above bounds only the *aim point*, measured from
+  the ped's hip position, not the camera's own pivot-relative pitch. Because
+  the pivot sits 0.6m above and 0.55m lateral to the hip, and the aim point
+  can be much closer to the pivot than to the hip (e.g. after an LOS snap
+  onto nearby geometry), the camera's pivot-relative pitch can swing far
+  steeper than the envelope's hip-relative ±angles suggest — this is exactly
+  why PS2's free-aim camera visibly reaches ~-60° looking straight down at
+  nearby geometry despite the "only [-20°,+40°]" envelope. **Porting the
+  envelope as a direct clamp on the reLCS camera's own Alpha (an earlier,
+  now-superseded reLCS implementation, commit `5678ebb`) reproduces the
+  wrong quantity** — it clamps the pivot-relative angle to hip-relative
+  bounds, which is measurably tighter than PS2's real behavior. The correct
+  port applies the envelope only to the aim point (relative to hip), lets
+  the camera ease unclamped toward whatever pivot-relative angle that
+  implies, and relies on the generic engine-wide safety clamp
+  (`[-89.5°,+45°]`) as the only bound on the camera itself.
 
 These are exactly the kind of parameters worth pulling from the disc rather
 than tuning by feel: getting the pitch envelope, yaw cone, or turn-in rate
@@ -493,7 +521,29 @@ camera-mode dispatch switch whose two implementations use opposite sign
 conventions) turned out to need no PS2 reference at all, just careful
 reading of reLCS's own two camera functions — see `AGENTS.md`'s landmine on
 `CCam::Beta`'s sign convention for that one. See `stories/src/core/Cam.cpp`'s
-`Process_FollowPedWithMouse` (the `#ifdef _3DS
-if(CPad::GetPad(0)->Is3DSFreeAimActive())` blocks) for where these PS2
-values now live in reLCS, and `git log --grep="free aim"` /
-`--grep="free-aim"` for the full round-by-round derivation history.
+`Update3DSFreeAimPoint`/`Update3DSFreeAimPointAngles` (the aim-point model,
+including the pitch/yaw envelopes and LOS snap above) and
+`Process_FollowPedWithMouse`'s `#ifdef _3DS
+if(CPad::GetPad(0)->Is3DSFreeAimActive())` blocks (the pivot offset and the
+goal-angle easing toward the aim point) for where these PS2 values now live
+in reLCS, and `git log --grep="free aim"` / `--grep="free-aim"` for the full
+round-by-round derivation history, including the pitch/pivot-offset fix that
+replaced the earlier direct-Alpha-clamp implementation described above (see
+`git log --grep="world-space aim point"`).
+
+**Pitfall — a disassembly-faithful fix can still introduce a new bug the
+disassembly never warns about.** Porting the pivot offset above (`pedPos +
+(0,0,0.6f) + ped.GetRight()*0.55f`, LOS-probed) introduced a self-collision
+bug not present in the disassembly's *math*: the reLCS port's `LOS`-probe
+call had no exclusion for the player ped, so it could clip the ped's own
+raised-arm/aiming-pose collision model and silently collapse the pivot back
+onto the ped's head — reproducing the exact bug the offset exists to fix.
+The disassembly doesn't surface this because PS2's equivalent ray has the
+same theoretical self-collision risk; the engine-side convention that
+prevents it (`CWorld::pIgnoreEntity`, or checking the hit entity against the
+player) is a reLCS/engine-level pattern, not something a raw VA trace would
+ever mention. See `AGENTS.md`'s landmine on `CWorld::ProcessLineOfSight`
+self-collision for the general rule — before adding any new LOS ray near the
+player ped, grep for how sibling LOS calls in the *same* function guard
+against this, even when the new call is a faithful transcription of PS2
+disassembly.

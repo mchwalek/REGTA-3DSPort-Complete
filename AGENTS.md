@@ -157,11 +157,38 @@ and a map file literally named `.map`. None of these are checked in.
     was sometimes correct and sometimes an instant 180°-off snap depending
     on which camera mode was active the previous frame — fixed by
     re-deriving the starting `Beta` from world geometry
-    (`GetATanOfXY(Source.x - TargetCoors.x, Source.y - TargetCoors.y)`,
+    (    `GetATanOfXY(Source.x - TargetCoors.x, Source.y - TargetCoors.y)`,
     convention-independent) instead of trusting the inherited value; see
     `git log --grep="camera's true yaw"`. Never carry a `CCam::Beta`/`Alpha`
     value across a camera-mode dispatch switch without checking both modes'
     conventions match.
+11. **A new `CWorld::ProcessLineOfSight` ray placed near the player ped's own
+    body will self-collide with the player unless explicitly excluded —
+    shared by all three trees, but only exercised on 3DS so far (the free-aim
+    camera pivot).** `CPed::bUsesCollision` defaults `true`
+    (`Ped.cpp`/`PlayerPed.cpp`), and `ProcessLineOfSightSectorList`
+    (`stories/src/core/World.cpp`) tests every in-sector ped against the ray,
+    including the player, unless the ray call excludes it — either by
+    bracketing the call with `CWorld::pIgnoreEntity = entity; ...; ... = nil;`
+    (the established pattern, used e.g. `stories/src/core/Cam.cpp:1607/1628`,
+    `3245/3285`, `3849/3851`, `4877/4898`, `5430/5451`, and
+    `Camera.cpp:1991/2004`), or by checking the returned hit entity against
+    the player afterward. A ray that starts at the ped's own position and
+    sweeps only ~0.5m — e.g. to offset a camera pivot sideways off the ped's
+    head, or to snap a point back off nearby geometry — is exactly the
+    geometry most likely to clip the ped's own raised-arm/aiming-pose
+    collision model and silently collapse back onto the ped. This shipped as
+    a real bug in the free-aim camera's shoulder-offset pivot (the LOS ray
+    that offsets the camera pivot 0.55m along the ped's right, added in
+    `stories/src/core/Cam.cpp`'s `Process_FollowPedWithMouse`, had no
+    exclusion and could self-collide, silently reproducing the exact
+    "reticle sits on the player's head" bug the offset exists to fix) —
+    fixed by bracketing it with `CWorld::pIgnoreEntity`; see `git log
+    --grep="pivot LOS ray"`. Grep for how sibling LOS calls in the same
+    function handle this hazard before adding a new one, even when
+    transcribing disassembly that itself never mentions the hazard — PS2's
+    equivalent ray has the same self-collision risk, it's just not
+    something disassembly of the *math* would ever surface.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 
