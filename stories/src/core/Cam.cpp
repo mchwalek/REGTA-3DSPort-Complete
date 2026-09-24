@@ -1464,8 +1464,10 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 		TargetCoors = pivotBase + CamTargetEntity->GetRight()*0.55f;
 		CColPoint pivotColPoint;
 		CEntity *pivotEntity = nil;
+		CWorld::pIgnoreEntity = CamTargetEntity;
 		if(CWorld::ProcessLineOfSight(pivotBase, TargetCoors, pivotColPoint, pivotEntity, true, true, true, true, false, false))
 			TargetCoors = pivotColPoint.point + pivotColPoint.normal*0.1f;
+		CWorld::pIgnoreEntity = nil;
 	}else
 #endif
 		TargetCoors.z += fTranslateCamUp;
