@@ -74,7 +74,8 @@ CWeaponEffects::MarkTarget(CVector pos, uint8 red, uint8 green, uint8 blue, uint
 		green = 255;
 		blue = 0;
 		alpha = 225;
-		gCrossHair.m_fHealthRatio = Max(targetPed->m_fHealth / targetPed->m_fMaxHealth, 0.0f);
+		float maxHealth = targetPed->m_fMaxHealth > 0.0f ? targetPed->m_fMaxHealth : 100.0f;
+		gCrossHair.m_fHealthRatio = Max(Min(targetPed->m_fHealth / maxHealth, 1.0f), 0.0f);
 	} else {
 		gCrossHair.m_fHealthRatio = 1.0f;
 	}
@@ -110,10 +111,12 @@ CWeaponEffects::Render(void)
 			RwV3d component;
 			targetPed->m_pedIK.GetComponentPosition(component, PED_MID);
 			newZ = component.z;
-			liveRatio = Max(targetPed->m_fHealth / targetPed->m_fMaxHealth, 0.0f);
+			float maxHealth = targetPed->m_fMaxHealth > 0.0f ? targetPed->m_fMaxHealth : 100.0f;
+			liveRatio = Max(Min(targetPed->m_fHealth / maxHealth, 1.0f), 0.0f);
 		} else if (target->IsVehicle()) {
-			CRect rect = target->GetBoundRect();
-			newZ = pos.z - (rect.top - rect.bottom) * 0.33f;
+			CColModel *colModel = target->GetColModel();
+			float height = colModel->boundingBox.max.z - colModel->boundingBox.min.z;
+			newZ = pos.z + height * 0.33f;
 			liveRatio = 1.0f;
 		} else {
 			newZ = pos.z;

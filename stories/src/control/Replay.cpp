@@ -52,6 +52,7 @@
 #include "Radar.h"
 #include "Fluff.h"
 #include "WaterCreatures.h"
+#include "WeaponEffects.h"
 
 uint8 CReplay::Mode;
 CAddressInReplayBuffer CReplay::Record;
@@ -1266,8 +1267,6 @@ void CReplay::ProcessReplayCamera(void)
 	RwFrameUpdateObjects(RwCameraGetFrame(TheCamera.m_pRwCamera));
 }
 
-extern CWeaponEffects gCrossHair;
-
 void CReplay::TriggerPlayback(uint8 cam_mode, float cam_x, float cam_y, float cam_z, bool load_scene)
 {
 	if (Mode != MODE_RECORD)
@@ -1318,7 +1317,7 @@ void CReplay::TriggerPlayback(uint8 cam_mode, float cam_x, float cam_y, float ca
 	}
 	if (cam_mode == REPLAYCAMMODE_ASSTORED)
 		TheCamera.CarZoomIndicator = CAM_ZOOM_CINEMATIC;
-	gCrossHair.m_bActive = false;
+	CWeaponEffects::ClearCrossHair();
 	CExplosion::ClearAllExplosions();
 	CPlaneBanners::Init();
 #ifndef FIX_BUGS // this doesn't do anything useful and accesses destroyed player ped
