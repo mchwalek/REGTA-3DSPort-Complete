@@ -1452,7 +1452,23 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 	bool OnTrain = FindPlayerVehicle() && FindPlayerVehicle()->IsTrain();
 
 	TargetCoors = CameraTarget;
-	TargetCoors.z += fTranslateCamUp;
+#ifdef _3DS
+	if(CPad::GetPad(0)->Is3DSFreeAimActive()){
+		/* PS2 LCS's free-aim camera pivot (SLES_541.35 fn VA 0x27be28): 0.6m
+		 * above the ped's own position, offset sideways along the ped's
+		 * right by 0.55m so the reticle (screen centre) doesn't sit on top
+		 * of Toni's head, then snapped back off any wall it would
+		 * otherwise sit inside of. */
+		CVector pedPos = CamTargetEntity->GetPosition();
+		CVector pivotBase = pedPos + CVector(0.0f, 0.0f, 0.6f);
+		TargetCoors = pivotBase + CamTargetEntity->GetRight()*0.55f;
+		CColPoint pivotColPoint;
+		CEntity *pivotEntity = nil;
+		if(CWorld::ProcessLineOfSight(pivotBase, TargetCoors, pivotColPoint, pivotEntity, true, true, true, true, false, false))
+			TargetCoors = pivotColPoint.point + pivotColPoint.normal*0.1f;
+	}else
+#endif
+		TargetCoors.z += fTranslateCamUp;
 
 	float AlphaOffset, BetaOffset;
 	if(CPad::GetPad(0)->IsPlayerControlsDisabledBy(PLAYERCONTROL_PLAYERINFO)){
@@ -1484,66 +1500,34 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 		}else
 #ifdef _3DS
 		if(CPad::GetPad(0)->Is3DSFreeAimActive()){
-			/* PS2 LCS's free-aim camera stick response (SLES_541.35 VA
-			 * 0x2817c0-0x2818e8): a signed-quadratic curve with no deadzone,
-			 * plus exponential smoothing of the resulting angular velocity.
-			 * Decoded constants: sensitivity 0.007f (used squared),
-			 * horizontal gain 1/1120, vertical gain 1/1866.67 (= horizontal
-			 * gain * 0.6, the same ratio as the mouse path above), and
-			 * smoothing base 0.8 while the stick is deflected >= 2.0, else
-			 * 0.5 (settles faster near centre). */
+			CPed *aimPed = (CPed*)CamTargetEntity;
+			float range = CWeaponInfo::GetWeaponInfo(aimPed->GetWeapon()->m_eWeaponType)->m_fRange;
 			if(CPad::GetPad(0)->Is3DSFreeAimEnteredThisFrame()){
-				/* PS2 zeroes the equivalent angular speeds on a fresh camera
-				 * init (VA 0x281204-0x281210) rather than inheriting momentum
-				 * from whatever camera (lock-on, free cam) was active a
+				/* PS2 zeroes the equivalent angular speeds on a fresh
+				 * camera init rather than inheriting momentum from
+				 * whatever camera (lock-on, free cam) was active a
 				 * moment ago. */
 				BetaSpeed = 0.0f;
 				AlphaSpeed = 0.0f;
-				/* PS2 places a fresh free-aim point along the ped's forward
-				 * (SLES_541.35 fn 0x34eee8), so the camera turns to face
-				 * behind the player; only a lock-on -> free-aim toggle keeps
-				 * the previous yaw, which reLCS carries via m_fTransitionBeta
-				 * below. Without this check, whatever Beta CCam::Init() or
-				 * the previous camera mode left behind (including a stale
-				 * value) is what made free aim appear to enter at "a
-				 * seemingly random direction" on a fresh (non-lock-on)
-				 * entry. Ease toward it below instead of snapping. */
 				if(!TheCamera.m_bUseTransitionBeta){
-					/* Re-derive the start yaw from world geometry -- valid
-					 * regardless of whether FollowPed or FollowPed_Rotation
-					 * (opposite Beta sign convention: Target->Source vs
-					 * Source->Target) ran last frame. Without this, turning
-					 * in from whatever Beta the previous camera mode left
-					 * behind could start 180 degrees off (or, coincidentally,
-					 * snap instantly) whenever Display->FreeCam was on. */
+					/* Re-derive the start yaw from world geometry --
+					 * valid regardless of whether FollowPed or
+					 * FollowPed_Rotation (opposite Beta sign convention)
+					 * ran last frame. */
 					Beta = CGeneral::GetATanOfXY(Source.x - TargetCoors.x, Source.y - TargetCoors.y);
-					s3DSFreeAimTurningIn = true;
-					s3DSFreeAimGoalBeta = CGeneral::LimitRadianAngle(TargetOrientation + PI);
-				}else{
-					s3DSFreeAimTurningIn = false;
 				}
 				Alpha = Asin(Clamp(Front.z, -1.0f, 1.0f));
-				/* Don't let a snap-behind request from the previous free-aim
-				 * exit (SetCameraDirectlyBehindForFollowPed_CamOnAString)
-				 * leak a stale heading into this entry via lines below. */
 				TheCamera.m_bCamDirectlyBehind = false;
 				TheCamera.m_bCamDirectlyInFront = false;
+				/* PS2 places a fresh free-aim point along the ped's
+				 * forward (SLES_541.35 fn 0x34eee8). */
+				s3DSFreeAimPoint = aimPed->GetPosition() + aimPed->GetForward()*range;
+				s3DSFreeAimPrevYawRel = 0.0f;
 			}
-			const float sens2 = 0.007f * 0.007f;
-			const float dt = CTimer::GetTimeStep();
-			float targetBeta = LookLeftRight * Abs(LookLeftRight) * sens2 * (1.0f/1120.0f) * FOV * dt;
-			float targetAlpha = LookUpDown * Abs(LookUpDown) * sens2 * (0.6f/1120.0f) * FOV * dt;
-			float smoothBase = (Abs(LookLeftRight) >= 2.0f || Abs(LookUpDown) >= 2.0f) ? 0.8f : 0.5f;
-			float a = pow(smoothBase, dt);
-			BetaSpeed = a*BetaSpeed + (1.0f - a)*targetBeta;
-			AlphaSpeed = a*AlphaSpeed + (1.0f - a)*targetAlpha;
-			BetaOffset = BetaSpeed;
-			AlphaOffset = AlphaSpeed;
-			if(s3DSFreeAimTurningIn)
-				/* Hold off on stick yaw while easing in from a fresh entry
-				 * so the two don't fight; the turn-in step below moves Beta
-				 * instead. */
-				BetaOffset = 0.0f;
+			Update3DSFreeAimPoint(s3DSFreeAimPoint, s3DSFreeAimPrevYawRel, aimPed->GetPosition(), aimPed->GetForward(),
+			                      TargetCoors, range, LookLeftRight, LookUpDown, CTimer::GetTimeStep());
+			BetaOffset = 0.0f;
+			AlphaOffset = 0.0f;
 		}else
 #endif
 		{
@@ -1572,43 +1556,24 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 	while(Beta >= PI) Beta -= 2*PI;
 	while(Beta < -PI) Beta += 2*PI;
 #ifdef _3DS
-	if(s3DSFreeAimTurningIn){
-		const float step = 0.1f * CTimer::GetTimeStep();
-		float rel = CGeneral::LimitRadianAngle(s3DSFreeAimGoalBeta - Beta);
-		if(Abs(rel) <= step){
-			Beta = s3DSFreeAimGoalBeta;
-			s3DSFreeAimTurningIn = false;
-		}else{
-			Beta = CGeneral::LimitRadianAngle(Beta + (rel > 0.0f ? step : -step));
+	if(CPad::GetPad(0)->Is3DSFreeAimActive()){
+		/* Ease the camera's Alpha/Beta toward the direction from the
+		 * (already offset) pivot to the free-aim point, at PS2's flat
+		 * turn-in rate (SLES_541.35 VA 0x2816a0-0x2817bc). */
+		CVector dir = s3DSFreeAimPoint - TargetCoors;
+		if(dir.Magnitude() > 0.01f){
+			dir.Normalise();
+			float goalAlpha = Asin(Clamp(dir.z, -1.0f, 1.0f));
+			float goalBeta = CGeneral::GetATanOfXY(-dir.x, -dir.y);
+			const float step = 0.1f * CTimer::GetTimeStep();
+			Alpha += Clamp(goalAlpha - Alpha, -step, step);
+			float relBeta = CGeneral::LimitRadianAngle(goalBeta - Beta);
+			Beta = CGeneral::LimitRadianAngle(Beta + Clamp(relBeta, -step, step));
 		}
 	}
-	if(CPad::GetPad(0)->Is3DSFreeAimActive()){
-		/* PS2 LCS's free-aim yaw cone (SLES_541.35 VA 0x34a680, the 110.0
-		 * constant at VA 0x34ad7c): the aim direction is confined to +-110
-		 * degrees around the ped's forward. Toni's body stays put while free
-		 * aiming (see PlayerPed.cpp), so the cone is centred on the camera's
-		 * usual behind-the-player angle, TargetOrientation + PI. */
-		float coneCentre = CGeneral::LimitRadianAngle(TargetOrientation + PI);
-		float rel = CGeneral::LimitRadianAngle(Beta - coneCentre);
-		rel = Clamp(rel, -DEGTORAD(110.0f), DEGTORAD(110.0f));
-		Beta = CGeneral::LimitRadianAngle(coneCentre + rel);
-	}
 #endif
-#ifdef _3DS
-	if(CPad::GetPad(0)->Is3DSFreeAimActive()){
-		/* PS2 LCS's free-aim pitch envelope (SLES_541.35 VA 0x34a680): the aim
-		 * direction's angle from vertical is clamped to [50,110] degrees --
-		 * 40 degrees up, 20 degrees down from horizontal. Much tighter than
-		 * this camera's stock +45/-89.5 range, which allows pointing almost
-		 * straight down. */
-		if(Alpha > DEGTORAD(40.0f)) Alpha = DEGTORAD(40.0f);
-		else if(Alpha < -DEGTORAD(20.0f)) Alpha = -DEGTORAD(20.0f);
-	}else
-#endif
-	{
-		if(Alpha > DEGTORAD(45.0f)) Alpha = DEGTORAD(45.0f);
-		else if(Alpha < -DEGTORAD(89.5f)) Alpha = -DEGTORAD(89.5f);
-	}
+	if(Alpha > DEGTORAD(45.0f)) Alpha = DEGTORAD(45.0f);
+	else if(Alpha < -DEGTORAD(89.5f)) Alpha = -DEGTORAD(89.5f);
 
 	// SA code
 #ifdef FREE_CAM
