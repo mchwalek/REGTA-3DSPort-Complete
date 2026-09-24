@@ -1350,15 +1350,83 @@ float fDefaultAlphaOrient = -0.22f;
 float fMouseAvoidGeomReturnRate = 0.92f;
 
 #ifdef _3DS
-/* Turn-in state for a fresh (non-lock-on) free-aim entry: PS2 doesn't snap
- * the camera to face behind the player either -- it moves Beta toward the
- * target by at most 0.1 rad * timestep per frame (SLES_541.35 VA
- * 0x2816a0-0x2817bc), only skipping that clamp on a genuine camera-mode
- * (re)initialisation, which never happens just from toggling free aim.
- * File-scope like the other Process_FollowPedWithMouse tuning constants
- * above: there's only ever one player camera turning in at a time. */
-static bool s3DSFreeAimTurningIn = false;
-static float s3DSFreeAimGoalBeta = 0.0f;
+/* PS2 LCS's free-aim camera doesn't integrate stick input directly into
+ * camera Alpha/Beta -- the stick instead drives a world-space aim point
+ * (SLES_541.35 player+0xcc0, set via SetPointGunAt; per-frame update in fn
+ * VA 0x34a680) that the camera eases toward every frame along the same
+ * flat-rate turn-in path used for a fresh lock-on (VA 0x2816a0-0x2817bc).
+ * The aim point's pitch is bounded by a hip-relative acos(dir.z) envelope
+ * and its yaw by a cone around the ped's forward, each with accept/reject
+ * hysteresis at the boundary so a stick held past the limit doesn't lock
+ * out recovery once released. */
+static CVector s3DSFreeAimPoint;
+static float s3DSFreeAimPrevYawRel = 0.0f;
+
+/* Pure vertical/yaw aim-point update, PS2 LCS's per-frame free-aim point
+ * update (SLES_541.35 fn VA 0x34a680), dt-scaled: PS2 runs this once per
+ * ~1/30s tick with no explicit dt term, so a 0.6 rescale (CTimer::
+ * GetTimeStep()'s ~50Hz units * 0.6 ~= 30Hz's per-tick amount) keeps the
+ * magic constants below identical to the disassembly. No engine/world
+ * dependency (LOS snap lives in the wrapper below) so this half is
+ * unit-tested directly; see scripts/tests/test_3ds_free_aim_point.py. */
+static void
+Update3DSFreeAimPointAngles(CVector &point, float &prevYawRel, const CVector &pedPos, const CVector &pedForward,
+                             const CVector &pivot, float range, float stickX, float stickY, float dt)
+{
+	float k = dt * 0.6f;
+
+	/* Vertical: move the aim point up/down, staying within the pitch
+	 * envelope (measured from the ped's own position, not the camera
+	 * pivot) with accept/reject hysteresis at the boundary. */
+	CVector fromPed = point - pedPos;
+	float prevPitch = RADTODEG(Acos(Clamp(fromPed.z / fromPed.Magnitude(), -1.0f, 1.0f)));
+	CVector vertical = point;
+	vertical.z += stickY * (point - pivot).Magnitude() * (1.0f/3000.0f) * k;
+	CVector verticalFromPed = vertical - pedPos;
+	float newPitch = RADTODEG(Acos(Clamp(verticalFromPed.z / verticalFromPed.Magnitude(), -1.0f, 1.0f)));
+	bool inBand = newPitch >= 50.0f && newPitch <= 110.0f;
+	bool recovering = (newPitch < 50.0f && newPitch > prevPitch) || (newPitch > 110.0f && newPitch < prevPitch);
+	if(inBand || recovering)
+		point = vertical;
+
+	/* Yaw: rotate the aim direction about world Z by the stick's yaw
+	 * input, re-project to full weapon range, staying within the +-110
+	 * degree cone off the ped's forward with the same hysteresis pattern. */
+	CVector dir = point - pivot;
+	dir.Normalise();
+	float yaw = stickX * 3.0e-4f * k;
+	float cy = Cos(yaw), sy = Sin(yaw);
+	CVector dir2(dir.x*cy - dir.y*sy, dir.x*sy + dir.y*cy, dir.z);
+	CVector point2 = pivot + dir2*range;
+	float rel = CGeneral::LimitRadianAngle(CGeneral::GetATanOfXY(dir2.x, dir2.y) - CGeneral::GetATanOfXY(pedForward.x, pedForward.y));
+	bool inCone = Abs(rel) <= DEGTORAD(110.0f);
+	bool recoveringYaw = Abs(rel) > DEGTORAD(110.0f) && Abs(rel) < Abs(prevYawRel);
+	if(inCone || recoveringYaw){
+		point = point2;
+		prevYawRel = rel;
+	}
+}
+
+/* Wraps Update3DSFreeAimPointAngles with PS2's line-of-sight snap: pulls the
+ * aim point back to the first surface hit along the pivot->point ray, so the
+ * reticle lands on nearby geometry instead of floating past it. Only within
+ * a slightly wider band (45-124 degrees from the ped's vertical) than the
+ * pitch envelope above, matching PS2. */
+static void
+Update3DSFreeAimPoint(CVector &point, float &prevYawRel, const CVector &pedPos, const CVector &pedForward,
+                       const CVector &pivot, float range, float stickX, float stickY, float dt)
+{
+	Update3DSFreeAimPointAngles(point, prevYawRel, pedPos, pedForward, pivot, range, stickX, stickY, dt);
+
+	CColPoint losPoint;
+	CEntity *losEntity = nil;
+	if(CWorld::ProcessLineOfSight(pivot, point, losPoint, losEntity, true, true, true, true, false, false) && losEntity != (CEntity*)FindPlayerPed()){
+		CVector hitFromPed = losPoint.point - pedPos;
+		float hitPitch = RADTODEG(Acos(Clamp(hitFromPed.z / hitFromPed.Magnitude(), -1.0f, 1.0f)));
+		if(hitPitch >= 45.0f && hitPitch <= 124.0f)
+			point = losPoint.point;
+	}
+}
 #endif
 
 void
