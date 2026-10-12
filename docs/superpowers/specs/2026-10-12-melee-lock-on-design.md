@@ -12,10 +12,8 @@ game. Two symptoms were singled out for this pass:
 
 Root-caused against the PS2 EUR boot ELF (`SLES_541.35`) and its weapon
 data table (`GAME.DTZ`/`GAME.DAT`), via `ps2-lcs-decompilation` tooling. All
-VAs below are from that disassembly (confirmed identical in behavior and
-constants to the USA `SLUS_214.23` ELF — offsets differ by a linker `$gp`
-shift of `0x200` between the two builds). Scope is `stories/` only — III
-and miami have no melee lock-on.
+VAs below are from that disassembly. Scope is `stories/` only — III and
+miami have no melee lock-on.
 
 ## Root causes (PS2 vs reLCS)
 
