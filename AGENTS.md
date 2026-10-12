@@ -226,6 +226,23 @@ and a map file literally named `.map`. None of these are checked in.
     port (PS2 disassembly implied the field behaves like a normal ratio
     denominator; the port's own codebase never populates it), caught in
     code review before merge; see `git log --grep="lock-on reticle"`.
+14. **A captured `deploy.sh`/`3dslink` run showing progress stuck at some
+    percentage (e.g. `"... sent (48.92%), 189 blocks"`) with no further
+    output is expected, not evidence of a stalled/failed transfer.**
+    `3dslink` renders its progress bar with carriage returns (`\r`),
+    overwriting the same terminal line in place; a tool that captures output
+    by snapshotting rather than rendering a live terminal can end up showing
+    only one such overwritten frame even though the process went on to
+    finish normally and already exited. Confirm via `pgrep -af 3dslink` — if
+    no `3dslink` process is running anymore, the transfer already completed
+    (or failed) and isn't still in flight; the percentage in the captured
+    text means nothing once the process has exited. The only reliable way to
+    know if the deploy actually worked is to ask whether the app launched on
+    the console — don't re-run `deploy.sh` speculatively based on a stale
+    percentage, since that risks compounding a genuinely bad console state
+    if the first attempt is in fact still live (see the `relcs-3ds-build`
+    skill's "Do not wrap this in a short Bash timeout" warning for why a
+    half-killed transfer is worse than a slow one).
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 

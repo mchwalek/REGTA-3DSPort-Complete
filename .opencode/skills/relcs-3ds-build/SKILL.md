@@ -122,6 +122,21 @@ killing the transfer mid-upload leaves the console in a bad state (it may
 boot the partial app or drop out of listening mode), requiring the user to
 relaunch Homebrew Launcher on-device before the next attempt.
 
+**A captured Bash tool run of `deploy.sh`/`3dslink` showing progress stuck at
+some percentage (e.g. `"... sent (48.92%), 189 blocks"`) with no further
+output is expected, not a sign of a stalled/failed transfer.** `3dslink`
+renders its progress bar with carriage returns (`\r`), overwriting the same
+terminal line in place; a tool that snapshots captured output rather than a
+live terminal can end up showing only one such overwritten frame even though
+the process went on to finish normally and already exited. Confirm via
+`pgrep -af 3dslink` — if no `3dslink` process is running anymore, the
+transfer already completed (or failed) and isn't still in flight; the
+percentage in the captured text is not meaningful once the process has
+exited. The only reliable way to know if the deploy actually worked is to
+ask whether the app launched on the console — don't re-run `deploy.sh`
+speculatively based on a stale percentage, since that risks compounding a
+genuinely bad console state if the first attempt is in fact still live.
+
 ## Verification after a build/packaging change
 
 ```sh
