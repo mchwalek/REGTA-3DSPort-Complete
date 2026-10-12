@@ -1549,11 +1549,13 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
 	}
 #endif
 
-	const bool isMeleeLockOn = GetWeapon()->m_eWeaponType == WEAPONTYPE_UNARMED ||
-		GetWeapon()->m_eWeaponType == WEAPONTYPE_BRASSKNUCKLE ||
-		weaponInfo->IsFlagSet(WEAPONFLAG_FIGHTMODE);
-	if (padUsed->GetTarget() && m_nSelectedWepSlot == m_currentWeapon && m_nMoveState != PEDMOVE_SPRINT &&
-		!TheCamera.Using1stPersonWeaponMode() && (weaponInfo->IsFlagSet(WEAPONFLAG_CANAIM) || isMeleeLockOn)) {
+	// PS2's CWeaponInfo table sets CANAIM on every melee weapon (fists
+	// through chainsaw), so melee lock-on is gated purely by IsTypeMelee()
+	// here rather than a hand-picked weapon-type list. PS2 also only blocks
+	// lock-on while sprinting for non-melee weapons.
+	const bool isMeleeWeapon = GetWeapon()->IsTypeMelee();
+	if (padUsed->GetTarget() && m_nSelectedWepSlot == m_currentWeapon && (isMeleeWeapon || m_nMoveState != PEDMOVE_SPRINT) &&
+		!TheCamera.Using1stPersonWeaponMode() && (weaponInfo->IsFlagSet(WEAPONFLAG_CANAIM) || isMeleeWeapon)) {
 		if (m_pPointGunAt) {
 			// what??
 			if (!m_pPointGunAt
@@ -1581,7 +1583,7 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
 				return;
 			}
 			if (CPlayerPed::DoesTargetHaveToBeBroken(m_pPointGunAt->GetPosition(), GetWeapon()) ||
-				(!isMeleeLockOn && !bCanPointGunAtTarget && !weaponInfo->IsFlagSet(WEAPONFLAG_CANAIM_WITHARM))) { // this line isn't on Mobile, idk why
+				(!isMeleeWeapon && !bCanPointGunAtTarget && !weaponInfo->IsFlagSet(WEAPONFLAG_CANAIM_WITHARM))) { // this line isn't on Mobile, idk why
 				ClearWeaponTarget();
 				return;
 			}
@@ -1616,7 +1618,11 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
 bool
 CPlayerPed::MovementDisabledBecauseOfTargeting(void)
 {
-	return m_pPointGunAt && !CWeaponInfo::GetWeaponInfo(GetWeapon()->m_eWeaponType)->IsFlagSet(WEAPONFLAG_CANAIM_WITHARM);
+	// PS2's melee rows all carry CANAIM_WITHARM too, so a melee lock-on
+	// never freezes movement on PS2; reLCS's WEAPON.DAT lacks that flag, so
+	// exclude melee explicitly instead of flipping the flag (see the design
+	// spec for why flipping CANAIM_WITHARM itself is rejected).
+	return m_pPointGunAt && !GetWeapon()->IsTypeMelee() && !CWeaponInfo::GetWeaponInfo(GetWeapon()->m_eWeaponType)->IsFlagSet(WEAPONFLAG_CANAIM_WITHARM);
 }
 
 void
