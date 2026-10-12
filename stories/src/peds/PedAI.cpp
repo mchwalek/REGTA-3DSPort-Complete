@@ -6834,26 +6834,36 @@ CPed::KillCharOnFootMelee(CVector &ourPos, CVector &targetPos, CVector &distWith
 	float maxDistToKeep = 0.3f;
 	float wepRange = wepInfo->m_fRange / 2.f;
 
-	if (GetWeapon()->m_eWeaponType == WEAPONTYPE_UNARMED && !IsPlayer() && !(m_pedStats->m_flags & STAT_CAN_KICK))
+	eWeaponType meleeWeapon = GetWeapon()->m_eWeaponType;
+	bool isUnarmedOrBrassKnuckle = meleeWeapon == WEAPONTYPE_UNARMED || meleeWeapon == WEAPONTYPE_BRASSKNUCKLE;
+
+	if (meleeWeapon == WEAPONTYPE_UNARMED && !IsPlayer() && !(m_pedStats->m_flags & STAT_CAN_KICK))
 		wepRange -= 0.3f;
 
-	if (distWithTargetSc <= 5.f && victimPlayer && !victimPlayer->m_bNoPosForMeleeAttack) {
-	
-		if (m_pedInObjective->EnteringCar() && wepRange > 2.f) {
-			m_vecSeekPos = m_pedInObjective->GetPosition();
-			wepRange = 1.0f;
-			maxDistToKeep = 0.5f;
+	if (m_pedInObjective->EnteringCar() && wepRange > 2.f) {
+		m_vecSeekPos = m_pedInObjective->GetPosition();
+		wepRange = 1.0f;
+		maxDistToKeep = 0.5f;
+
+	} else if (!isUnarmedOrBrassKnuckle) {
+		// PS2-faithful: melee weapons other than fists/brass knuckle always
+		// seek the victim's position directly and keep a range-scaled
+		// distance, regardless of current distance to the victim; PS2
+		// never calls FindMeleeAttackPoint for these weapon types.
+		m_vecSeekPos = m_pedInObjective->GetPosition();
+		maxDistToKeep = Max(0.4f * wepRange, 0.8f);
+
+	} else if (distWithTargetSc <= 5.f && victimPlayer && !victimPlayer->m_bNoPosForMeleeAttack) {
+		int8 attackDir = victimPlayer->FindMeleeAttackPoint(this, distWithTarget, endOfAttack);
+		if (attackDir == -1) {
+			m_vecSeekPos = victimPlayer->GetPosition();
+			maxDistToKeep = 4.0f;
 		} else {
-			int8 attackDir = victimPlayer->FindMeleeAttackPoint(this, distWithTarget, endOfAttack);
-			if (attackDir == -1) {
-				m_vecSeekPos = victimPlayer->GetPosition();
-				maxDistToKeep = 4.0f;
-			} else {
-				victimPlayer->GetMeleeAttackCoords(m_vecSeekPos, attackDir, wepRange);
-				distWithTargetSc = (m_vecSeekPos - GetPosition()).Magnitude();
-				canReachVictim = true;
-			}
+			victimPlayer->GetMeleeAttackCoords(m_vecSeekPos, attackDir, wepRange);
+			distWithTargetSc = (m_vecSeekPos - GetPosition()).Magnitude();
+			canReachVictim = true;
 		}
+
 	} else {
 		m_vecSeekPos = m_pedInObjective->GetPosition();
 		maxDistToKeep = Max(0.8f, 0.9f * wepRange);
@@ -6929,29 +6939,7 @@ CPed::KillCharOnFootMelee(CVector &ourPos, CVector &targetPos, CVector &distWith
 	if (distWithTargetSc > maxDistToKeep && !bKindaStayInSamePlace && m_nPedState != PED_ATTACK &&
 		(m_nPedState != PED_FIGHT || m_curFightMove == FIGHTMOVE_IDLE) && !killPlayerInNoPoliceZone) {
 
-		bool goForward = false;
-
-		if (m_nPedState == PED_FIGHT) {
-			if (canReachVictim) {
-				CVector attackAndVictimDist = m_vecSeekPos - m_pedInObjective->GetPosition();
-				CVector victimFarness = attackAndVictimDist / wepRange;
-				CVector distVec = GetPosition() - m_pedInObjective->GetPosition();
-				float distSqr = distVec.MagnitudeSqr();
-				if (sq(wepRange) > distSqr && distSqr > 0.05f) {
-					distVec.Normalise();
-					if (DotProduct2D(victimFarness, distVec) > Cos(DEGTORAD(30.f)))
-						goForward = true;
-				}
-			}
-		}
-		if (goForward) {
-			m_curFightMove = FIGHTMOVE_SHUFFLE_F;
-			CAnimManager::BlendAnimation(GetClump(), ASSOCGRP_STD, ANIM_STD_FIGHT_SHUFFLE_B, 16.f)->SetFinishCallback(FinishFightMoveCB,this);
-			m_fightState = FIGHTSTATE_NO_MOVE;
-			m_fightButtonPressure = 0;
-			m_takeAStepAfterAttack = false;
-
-		} else if (bUsePedNodeSeek && !canReachVictim) {
+		if (bUsePedNodeSeek && !canReachVictim) {
 			CVector bestCoords(0.0f, 0.0f, 0.0f);
 
 			if (!m_pNextPathNode)
