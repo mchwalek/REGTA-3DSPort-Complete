@@ -1429,7 +1429,7 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
 
 	if (padUsed->GetWeapon() && m_nMoveState != PEDMOVE_SPRINT) {
 		if (m_nSelectedWepSlot == m_currentWeapon) {
-			if (m_pPointGunAt) {
+			if (m_pPointGunAt && !GetWeapon()->IsTypeMelee()) {
 				if (m_nPedState == PED_ATTACK) {
 					m_fAttackButtonCounter *= Pow(0.94f, CTimer::GetTimeStep());
 				} else {
