@@ -10,10 +10,12 @@ game. Two symptoms were singled out for this pass:
 - Melee lock-on (holding R to target a ped) feels wrong.
 - Toni doesn't turn toward the locked-on target the way he should.
 
-Root-caused against the PS2 USA boot ELF (`SLUS_214.23`) and its weapon
+Root-caused against the PS2 EUR boot ELF (`SLES_541.35`) and its weapon
 data table (`GAME.DTZ`/`GAME.DAT`), via `ps2-lcs-decompilation` tooling. All
-VAs below are from that disassembly. Scope is `stories/` only — III and
-miami have no melee lock-on.
+VAs below are from that disassembly (confirmed identical in behavior and
+constants to the USA `SLUS_214.23` ELF — offsets differ by a linker `$gp`
+shift of `0x200` between the two builds). Scope is `stories/` only — III
+and miami have no melee lock-on.
 
 ## Root causes (PS2 vs reLCS)
 
@@ -22,8 +24,8 @@ miami have no melee lock-on.
    (`PlayerPed.cpp:1432-1438`), and `SetAttack` for an unarmed/FIGHTMODE
    target routes to `StartFightAttack(GetRandomNumber())` — a random
    button pressure every frame, producing a continuous random-swing loop.
-   PS2's equivalent (`ProcessPlayerWeapon`, VA `0x34af20`) only takes this
-   per-frame path for non-melee fire types (checked at `0x34b334`); melee
+   PS2's equivalent (`ProcessPlayerWeapon`, VA `0x34b100`) only takes this
+   per-frame path for non-melee fire types (checked at `0x34b514`); melee
    falls through to the normal `WeaponJustDown` → `StartFightAttack` path,
    i.e. one swing per press.
 
@@ -40,7 +42,7 @@ miami have no melee lock-on.
    (`PlayerPed.cpp:1616-1620`) returns true (freezing the stick) for any
    melee lock-on, because its WEAPON.DAT data lacks `CANAIM_WITHARM`
    (`0x80`). PS2's melee rows all have `CANAIM_WITHARM` set too, so PS2's
-   equivalent function (VA `0x34cd68`) returns false and the player keeps
+   equivalent function (VA `0x34cf48`) returns false and the player keeps
    moving while locked on with a melee weapon.
 
 4. **Lock-on range.** reLCS's melee `m_fRange` values (2.4 unarmed, 2.0
@@ -56,8 +58,8 @@ miami have no melee lock-on.
    struck can differ from the locked-on ped, and the attack's instant
    rotation (`m_fRotationCur = m_fRotationDest`) turns toward whichever ped
    the scan picked, not the lock-on target. PS2's `ChooseAttackPlayer` (VA
-   `0x1bf4a0-0x1bff58`) uses `m_pPointGunAt` as the victim directly when
-   it's set, skipping the scan entirely (VA `0x1bf580-0x1bf6fc`).
+   `0x1bf498-0x1bff50`) uses `m_pPointGunAt` as the victim directly when
+   it's set, skipping the scan entirely (VA `0x1bf578-0x1bf6f4`).
 
 6. **Cone/distance constants and unarmed move choice are also off** (see
    Design §3) — `maxAttackDist` 2.7 vs PS2's 3.5, a 30°/45° split vs PS2's
@@ -82,7 +84,7 @@ if (weaponInfo->m_eWeaponFire != WEAPON_FIRE_MELEE) {
 
 Melee (locked on or not) always goes through the existing
 `WeaponJustDown()` → `StartFightAttack(padUsed->GetWeapon())` /
-running-punch `SetAttack(nil)` path. This matches PS2 VA `0x34b334`.
+running-punch `SetAttack(nil)` path. This matches PS2 VA `0x34b514`.
 
 ### 2. Lock-on gate, movement, and range (`PlayerPed.cpp` ~1552-1620, `WEAPON.DAT`)
 
@@ -133,7 +135,7 @@ running-punch `SetAttack(nil)` path. This matches PS2 VA `0x34b334`.
     FIGHTMODE weapons, `2.0f` otherwise), treat it as a standing victim.
   - Otherwise, fall through to the no-victim path.
   - Skip the `m_nearPeds` scan entirely in this branch, matching PS2 VA
-    `0x1bf580-0x1bf6fc`. The instant rotation (`m_fRotationCur =
+    `0x1bf578-0x1bf6f4`. The instant rotation (`m_fRotationCur =
     m_fRotationDest`) toward this victim is unchanged — now it reliably
     turns toward the locked-on target.
 - **When there's no lock-on target, update the scan's constants to PS2's:**
@@ -171,7 +173,7 @@ running-punch `SetAttack(nil)` path. This matches PS2 VA `0x34b334`.
 
 The WEAPON.DAT range change in §2 affects `m_fRange` readers outside the
 player lock-on path. Port PS2's approach-and-keep-distance math (VA
-`0x31dee0-0x31e690`) so AI melee peds still close to a sensible distance
+`0x31e0b0-0x31e860`) so AI melee peds still close to a sensible distance
 instead of hovering 5 m away at the new 10 m range:
 
 - `wepRange = weaponInfo->m_fRange * 0.5f` (unchanged formula, now fed a
@@ -187,7 +189,7 @@ instead of hovering 5 m away at the new 10 m range:
   for the near case; for the far case (`dist > 5.0f` or no player victim),
   keep `max(0.9f * wepRange, 0.8f)` then `wepRange *= 1.1f` (unchanged
   formula). The exact PS2 behavior for the *near* unarmed case (VA
-  `0x31e104`) needs full decoding during implementation — carry over
+  `0x31e2d4`) needs full decoding during implementation — carry over
   today's `GetMeleeAttackCoords`/`FindMeleeAttackPoint` call there unless
   the decode shows otherwise, and fix the distance passed in if it does.
 - **Remove the `ANIM_STD_FIGHT_SHUFFLE_B` step-back** that reLCS added to
