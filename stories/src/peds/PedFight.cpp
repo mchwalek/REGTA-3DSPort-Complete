@@ -1708,11 +1708,50 @@ CPed::ChooseAttackAI(uint8 buttonPressure, bool fightWithWeapon)
 		return FIGHTMOVE_SHUFFLE_F;
 }
 
+// PS2-faithful unarmed combo-move selection (see
+// docs/superpowers/specs/2026-10-12-melee-lock-on-design.md, Design \u00a73).
+// `comboInProgress` must only be true when `currentMove` is one of the four
+// mid-combo moves (A1/A2/B1/B2) AND its anim association is still live;
+// `currentAnimTime`/`comboFollowOnTime` are only read in that case.
+static PedFightMoves
+ChooseUnarmedComboMove(PedFightMoves currentMove, bool comboInProgress, float currentAnimTime, float comboFollowOnTime, bool hasVictim)
+{
+	if (comboInProgress) {
+		switch (currentMove) {
+			case FIGHTMOVE_COMBO_A1:
+			case FIGHTMOVE_COMBO_A2:
+				if (currentAnimTime <= comboFollowOnTime)
+					return (PedFightMoves)(currentMove + 1);
+				if (comboFollowOnTime > 0.0f)
+					return (PedFightMoves)(currentMove + 3);
+				break;
+			case FIGHTMOVE_COMBO_B1:
+			case FIGHTMOVE_COMBO_B2:
+				if (comboFollowOnTime > 0.0f && currentAnimTime <= comboFollowOnTime)
+					return (PedFightMoves)(currentMove - 3);
+				return (PedFightMoves)(currentMove + 1);
+			default:
+				break;
+		}
+	}
+	return hasVictim ? FIGHTMOVE_COMBO_A1 : FIGHTMOVE_COMBO_A2;
+}
+
+// Finds the live anim association for `move` if it's one of the four
+// mid-combo moves; nil otherwise (fresh attack, or a non-combo move).
+static CAnimBlendAssociation *
+GetComboMoveAssoc(CPed *ped, PedFightMoves move)
+{
+	if (move != FIGHTMOVE_COMBO_A1 && move != FIGHTMOVE_COMBO_A2 && move != FIGHTMOVE_COMBO_B1 && move != FIGHTMOVE_COMBO_B2)
+		return nil;
+	return RpAnimBlendClumpGetAssociation(ped->GetClump(), tFightMoves[move].animId);
+}
+
 int32
 CPed::ChooseAttackPlayer(uint8 buttonPressure, bool fightWithWeapon)
 {
 	CWeaponInfo *weaponInfo = CWeaponInfo::GetWeaponInfo(GetWeapon()->m_eWeaponType);
-	const float maxAttackDist = 2.7f;
+	const float maxAttackDist = 3.5f;
 	float weaponAttackDist = 2.0f;
 	CPed *victimPed = nil;
 	CPed *walkUpTo = nil;
@@ -1721,14 +1760,42 @@ CPed::ChooseAttackPlayer(uint8 buttonPressure, bool fightWithWeapon)
 	if (fightWithWeapon)
 		weaponAttackDist = weaponInfo->m_fRange;
 
-	bool willWalkUp = false;
 	PedFightMoves choosenMove = FIGHTMOVE_IDLE;
 	int numPedsWeCanReach = 0;
-	if (m_takeAStepAfterAttack)
-		willWalkUp = true;
 
 	float groundAttackDeadAngle, groundAttackAliveAngle, walkAngle, victimAngle, distToVictim;
 
+	CPed *lockOnTarget = (m_pPointGunAt && m_pPointGunAt->IsPed()) ? (CPed *)m_pPointGunAt : nil;
+	if (lockOnTarget) {
+		// PS2-faithful: a melee lock-on target is always THE victim, no
+		// near-ped scan at all (matches PS2 ChooseAttackPlayer's lock-on
+		// branch, which reads m_pPointGunAt directly instead of scanning
+		// m_nearPeds).
+		CVector distVec(lockOnTarget->GetPosition() - GetPosition());
+		float dist = distVec.Magnitude();
+		float nearPedAngle = CGeneral::LimitRadianAngle(distVec.Heading());
+
+		if (!lockOnTarget->OnGroundOrGettingUp() && lockOnTarget->m_nWaitState != WAITSTATE_SUN_BATHE_IDLE) {
+			if (dist < weaponAttackDist) {
+				victimPed = lockOnTarget;
+				victimAngle = nearPedAngle;
+				distToVictim = dist;
+			}
+		} else if (CGame::nastyGame && dist < 1.2f) {
+			if (lockOnTarget->DyingOrDead()) {
+				groundAttackDeadPed = lockOnTarget;
+				groundAttackDeadAngle = nearPedAngle;
+			} else if (!lockOnTarget->IsPedHeadAbovePos(-0.3f)) {
+				groundAttackAlivePed = lockOnTarget;
+				groundAttackAliveAngle = nearPedAngle;
+			}
+		}
+		// Falls through to the no-victim/no-ground/no-walkup branches below
+		// (walkUpTo stays nil, numPedsWeCanReach stays 0) when the lock-on
+		// target is too far or otherwise ineligible -- matching the design
+		// spec's "otherwise, fall through to the no-victim path."
+
+	} else {
 	for (int i = 0; i < m_numNearPeds; ++i) {
 		CPed *nearPed = m_nearPeds[i];
 		CVector distVec(nearPed->GetPosition() - GetPosition());
@@ -1741,25 +1808,22 @@ CPed::ChooseAttackPlayer(uint8 buttonPressure, bool fightWithWeapon)
 				neededTurn = TWOPI - neededTurn;
 
 			if (!nearPed->OnGroundOrGettingUp() && nearPed->m_nWaitState != WAITSTATE_SUN_BATHE_IDLE) {
-				if (!willWalkUp || neededTurn <= DEGTORAD(45.0f)) {
+				if (neededTurn <= DEGTORAD(45.0f) || nearPed->m_pedInObjective == this
+					&& (nearPed->m_objective == OBJECTIVE_KILL_CHAR_ON_FOOT || nearPed->m_objective == OBJECTIVE_KILL_CHAR_ANY_MEANS)) {
 
-					if (neededTurn <= DEGTORAD(30.0f) || nearPed->m_pedInObjective == this
-						&& (nearPed->m_objective == OBJECTIVE_KILL_CHAR_ON_FOOT || nearPed->m_objective == OBJECTIVE_KILL_CHAR_ANY_MEANS)) {
+					if (dist < weaponAttackDist) {
+						if (!victimPed
+							|| nearPed->m_attackTimer < victimPed->m_attackTimer && nearPed->m_attackTimer > CTimer::GetTimeInMilliseconds() - 100) {
+							victimPed = nearPed;
+							victimAngle = nearPedAngle;
+							distToVictim = dist;
+						}
+						++numPedsWeCanReach;
 
-						if (dist < weaponAttackDist) {
-							if (!victimPed
-								|| nearPed->m_attackTimer < victimPed->m_attackTimer && nearPed->m_attackTimer > CTimer::GetTimeInMilliseconds() - 100) {
-								victimPed = nearPed;
-								victimAngle = nearPedAngle;
-								distToVictim = dist;
-							}
-							++numPedsWeCanReach;
-							
-						} else {
-							if (neededTurn < DEGTORAD(30.0f)) {
-								walkUpTo = nearPed;
-								walkAngle = nearPedAngle;
-							}
+					} else {
+						if (neededTurn < DEGTORAD(45.0f)) {
+							walkUpTo = nearPed;
+							walkAngle = nearPedAngle;
 						}
 					}
 				}
@@ -1775,17 +1839,15 @@ CPed::ChooseAttackPlayer(uint8 buttonPressure, bool fightWithWeapon)
 				}
 				++numPedsWeCanReach;
 
-			} else if (dist > 1.4f && dist < maxAttackDist && neededTurn < DEGTORAD(30.0f)) {
+			} else if (dist > 2.0f && dist < maxAttackDist && neededTurn < DEGTORAD(30.0f)) {
 				if (!walkUpTo) {
 					walkUpTo = nearPed;
 					walkAngle = nearPedAngle;
 				}
-#ifdef FIX_BUGS
-				if(dist < 2.1f)
-#endif
 				++numPedsWeCanReach;
 			}
 		}
+	}
 	}
 
 	if (victimPed) {
@@ -1804,7 +1866,6 @@ CPed::ChooseAttackPlayer(uint8 buttonPressure, bool fightWithWeapon)
 			if (angleDiff < DEGTORAD(60.0f))
 				dir = 0; // forward
 		}
-		int16 randVal = CGeneral::GetRandomNumber() & 3;
 		switch (dir) {
 			case 0: // forward
 				if (fightWithWeapon) {
@@ -1839,21 +1900,10 @@ CPed::ChooseAttackPlayer(uint8 buttonPressure, bool fightWithWeapon)
 				//} else if (distToVictim < 0.95f && m_nPedState == PED_FIGHT) {
 				//	choosenMove = FIGHTMOVE_KNEE;
 
-				} else if (distToVictim < 1.4f) {
-					// LCS: removed
-					/*if (m_curFightMove == FIGHTMOVE_PUNCHJAB) {
-						choosenMove = FIGHTMOVE_PUNCH;
-
-					} else*/ if (m_curFightMove != FIGHTMOVE_PUNCH || randVal != 1) {
-						//if (randVal == 2)
-							choosenMove = FIGHTMOVE_PUNCH;
-						//else
-						//	choosenMove = FIGHTMOVE_PUNCHJAB;
-					} else {
-						choosenMove = FIGHTMOVE_LONGKICK;
-					}
 				} else {
-					choosenMove = FIGHTMOVE_LONGKICK;
+					CAnimBlendAssociation *curMoveAssoc = GetComboMoveAssoc(this, (PedFightMoves)m_curFightMove);
+					choosenMove = ChooseUnarmedComboMove((PedFightMoves)m_curFightMove, curMoveAssoc != nil,
+						curMoveAssoc ? curMoveAssoc->currentTime : 0.0f, tFightMoves[m_curFightMove].comboFollowOnTime, true);
 				}
 				break;
 /*	LCS: removed
@@ -1929,29 +1979,9 @@ CPed::ChooseAttackPlayer(uint8 buttonPressure, bool fightWithWeapon)
 			}
 		}
 	} else {
-		// Max number GetRandomNumberInRange returns is max-1
-#ifdef FIX_BUGS
-		switch (CGeneral::GetRandomNumberInRange(0,4)) {
-#else
-		switch (CGeneral::GetRandomNumberInRange(0,3)) {
-#endif
-		// LCS: hack hack
-		//	case 0:
-		//		choosenMove = FIGHTMOVE_PUNCHJAB;
-		//		break;
-			default:
-			case 1:
-				choosenMove = FIGHTMOVE_PUNCH;
-				break;
-			case 2:
-				choosenMove = FIGHTMOVE_LONGKICK;
-				break;
-		//	case 3:
-		//		choosenMove = FIGHTMOVE_KNEE;
-		//		break;
-		//	default:
-		//		break;
-		}
+		CAnimBlendAssociation *curMoveAssoc = GetComboMoveAssoc(this, (PedFightMoves)m_curFightMove);
+		choosenMove = ChooseUnarmedComboMove((PedFightMoves)m_curFightMove, curMoveAssoc != nil,
+			curMoveAssoc ? curMoveAssoc->currentTime : 0.0f, tFightMoves[m_curFightMove].comboFollowOnTime, false);
 	}
 	return choosenMove;
 }
