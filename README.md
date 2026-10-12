@@ -10,6 +10,16 @@
 
 # REGTA-3DSPort-Complete
 
+> [!NOTE]
+> **About this fork:** I'm a developer but have no prior experience with C++
+> or 3DS development — this fork is heavily vibecoded, and code quality
+> hasn't been rigorously reviewed. The repo is messy: I started out just
+> wanting a few personal tweaks, then kept finding bugs and inaccuracies
+> that bothered me enough to fix. The goal of this fork is to be as
+> accurate to the PS2 original as possible. Right now I'm only focused on
+> improvements to the Liberty City Stories (`stories`) port — III and
+> Vice City are not an active priority for this fork.
+
 REGTA brings three classic Grand Theft Auto games to New Nintendo 3DS:
 
 - **Grand Theft Auto III**, based on re3 (`III`)
