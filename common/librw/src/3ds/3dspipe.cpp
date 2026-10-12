@@ -46,6 +46,26 @@ destroyNativeData(void *object, int32, int32)
 	return object;
 }
 
+// Old BinMesh strips can reverse individual decal faces at strip joins.
+// Hotring's roof has five such faces; the authored Triangle list is intact.
+// Use that list only for verified overlays, keeping exterior back-face culling
+// and depth tests. Body meshes retain their compact original strips.
+static uint32
+copyDecalTriangles(Geometry *geo, Material *material, uint16 *indices)
+{
+	uint32 count = 0;
+	for(int32 i = 0; i < geo->numTriangles; ++i){
+		const Triangle &triangle = geo->triangles[i];
+		if(triangle.matId >= geo->matList.numMaterials ||
+		   geo->matList.materials[triangle.matId] != material)
+			continue;
+		if(indices)
+			memcpy(indices + count, triangle.v, sizeof(triangle.v));
+		count += 3;
+	}
+	return count;
+}
+
 static InstanceDataHeader*
 instanceMesh(rw::ObjPipeline *rwpipe, Geometry *geo)
 {
@@ -53,6 +73,7 @@ instanceMesh(rw::ObjPipeline *rwpipe, Geometry *geo)
 	MeshHeader *meshh = geo->meshHeader;
 	geo->instData = header;
 	header->platform = PLATFORM_3DS;
+	header->vegetationProxy = findVegetationProxy(geo);
 
 	header->serialNumber = meshh->serialNum;
 	header->numMeshes = meshh->numMeshes;
@@ -72,10 +93,24 @@ instanceMesh(rw::ObjPipeline *rwpipe, Geometry *geo)
 		inst->numIndex = mesh->numIndices;
 		inst->material = mesh->material;
 		inst->vertexAlpha = 0;
+		inst->maxVertexAlpha = 255;
 		inst->program = 0;
+		inst->decalTriangles = 0;
+		if(header->primType == GPU_TRIANGLE_STRIP && geo->triangles &&
+		   isVehicleDecalMaterial(inst->material)){
+			const uint32 count = copyDecalTriangles(geo, inst->material, nil);
+			if(count){
+				header->totalNumIndex = header->totalNumIndex - inst->numIndex + count;
+				inst->numIndex = count;
+				inst->decalTriangles = 1;
+			}
+		}
 		inst->indexBuffer = (uint16*)safeLinearAlloc(inst->numIndex * 2);
 		assert(inst->indexBuffer);
-		memcpy(inst->indexBuffer, mesh->indices, inst->numIndex*2);
+		if(inst->decalTriangles)
+			copyDecalTriangles(geo, inst->material, inst->indexBuffer);
+		else
+			memcpy(inst->indexBuffer, mesh->indices, inst->numIndex*2);
 		mesh++;
 		inst++;
 	}
@@ -99,7 +134,8 @@ instance(rw::ObjPipeline *rwpipe, Atomic *atomic)
 	if(geo->instData){
 		// Already have instanced data, so check if we have to reinstance
 		assert(header->platform == PLATFORM_3DS);
-		if(header->serialNumber != geo->meshHeader->serialNum){
+		if(header->serialNumber != geo->meshHeader->serialNum
+		){
 			// Mesh changed, so reinstance everything
 			freeInstanceData(geo);
 		}
@@ -121,6 +157,26 @@ uninstance(rw::ObjPipeline *rwpipe, Atomic *atomic)
 	assert(0 && "can't uninstance");
 }
 
+static void render(rw::ObjPipeline *rwpipe, Atomic *atomic);
+
+
+static bool32
+meshHasVertexAlpha(const RGBA *colors, const uint16 *indices, uint32 count,
+	uint8 *maxAlpha)
+{
+	// A mesh's min/max range can include vertices belonging to other materials.
+	*maxAlpha = 0;
+	bool32 hasAlpha = 0;
+	for(uint32 i = 0; i < count; ++i)
+	{
+		const uint8 alpha = colors[indices[i]].alpha;
+		if(alpha > *maxAlpha)
+			*maxAlpha = alpha;
+		hasAlpha |= alpha != 255;
+	}
+	return hasAlpha;
+}
+
 static void
 render(rw::ObjPipeline *rwpipe, Atomic *atomic)
 {
@@ -129,8 +185,10 @@ render(rw::ObjPipeline *rwpipe, Atomic *atomic)
 	pipe->instance(atomic);
 	assert(geo->instData != nil);
 	assert(geo->instData->platform == PLATFORM_3DS);
-	if(pipe->renderCB)
-		pipe->renderCB(atomic, (InstanceDataHeader*)geo->instData);
+	InstanceDataHeader *data = (InstanceDataHeader*)geo->instData;
+	if(pipe->renderCB){
+		pipe->renderCB(atomic, data);
+	}
 }
 
 void
@@ -178,7 +236,9 @@ defaultInstanceCB(Geometry *geo, InstanceDataHeader *header, bool32 reinstance)
  		}
 		
 		// Positions
-		ATTRIB(ATTRIB_POS, 3, GPU_FLOAT, float32);
+		{
+			ATTRIB(ATTRIB_POS, 3, GPU_FLOAT, float32);
+		}
 
 		// Normals
 		if(hasNormals){
@@ -232,12 +292,12 @@ defaultInstanceCB(Geometry *geo, InstanceDataHeader *header, bool32 reinstance)
 		InstanceData *inst = header->inst;
 		while(n--){
 			assert(inst->minVert != 0xFFFFFFFF);
-			inst->vertexAlpha =
-			  instColor(VERT_RGBA,
-				    verts + offset + header->stride * inst->minVert,
-				    geo->colors + inst->minVert,
-				    inst->numVertices,
-				    header->stride);
+			instColor(VERT_RGBA,
+			          verts + offset + header->stride * inst->minVert,
+			          geo->colors + inst->minVert,
+			          inst->numVertices, header->stride);
+			inst->vertexAlpha = meshHasVertexAlpha(geo->colors,
+				inst->indexBuffer, inst->numIndex, &inst->maxVertexAlpha);
 			inst++;
 		}
 	}

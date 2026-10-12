@@ -1,6 +1,9 @@
 #include <csignal>
 #define WITHWINDOWS
 #include "common.h"
+#ifdef _3DS
+#include "../../../../common/3ds/PS2GraphicsProfile.h"
+#endif
 #include "FinalMissionMusic.h"
 #if defined DETECT_JOYSTICK_MENU && defined XINPUT
 #include <xinput.h>
@@ -525,6 +528,17 @@ bool LoadINISettings()
 	ReadIniIfExists("Display", "DrawDistance", &FrontEndMenuManager.m_PrefsLOD);
 	ReadIniIfExists("Display", "Subtitles", &FrontEndMenuManager.m_PrefsShowSubtitles);
 	ReadIniIfExists("Graphics", "AspectRatio", &FrontEndMenuManager.m_PrefsUseWideScreen);
+	bool ps2Graphics = PS2Graphics3DS::DefaultEnabled;
+	bool stereoExtendedDepth = true;
+	bool performanceMode2D = false;
+	bool performanceMode3D = false;
+	ReadIniIfExists("Graphics", "PS2Graphics", &ps2Graphics);
+	ReadIniIfExists("Graphics", "StereoExtendedDepth", &stereoExtendedDepth);
+	ReadIniIfExists("Graphics", "PerformanceMode2D", &performanceMode2D);
+	ReadIniIfExists("Graphics", "PerformanceMode3D", &performanceMode3D);
+	rw::c3d::setPS2Graphics(ps2Graphics);
+	rw::c3d::setStereoExtendedDepth(stereoExtendedDepth);
+	rw::c3d::set3DSPerformanceModes(performanceMode2D, performanceMode3D);
 	ReadIniIfExists("Graphics", "FrameLimiter", &FrontEndMenuManager.m_PrefsFrameLimiter);
 #ifdef LEGACY_MENU_OPTIONS
 	ReadIniIfExists("Graphics", "VSync", &FrontEndMenuManager.m_PrefsVsyncDisp);
@@ -634,6 +648,13 @@ void SaveINISettings()
 	StoreIni("Display", "DrawDistance", FrontEndMenuManager.m_PrefsLOD);
 	StoreIni("Display", "Subtitles", FrontEndMenuManager.m_PrefsShowSubtitles);
 	StoreIni("Graphics", "AspectRatio", FrontEndMenuManager.m_PrefsUseWideScreen);
+	StoreIni("Graphics", "PS2Graphics", rw::c3d::ps2GraphicsEnabled() != 0);
+	StoreIni("Graphics", "StereoExtendedDepth",
+	         rw::c3d::stereoExtendedDepthEnabled() != 0);
+	StoreIni("Graphics", "PerformanceMode2D",
+	         rw::c3d::performanceMode2DEnabled() != 0);
+	StoreIni("Graphics", "PerformanceMode3D",
+	         rw::c3d::performanceMode3DEnabled() != 0);
 #ifdef LEGACY_MENU_OPTIONS
 	StoreIni("Graphics", "VSync", FrontEndMenuManager.m_PrefsVsyncDisp);
 	StoreIni("Graphics", "Trails", CMBlur::BlurOn);
@@ -1279,7 +1300,9 @@ re3_wall_time_ms(void)
 void
 re3_stall_log(const char *format, ...)
 {
-#ifdef RW_3DS
+// Synchronous SD writes inside a slow frame can prolong the next frame too.
+// Keep this available for explicit diagnostic builds, not normal gameplay.
+#if defined(RW_3DS) && defined(REGTA_STALL_DIAGNOSTICS)
 	static FILE *stallFile;
 	if(stallFile == nil){
 		stallFile = fopen("perf_stalls.log", "a");

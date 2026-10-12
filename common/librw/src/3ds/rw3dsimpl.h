@@ -1,5 +1,6 @@
 namespace rw {
 namespace c3d {
+inline void profileRecordDraw(uint32, ProfileDrawClass) {}
 
 #ifdef RW_3DS
 
@@ -14,14 +15,25 @@ void im2DRenderPrimitive(PrimitiveType primType,
 void im2DRenderIndexedPrimitive(PrimitiveType primType,
    void *vertices, int32 numVertices, void *indices, int32 numIndices);
 void im2DRenderBlit();
+void im2DRenderPS2Overlay(C3D_Tex *texture, float32 red, float32 green, float32 blue,
+	float32 alpha, float32 offsetX, float32 offsetY);
   
 void openIm3D(void);
 void closeIm3D(void);
+void closePS2SilhouetteRenderer(void);
 void im3DTransform(void *vertices, int32 numVertices, Matrix *world, uint32 flags);
 void im3DRenderPrimitive(PrimitiveType primType);
 void im3DRenderIndexedPrimitive(PrimitiveType primType, void *indices, int32 numIndices);
 void im3DEnd(void);
 
+/* The upper screen uses a vertically stacked pair of render targets.  World
+ * geometry selects an eye projection as well as its viewport; 2D overlays
+ * only select the viewport so they remain on the screen plane. */
+bool32 stereoRenderActive(void);
+int32 stereoRenderPassCount(void);
+int32 stereoRenderEye(int32 pass);
+void setStereoEye(int32 eye);
+void setStereoEyeViewport(int32 eye);
 struct DisplayMode
 {
   int wide_mode;

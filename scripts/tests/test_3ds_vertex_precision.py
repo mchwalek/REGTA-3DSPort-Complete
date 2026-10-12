@@ -43,21 +43,21 @@ class VertexPrecision(unittest.TestCase):
     def test_world_translation_is_camera_relative_and_low_error(self):
         source = DEVICE_CPP.read_text()
 
-        set_world_matrix = function(source, 'setWorldMatrix(Matrix *mat)')
+        set_world_matrix = function(source, 'setWorldMatrix(Matrix *mat, float positionScale)')
         world_translation = between(
             set_world_matrix,
-            'uniformObject.world.r[0].w = raw.pos.x - cameraPosition.x;',
-            'uniformObject.world.r[2].w = raw.pos.z - cameraPosition.z;')
+            'world.r[0].w = raw.pos.x - cameraWorldOrigin.x * raw.posw;',
+            'world.r[2].w = raw.pos.z - cameraWorldOrigin.z * raw.posw;')
 
         begin_update = function(source, 'beginUpdate(Camera *cam)')
         camera_capture = between(
             begin_update,
-            'cameraPosition = cam->getFrame()->getLTM()->pos;',
-            'cameraPosition = cam->getFrame()->getLTM()->pos;')
+            'cameraWorldOrigin = cam->getFrame()->getLTM()->pos;',
+            'cameraWorldOrigin = cam->getFrame()->getLTM()->pos;')
         view_translation = between(
             begin_update,
             'view.r[0].w = 0.0f;',
-            'view.r[3].w = 1.0f;')
+            'view.r[3].w =  1.0f;')
 
         stub = r'''
 #include <cassert>
@@ -69,14 +69,14 @@ class VertexPrecision(unittest.TestCase):
 struct V3d { float x, y, z; };
 struct Vec4 { float x, y, z, w; };
 struct Mtx { Vec4 r[4]; };
-struct RawMatrix { V3d pos; };
+struct RawMatrix { V3d pos; float posw; };
 struct LTM { V3d pos; };
 struct Frame { LTM ltm; LTM *getLTM() { return &ltm; } };
 struct Camera { Frame frame; Frame *getFrame() { return &frame; } };
 
-static V3d cameraPosition;
+static V3d cameraWorldOrigin;
 static RawMatrix raw;
-static struct { Mtx world; } uniformObject;
+static Mtx world;
 
 /* Round a float32 to PICA200's float24 format: 1 sign + 7 exponent + 16
  * mantissa bits. Round-to-nearest over the 7 dropped mantissa bits. */
@@ -139,7 +139,7 @@ int main() {
 	cam.frame.ltm.pos = V3d{1234.5f, 0.0f, 0.0f};
 	Mtx view;
 	simulateBeginUpdateTranslation(&cam, view);
-	assert(cameraPosition.x == 1234.5f);
+	assert(cameraWorldOrigin.x == 1234.5f);
 	assert(view.r[0].w == 0.0f);
 	assert(view.r[1].w == 0.0f);
 	assert(view.r[2].w == 0.0f);
@@ -149,8 +149,9 @@ int main() {
 	 * translation, so only the small camera-relative delta ever reaches
 	 * the float24 uniform. */
 	raw.pos = V3d{1250.5003662109375f, 0.0f, 0.0f};
+	raw.posw = 1.0f;
 	simulateWorldTranslation();
-	float delta = uniformObject.world.r[0].w;
+	float delta = world.r[0].w;
 	float rounded_delta = round_float24(delta);
 	float error_after_mm = std::fabs(rounded_delta - delta) * 1000.0f;
 	assert(error_after_mm < 0.2f);

@@ -18,15 +18,16 @@ REGTA brings three classic Grand Theft Auto games to New Nintendo 3DS:
   [reStories/reLCS](https://github.com/knackers4/res) (`stories`)
 
 Trailer：https://youtu.be/fBzzLx0BX5M
+https://youtu.be/M6l40wRYKgA
 
 Build any of the three games from this repository. Each has a full lower-screen
 interface, touch controls, Nintendo button prompts and a cheat-code keyboard.
 
 > [!IMPORTANT]
 > Build the ports yourself and provide your own game data: PC GTA III or Vice
-> City, or converted PS2 Liberty City Stories. Full game data, executables and
-> the devkitARM toolchain are not included. Runtime overrides and finished HOME
-> Menu artwork are included.
+> City, or converted PS2 Liberty City Stories. 
+> Game streaming performance is affected by the SD card;
+> please use a high-quality, stable SD card.
 
 ## The games today
 
@@ -34,7 +35,7 @@ interface, touch controls, Nintendo button prompts and a cheat-code keyboard.
 
 - Dark-blue lower-screen interface.
 - Faster loading and smoother streaming.
-- Removed motion blur; fixed vehicle materials and several crashes.
+- Optional PS2-inspired colour, fog and softness; fixed vehicle materials and several crashes.
 - Final-mission music: 'push it to the limit'.
 
 Tested on New Nintendo 3DS. Busy scenes can still drop frames.
@@ -101,7 +102,7 @@ REGTA-3DSPort-Complete/
 ├── scripts/      setup, build, layout-check and 3DSX install helpers
 ├── packaging/    CIA scripts and finished CGFX banners, audio and icons
 ├── tools/        shared host-side utilities
-└── docs/         historical implementation and verification notes
+└── docs/         implementation, research and verification notes
 ```
 
 Keep the repository layout and symbolic links intact, even when building only
@@ -597,6 +598,8 @@ All three games use Nintendo button labels and the same basic controls:
 - C-stick controls the camera.
 - ABXY, L/R and ZL/ZR are mapped to the games' native actions.
 - START pauses and SELECT cycles the gameplay camera.
+- Menus accept both the D-pad and Circle Pad. During gameplay, the D-pad
+  controls graphics settings; script selections use the Circle Pad.
 - The lower screen presents loading progress, radar/status information and
   contextual touch controls.
 - Touch the lower screen once to reveal the overlay. The first touch only
@@ -608,7 +611,127 @@ All three games use Nintendo button labels and the same basic controls:
 Some actions differ between games; follow the in-game tutorials and button
 prompts for those.
 
+### PS2 Graphics
+
+**PS2 Graphics** is a separate switch in Options → Display settings,
+**on by default**, and works with Flat/Stereo and Quality/Performance. Existing saved
+choices are respected; restoring display defaults enables it. The same
+setting is stored as `PS2Graphics=0` or `PS2Graphics=1` under `[Graphics]` in the
+corresponding game's INI file.
+
+This mode combines time/weather colour grading, distance fog, subtle motion
+trails and edge softness with shorter rendering/detail ranges. Random traffic
+occupants fade in closer than the high-detail vehicle;
+player and mission vehicles retain their occupants. HUD text stays sharp and
+each Stereo eye is processed independently.
+
+It is a PS2-inspired 3DS profile, not a bit-exact PS2 renderer. Its range settings
+are tuned 3DS budgets, not measured PS2-to-PC ratios. Visual tuning incorporates
+physical-console feedback; performance still depends on the scene and profile.
+
 ## Changelog
+
+### October 6, 2026
+
+- Rebound LCS persistent gate script handles after loading legacy object graphs, using the authored model and position. Object movement commands now suspend safely on missing operands, and pool lookups reject invalid/free handles.
+- Applied the LCS vehicle material pipeline to detached optional components, including the Stallion roof, so they no longer use the unstable legacy vertex lighting path.
+
+- Fixed vehicle decals showing through doors and bodywork in all three games; depth bias now follows camera distance and exterior overlays cull their back faces.
+- Restored Vice City's complete Hotring roof numbers: verified vehicle overlays now use the authored triangle list instead of strips with reversed faces. Body meshes keep their original strips.
+- Moved legacy D-pad gameplay and mission-script directions to the Circle Pad in all three games, including weapon/race selection and LCS outfits. Kept analog movement and steering, corrected old direction prompts, and reserved the gameplay D-pad for graphics controls. Menus retain both D-pad and Circle Pad navigation.
+- Reduced moving-model polygon jitter and rotating vehicle decal flicker in all three games by calculating camera-relative model-view matrices on the CPU before float24 vertex processing. Based on the precision fix linked in [issue #10](https://github.com/Epic0522/REGTA-3DSPort-Complete/issues/10).
+
+### October 4, 2026
+
+- Fixed PS2 fog disappearing after building fades or shader changes, most noticeable at some camera angles in LCS Stereo; fog and transparency now share one final render stage in all three games.
+
+### October 3, 2026
+
+- Fixed Vice City's Rub Out cutscenes selecting unrelated same-name mission dialogue WAVs; converted audio preference now applies only to stock radio, ambience and announcements.
+- Added an independent, default-on PS2 Graphics switch to all three games,
+  available in both Flat and Stereo, Quality and Performance.
+- Added time/weather colour grading, distance fog, subtle frame trails and edge softness; foreground stays clear, distant scenery fades into fog and HUD text stays sharp.
+- Fixed a shutdown wait that could leave HOME Menu stuck on Closing after suspending the game; textures are released after submitted GPU work finishes, without waiting for another screen refresh.
+- PS2 Graphics keeps 83% of the normal world range in III, 80% in VC and 76% in LCS, with high-detail ranges at 85%; distant solid buildings gradually use an untextured silhouette material, while glass and cut-out surfaces keep their authored transparency.
+- Kept more foreground colour in LCS with a gentler screen filter, while retaining the distant fog's blue tint. VC/LCS switch distant buildings to silhouettes earlier than III.
+- Kept a closer fade-in range for random traffic occupants.
+- Kept LCS's low-detail island outlines beyond the ordinary building budget and capped distant haze opacity, with a gradual building fade at the budget edge.
+- Removed LCS's pedestrian/car density sliders from the 3DS settings.
+- Prioritised nearby off-screen traffic while on foot, freeing distant unseen civilian traffic slots without raising population limits or changing driving spawns.
+
+### September 25, 2026
+
+- Made draw distance recover much faster after frame pressure falls; switching from Stereo to Flat
+  now restores the full world immediately and measures Flat mode again from a clean history.
+- Kept building window lights and other attached 2D lighting effects hidden whenever their carrier
+  model is outside its current adaptive LOD range in all three games.
+- Bound separate night-window geometry to the actual high-detail or LOD buildings beneath it in all
+  three games, preventing illuminated window polygons from remaining visible over an empty section of world.
+- Fixed LCS building handoff gaps by keeping each low-detail instance visible until its matching
+  high-detail map entity has completed its fade and is ready to render fully opaque.
+- Kept LCS Stereo light carriers resident under adaptive pressure, and made moving lamp shadows use
+  elapsed game time between rendered frames so Stereo frame skipping cannot slow their movement or fade.
+- Handed garage, safehouse, fixed, scripted and cutscene cameras fully back to the original camera
+  system in all three games. LCS script teleports retain their native camera restore or jump cut for the
+  complete frame, and the custom follow camera is rebased only after the original shot ends.
+- Kept the vehicle being entered or exited out of normal follow-camera obstacle queries so close entry
+  angles can orbit continuously into the rear follow view instead of stalling beside the body and jumping.
+
+### September 24, 2026
+
+#### Stereo and display
+
+- Added stereoscopic 3D to all three games, with **Flat** and **Stereo** display modes.
+- Added separate **Quality** and **Performance** profiles for both display modes.
+- Added Normal View and Extended Depth options for Stereo mode.
+- Added a clear on-screen summary when changing the display mode, quality profile or depth.
+- Repeated profile inputs now show the current selection without rewriting the INI file.
+- Corrected HUD, location, vehicle, radio and help-text timing while Stereo mode is active.
+- Restored smooth fades for distant buildings, vegetation, vehicles and pedestrians.
+- Made vegetation LOD fades complete once triggered instead of remaining as a stationary
+  half-billboard, half-mesh blend at the switching boundary.
+- Extended the high-detail vegetation range in both Flat profiles to reduce visible model changes.
+- Fixed vehicle glass and transparent materials disappearing in Stereo mode.
+
+#### Performance and rendering
+
+- Added adaptive frame pacing for steadier movement when a scene cannot sustain its full frame rate.
+- Draw distance in both Flat and Stereo now follows recent missed-frame frequency, reducing the overall
+  world range first and shortening distant high-detail models only if pressure remains high.
+- Reduced CPU and GPU work shared by both eyes instead of repeating unchanged scene preparation.
+- Reduced geometry submission, texture changes and material-state overhead in busy scenes.
+- Improved skinned-character, immediate-mode and MatFX rendering on the 3DS GPU.
+- Added load-aware budgets for distant traffic, pedestrians, particles, lights, shadows and small effects.
+- Prioritised the player, mission actors and nearby vehicles when the scene is under pressure.
+- Reduced the cost of high-detail vehicles while preserving their reflections and visible body parts.
+- Refined building and vehicle LOD ranges to keep nearby detail while reducing distant rendering cost.
+- Improved vegetation batching and fading without shortening objects that have no lower-detail model.
+- Restored GTA III's original light-blue colour filter in Stereo mode.
+- Removed detailed profiling and CSV logging from production builds.
+
+#### Camera
+
+- Added smooth transitions between pedestrian, vehicle, top-down, bonnet and cinematic cameras.
+- Kept the player or vehicle framed while changing camera height, angle and follow distance.
+- Smoothed vehicle entry, exit, carjacking, knockdown and other game-controlled camera movements.
+- Prevented exit cameras from settling at extreme low angles or behind the vehicle and nearby scenery.
+- Prevented rapid spins, excessive tilt and abrupt distance changes during camera hand-offs.
+- Manual camera input now takes control immediately during a transition, then settles at the selected
+  near, middle or far follow distance.
+- Camera rotation now stops at solid obstacles instead of pushing the viewpoint through them.
+- Only geometry touching the camera is faded, preventing unrelated scenery in front of the player
+  from disappearing.
+- Vehicles and occupants now fade smoothly during close bonnet and cinematic transitions.
+
+#### Stability and installation
+
+- Improved audio streaming and prefetching to reduce radio, station-change and ambient-audio stalls.
+- Improved renderer and audio shutdown when returning to HOME or powering off from a game.
+- Added a startup integrity check for every replacement file supplied by this project.
+- Supplied replacements must match their exact size and SHA-256; missing or modified files stop
+  startup and identify the affected path.
+- Original game data and player-converted audio remain compatible across supported source versions
+  and are checked for usability rather than one fixed checksum.
 
 ### Shared New Nintendo 3DS platform
 
@@ -845,3 +968,5 @@ This project is not affiliated with Rockstar Games or Take-Two Interactive.
 The full original games are not included. The selected overrides and HOME Menu
 artwork do not replace the required game data. Please keep the upstream credits
 and follow the licences of the code you use.
+
+Special thanks: Aria, she is cute.

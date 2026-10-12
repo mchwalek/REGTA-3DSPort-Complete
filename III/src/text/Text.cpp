@@ -120,6 +120,12 @@ wchar*
 CText::Get(const char *key)
 {
 #ifdef _3DS
+	if(strcmp(key, "F3PS2") == 0) {
+		static wchar label[] = {'P','S','2',' ','G','r','a','p','h','i','c','s',0};
+		return label;
+	}
+#endif
+#ifdef _3DS
 	if (strcmp(key, "F3BGM") == 0) {
 		static wchar label[] = { 'F','I','N','A','L',' ','M','I','S','S','I','O','N',' ','B','G','M',0 };
 		return label;
@@ -133,15 +139,16 @@ CText::Get(const char *key)
 #endif
 #ifdef _3DS
 	if(CMenuManager::m_PrefsLanguage == CMenuManager::LANGUAGE_AMERICAN) {
-		static const char *keys[] = { "FEC_SM3", "FEC_RS3", "FEC_HO3", "FEC_R3", "HORN1" };
+		static const char *keys[] = { "FEC_SM3", "FEC_RS3", "FEC_HO3", "FEC_R3", "HORN1", "CAM_B" };
 		static const char *texts[] = {
 			"Special mission trigger (TOUCH, THEN TAP R3)",
 			"Radio station cycle (TOUCH, THEN TAP L3)",
 			"Horn (TOUCH, THEN TAP L3)",
 			"(TOUCH, THEN TAP R3)",
 			"~h~TOUCH, THEN TAP L3~w~ to activate the ~h~horn.",
+			"Press ~h~SELECT~w~ to change ~h~camera~w~ modes when on foot or in a vehicle.",
 		};
-		static wchar translated[ARRAY_SIZE(keys)][64];
+		static wchar translated[ARRAY_SIZE(keys)][128];
 		static bool initialized;
 		if(!initialized) {
 			for(uint32 i = 0; i < ARRAY_SIZE(keys); i++) {

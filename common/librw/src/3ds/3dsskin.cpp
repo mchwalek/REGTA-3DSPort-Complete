@@ -304,7 +304,10 @@ skinRenderCB(Atomic *atomic, InstanceDataHeader *header)
 	transformGeometry(atomic, header, frameBuffer);
 	GSPGPU_FlushDataCache(frameBuffer, bufferSize);
 	header->vertexBuffer = frameBuffer;
-	genAttribPointers(header);
+	// The layout and stride have not changed, only the per-instance address.
+	// Keep the original binding for the next instance/destruction.
+	const u32 sharedOffset = header->vbo.buffers[0].offset;
+	header->vbo.buffers[0].offset = osConvertVirtToPhys(frameBuffer) - header->vbo.base_paddr;
 	
 	setWorldMatrix(atomic->getFrame()->getLTM());
 	setAttribPointers(header);
@@ -316,11 +319,29 @@ skinRenderCB(Atomic *atomic, InstanceDataHeader *header)
 	while(n--){
 		mat = inst->material;
 		setMaterialColor(flags, mat->color);
-		C3D_TexEnvColor(C3D_GetTexEnv(0), packTevMaterialColor(mat->color));
+		C3D_SetTexEnvColor(0, packTevMaterialColor(mat->color));
+#if !defined(RE3_3DS_BUILD) && !defined(RESTORIES_3DS_BUILD)
+		/* VC's PC pedestrian atlases can contain unstable reduced mip levels:
+		 * level 0 is clean, while pale blocks begin to shimmer as the sampler
+		 * selects progressively smaller levels.  GTA III's ordinary peds use
+		 * rigid atomics and LCS ships a different skin/texture set.  Restrict
+		 * this workaround to VC skinned actors and retain the source texture at
+		 * full resolution; crowd limits keep the bandwidth cost bounded. */
+		if(mat->texture && mat->texture->raster){
+			C3DRaster *skinRaster = GETC3DRASTEREXT(mat->texture->raster);
+			if(skinRaster && skinRaster->tex){
+				skinRaster->tex->minLevel = 0;
+				skinRaster->tex->maxLevel = 0;
+			}
+		}
+#endif
 		setTexture(0, mat->texture);
 
 		rw::SetRenderState(VERTEXALPHA, inst->vertexAlpha || mat->color.alpha != 0xFF);
-		drawInst_simple(header, inst);
+		if(getEntityRenderStyle().opacity < 1.f)
+			drawInst(header, inst, PROFILE_DRAW_SKIN);
+		else
+			drawInst_simple(header, inst, PROFILE_DRAW_SKIN);
 		inst++;
 	}
 
@@ -328,7 +349,7 @@ skinRenderCB(Atomic *atomic, InstanceDataHeader *header)
 	 * overflow fallback.  C3D_SetBufInfo has already copied this draw's address
 	 * into the command buffer. */
 	header->vertexBuffer = sharedBuffer;
-	genAttribPointers(header);
+	header->vbo.buffers[0].offset = sharedOffset;
 #ifdef RE3_3DS_BUILD
 	C3D_FrameSplit(0);
 #endif

@@ -34,6 +34,7 @@
 #include "PathFind.h"
 #include "Wanted.h"
 #include "General.h"
+#include "main.h"
 
 #ifdef GTA_PS2
 #include "eetypes.h"
@@ -121,6 +122,12 @@ Open3DSCheatKeyboard(CPad *pad)
 			pad->AddToPCCheatString(*c);
 	}
 }
+}
+
+bool
+CPad::Is3DSMenuInputActive()
+{
+	return FrontEndMenuManager.m_bMenuActive;
 }
 
 #ifdef ENABLE_3DS_BOTTOM_RADAR
@@ -1170,6 +1177,14 @@ void CPad::AffectFromXinput(uint32 pad)
 
 #ifdef _3DS
 static void
+ShowStereoSetting(const char *setting)
+{
+	static wchar message[80];
+	AsciiToUnicode(setting, message);
+	CHud::SetHelpMessage(message, true);
+}
+
+static void
 Apply3DSRadialDeadzone(float &x, float &y, float deadzone)
 {
 	float magnitude = Sqrt(x*x + y*y);
@@ -1199,9 +1214,9 @@ void CPad::AffectFrom3DS()
 
 	hidScanInput();
 	held = hidKeysHeld();
-#ifdef ENABLE_3DS_BOTTOM_RADAR
 	down = hidKeysDown();
 	up = hidKeysUp();
+#ifdef ENABLE_3DS_BOTTOM_RADAR
 	u64 now = osGetTime();
 	g3DSTouchCameraDX = 0;
 	g3DSTouchCameraDY = 0;
@@ -1236,7 +1251,6 @@ void CPad::AffectFrom3DS()
 		g3DSTouchActiveZone = TOUCH_ZONE_NONE;
 	}
 #else
-	(void)down;
 	(void)up;
 	hidTouchRead(&touch);
 #endif
@@ -1252,6 +1266,36 @@ void CPad::AffectFrom3DS()
 	}
 	hidCircleRead(&thumbL);
 	hidCstickRead(&thumbR);
+	const bool profileControls = !FrontEndMenuManager.m_bMenuActive && FindPlayerPed() != nil;
+	const bool stereoControls = profileControls && rw::c3d::stereoControlsActive();
+	static bool profileWasAvailable = false;
+	static bool previousStereo = false;
+	if(profileControls){
+		const bool old2D = rw::c3d::performanceMode2DEnabled();
+		const bool old3D = rw::c3d::performanceMode3DEnabled();
+		const bool oldDepth = rw::c3d::stereoExtendedDepthEnabled();
+		rw::c3d::handle3DSPerformanceDPad(down);
+		const bool switchedDisplay = profileWasAvailable && previousStereo != stereoControls;
+		if(switchedDisplay || (down & (KEY_DLEFT | KEY_DRIGHT)) ||
+		   (stereoControls && (down & (KEY_DUP | KEY_DDOWN)))) {
+			char setting[80];
+			snprintf(setting, sizeof(setting), "%s %s%s%s",
+				stereoControls ? "Stereo" : "Flat",
+				rw::c3d::performanceModeActive() ? "Performance" : "Quality",
+				stereoControls ? "~n~" : "",
+				stereoControls ? (rw::c3d::stereoExtendedDepthEnabled() ? "Extended Depth" : "Normal View") : "");
+			ShowStereoSetting(setting);
+		}
+#ifdef LOAD_INI_SETTINGS
+		// Repeating the selected preset only refreshes its hint, without SD I/O.
+		if(old2D != bool(rw::c3d::performanceMode2DEnabled()) ||
+		   old3D != bool(rw::c3d::performanceMode3DEnabled()) ||
+		   oldDepth != bool(rw::c3d::stereoExtendedDepthEnabled()))
+			SaveINISettings();
+#endif
+		previousStereo = stereoControls;
+	}
+	profileWasAvailable = profileControls;
 
 	/* libctru uses the Nintendo labels printed on the shell.  Match those
 	 * labels directly, as reVC does, so gameplay and ~k~ help text agree. */
@@ -1261,10 +1305,10 @@ void CPad::AffectFrom3DS()
 	PCTempJoyState.Circle		= ((held & KEY_X) || (standardAimOnFoot && (held & KEY_L))) ? 255 : 0;
 	PCTempJoyState.Square		= (held & KEY_B)      ? 255 : 0;
 	PCTempJoyState.Triangle		= (held & KEY_Y)      ? 255 : 0;
-	PCTempJoyState.DPadDown		= (held & KEY_DDOWN)  ? 255 : 0;
-	PCTempJoyState.DPadLeft		= (held & KEY_DLEFT)  ? 255 : 0;
-	PCTempJoyState.DPadRight	= (held & KEY_DRIGHT) ? 255 : 0;
-	PCTempJoyState.DPadUp		= (held & KEY_DUP)    ? 255 : 0;
+	PCTempJoyState.DPadDown		= (!profileControls && (held & KEY_DDOWN))  ? 255 : 0;
+	PCTempJoyState.DPadLeft		= (!profileControls && (held & KEY_DLEFT))  ? 255 : 0;
+	PCTempJoyState.DPadRight	= (!profileControls && (held & KEY_DRIGHT)) ? 255 : 0;
+	PCTempJoyState.DPadUp		= (!profileControls && (held & KEY_DUP))    ? 255 : 0;
 	PCTempJoyState.LeftShoulder1	= (!standardAimOnFoot && (held & KEY_L)) ? 255 : 0;
 	PCTempJoyState.LeftShoulder2	= (held & KEY_ZL)     ? 255 : 0;
 	PCTempJoyState.RightShoulder1	= (held & KEY_R)      ? 255 : 0;
@@ -1828,7 +1872,11 @@ int16 CPad::GetCarGunUpDown(void)
 
 		case 3:
 		{
+#ifdef _3DS
+			return -NewState.LeftStickY;
+#else
 			return (NewState.DPadUp - NewState.DPadDown) / 2;
+#endif
 
 			break;
 		}
@@ -1855,7 +1903,11 @@ int16 CPad::GetCarGunLeftRight(void)
 
 		case 3:
 		{
+#ifdef _3DS
+			return NewState.LeftStickX;
+#else
 			return (NewState.DPadRight - NewState.DPadLeft) / 2;
+#endif
 
 			break;
 		}
@@ -2371,7 +2423,7 @@ bool CPad::CycleCameraModeUpJustDown(void)
 
 		case 1:
 		{
-			return !!(NewState.DPadUp && !OldState.DPadUp);
+			return GetDPadUpJustDown();
 
 			break;
 		}
@@ -2395,7 +2447,7 @@ bool CPad::CycleCameraModeDownJustDown(void)
 
 		case 1:
 		{
-			return !!(NewState.DPadDown && !OldState.DPadDown);
+			return GetDPadDownJustDown();
 
 			break;
 		}
@@ -2514,10 +2566,28 @@ bool CPad::TargetJustDown(void)
 	return false;
 }
 
+#ifdef _3DS
+static bool gSuppressJumpUntilButtonRelease;
+
+void
+CPad::SuppressJumpUntilButtonRelease(void)
+{
+	gSuppressJumpUntilButtonRelease = true;
+}
+#endif
+
 bool CPad::JumpJustDown(void)
 {
 	if ( ArePlayerControlsDisabled() )
 		return false;
+
+#ifdef _3DS
+	if(gSuppressJumpUntilButtonRelease){
+		if(!NewState.Square)
+			gSuppressJumpUntilButtonRelease = false;
+		return false;
+	}
+#endif
 
 	return !!(NewState.Square && !OldState.Square);
 }
@@ -2569,6 +2639,10 @@ bool CPad::ShiftTargetRightJustDown(void)
 // FIX: fixes from VC for the bug of double switching the controller setup
 bool CPad::GetAnaloguePadUp(void)
 {
+#ifdef _3DS
+	// Share one edge with legacy directions: frontends OR both accessors.
+	return GetDPadUpJustDown();
+#else
 	static int16 oldfStickY = 0;
 
 	int16 leftStickY = CPad::GetPad(0)->GetLeftStickY();
@@ -2583,10 +2657,15 @@ bool CPad::GetAnaloguePadUp(void)
 		oldfStickY = leftStickY;
 		return false;
 	}
+#endif
 }
 
 bool CPad::GetAnaloguePadDown(void)
 {
+#ifdef _3DS
+	// Share one edge with legacy directions: frontends OR both accessors.
+	return GetDPadDownJustDown();
+#else
 	static int16 oldfStickY = 0;
 
 	int16 leftStickY = CPad::GetPad(0)->GetLeftStickY();
@@ -2601,10 +2680,15 @@ bool CPad::GetAnaloguePadDown(void)
 		oldfStickY = leftStickY;
 		return false;
 	}
+#endif
 }
 
 bool CPad::GetAnaloguePadLeft(void)
 {
+#ifdef _3DS
+	// Share one edge with legacy directions: frontends OR both accessors.
+	return GetDPadLeftJustDown();
+#else
 	static int16 oldfStickX = 0;
 
 	int16 leftStickX = CPad::GetPad(0)->GetLeftStickX();
@@ -2619,10 +2703,15 @@ bool CPad::GetAnaloguePadLeft(void)
 		oldfStickX = leftStickX;
 		return false;
 	}
+#endif
 }
 
 bool CPad::GetAnaloguePadRight(void)
 {
+#ifdef _3DS
+	// Share one edge with legacy directions: frontends OR both accessors.
+	return GetDPadRightJustDown();
+#else
 	static int16 oldfStickX = 0;
 
 	int16 leftStickX = CPad::GetPad(0)->GetLeftStickX();
@@ -2637,10 +2726,14 @@ bool CPad::GetAnaloguePadRight(void)
 		oldfStickX = leftStickX;
 		return false;
 	}
+#endif
 }
 
 bool CPad::GetAnaloguePadLeftJustUp(void)
 {
+#ifdef _3DS
+	return GetDPadLeftJustUp();
+#else
 	static int16 oldfStickX = 0;
 
 	int16 X = GetPad(0)->GetPedWalkLeftRight();
@@ -2657,10 +2750,14 @@ bool CPad::GetAnaloguePadLeftJustUp(void)
 
 		return false;
 	}
+#endif
 }
 
 bool CPad::GetAnaloguePadRightJustUp(void)
 {
+#ifdef _3DS
+	return GetDPadRightJustUp();
+#else
 	static int16 oldfStickX = 0;
 
 	int16 X = GetPad(0)->GetPedWalkLeftRight();
@@ -2677,6 +2774,7 @@ bool CPad::GetAnaloguePadRightJustUp(void)
 
 		return false;
 	}
+#endif
 }
 
 #else

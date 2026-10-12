@@ -1,4 +1,7 @@
 #include "common.h"
+#ifdef _3DS
+#include "../../../../common/3ds/PS2GraphicsProfile.h"
+#endif
 #include <time.h>
 #include "rpmatfx.h"
 #include "rphanim.h"
@@ -81,6 +84,9 @@
 #include "custompipes.h"
 #include "screendroplets.h"
 #include "MemoryHeap.h"
+#ifdef _3DS
+#include <3ds/os.h>
+#endif
 #if defined(_3DS) && (defined(ENABLE_3DS_BOTTOM_LOADING) || defined(ENABLE_3DS_BOTTOM_RADAR))
 #include <3ds.h>
 #endif
@@ -1794,7 +1800,12 @@ if(gbRenderFadingInEntities)
 	CParticle::Render();
 	CPacManPickups::Render();
 	CWeaponEffects::Render();
+#ifdef _3DS
+	if(!rw::c3d::stereoControlsActive())
+		CPointLights::RenderFogEffect();
+#else
 	CPointLights::RenderFogEffect();
+#endif
 	CMovingThings::Render();
 	CRenderer::RenderFirstPersonVehicle();
 }
@@ -1852,21 +1863,43 @@ RenderEffects(void)
 	CSpecialFX::Render();
 	CShadows::RenderStaticShadows();
 	CShadows::RenderStoredShadows();
+#ifdef _3DS
+	const bool performanceProfile = rw::c3d::performanceModeActive();
+	CSkidmarks::Render();
+	if(!performanceProfile && !rw::c3d::stereoControlsActive()){
+		CAntennas::Render();
+	}
+	CRubbish::Render();
+#else
 	CSkidmarks::Render();
 	CAntennas::Render();
 	CRubbish::Render();
+#endif
 	CCoronas::Render();
 	CParticle::Render();
 	CPacManPickups::Render();
 	CWeaponEffects::Render();
+#ifdef _3DS
+	if(!rw::c3d::stereoControlsActive())
+		CPointLights::RenderFogEffect();
+#else
 	CPointLights::RenderFogEffect();
+#endif
+#ifdef _3DS
+	if(!performanceProfile)
+		CMovingThings::Render();
+#else
 	CMovingThings::Render();
+#endif
 	CRenderer::RenderFirstPersonVehicle();
 }
 
 void
 Render2dStuff(void)
 {
+#ifdef _3DS
+	rw::c3d::renderPS2Graphics(PS2Graphics3DS::GTAIII, CTimeCycle::GetBlurRed(), CTimeCycle::GetBlurGreen(), CTimeCycle::GetBlurBlue(), CTimeCycle::GetBlurAlpha());
+#endif
 	RwRenderStateSet(rwRENDERSTATEZTESTENABLE, (void*)FALSE);
 	RwRenderStateSet(rwRENDERSTATEZWRITEENABLE, (void*)FALSE);
 	RwRenderStateSet(rwRENDERSTATEVERTEXALPHAENABLE, (void*)TRUE);
@@ -1952,13 +1985,42 @@ Render2dStuffAfterFade(void)
 	DisplayGameDebugText();
 #endif
 
+
+
 	CHud::DrawAfterFade();
 	CFont::DrawFonts();
+}
+
+static float
+Apply3DSFarClipProfile(float farClip)
+{
+#ifdef _3DS
+	if(rw::c3d::ps2GraphicsEnabled())
+		rw::c3d::preparePS2GraphicsColour(PS2Graphics3DS::GTAIII, CTimeCycle::GetBlurRed(), CTimeCycle::GetBlurGreen(), CTimeCycle::GetBlurBlue(), CTimeCycle::GetBlurAlpha());
+	return PS2Graphics3DS::FarClip(farClip, rw::c3d::adaptiveWorldRangeScale(),
+		rw::c3d::ps2GraphicsEnabled(), PS2Graphics3DS::GTAIII);
+#else
+	return farClip;
+#endif
+}
+
+static float
+Apply3DSFogProfile(float fogStart)
+{
+#ifdef _3DS
+	return PS2Graphics3DS::FogStart(fogStart, Apply3DSFarClipProfile(CTimeCycle::GetFarClip()),
+		rw::c3d::adaptiveWorldRangeScale(), rw::c3d::ps2GraphicsEnabled());
+#else
+	return fogStart;
+#endif
 }
 
 void
 Idle(void *arg)
 {
+#ifdef _3DS
+	rw::c3d::ProfileLogicFrameScope profileLogicFrame;
+#endif
 #ifdef ASPECT_RATIO_SCALE
 	CDraw::SetAspectRatio(CDraw::FindAspectRatio());
 #endif
@@ -1982,14 +2044,26 @@ Idle(void *arg)
 	} else {
 		PUSH_MEMID(MEMID_GAME_PROCESS);
 		CPointLights::InitPerFrame();
+#ifdef _3DS
+		uint64 profileGameplayStart = rw::c3d::profileTimerStart();
+#endif
 		tbStartTimer(0, "CGame::Process");
 		CGame::Process();
 		tbEndTimer("CGame::Process");
+#ifdef _3DS
+		rw::c3d::profileRecordGameplay(profileGameplayStart);
+#endif
 		POP_MEMID();
 
+#ifdef _3DS
+		uint64 profileAudioStart = rw::c3d::profileTimerStart();
+#endif
 		tbStartTimer(0, "DMAudio.Service");
 		DMAudio.Service();
 		tbEndTimer("DMAudio.Service");
+#ifdef _3DS
+		rw::c3d::profileRecordAudio(profileAudioStart);
+#endif
 	}
 
 	if (RsGlobal.quit)
@@ -1999,14 +2073,26 @@ Idle(void *arg)
 	PUSH_MEMID(MEMID_GAME_PROCESS);
 	CPointLights::InitPerFrame();
 
+#ifdef _3DS
+	uint64 profileGameplayStart = rw::c3d::profileTimerStart();
+#endif
 	tbStartTimer(0, "CGame::Process");
 	CGame::Process();
 	tbEndTimer("CGame::Process");
+#ifdef _3DS
+	rw::c3d::profileRecordGameplay(profileGameplayStart);
+#endif
 	POP_MEMID();
 
+#ifdef _3DS
+	uint64 profileAudioStart = rw::c3d::profileTimerStart();
+#endif
 	tbStartTimer(0, "DMAudio.Service");
 	DMAudio.Service();
 	tbEndTimer("DMAudio.Service");
+#ifdef _3DS
+	rw::c3d::profileRecordAudio(profileAudioStart);
+#endif
 #endif
 
 	if(CGame::bDemoMode && CTimer::GetTimeInMilliseconds() > (3*60 + 30)*1000 && !CCutsceneMgr::IsCutsceneProcessing()){
@@ -2019,6 +2105,11 @@ Idle(void *arg)
 	{
 		return;
 	}
+
+#ifdef _3DS
+	if(arg != nil && !FrontEndMenuManager.m_bMenuActive && rw::c3d::shouldSkipStereoFrame())
+		return;
+#endif
 	
 	SetLightsWithTimeOfDayColour(Scene.world);
 
@@ -2059,8 +2150,8 @@ Idle(void *arg)
 #ifdef FIX_BUGS
 		RwRenderStateSet(rwRENDERSTATEZWRITEENABLE, (void *)FALSE); // TODO: temp? this fixes OpenGL render but there should be a better place for this
 		// This has to be done BEFORE RwCameraBeginUpdate
-		RwCameraSetFarClipPlane(Scene.camera, CTimeCycle::GetFarClip());
-		RwCameraSetFogDistance(Scene.camera, CTimeCycle::GetFogStart());
+		RwCameraSetFarClipPlane(Scene.camera, Apply3DSFarClipProfile(CTimeCycle::GetFarClip()));
+		RwCameraSetFogDistance(Scene.camera, Apply3DSFogProfile(CTimeCycle::GetFogStart()));
 #endif
 
 		if(CWeather::LightningFlash && !CCullZones::CamNoRain()){
@@ -2073,17 +2164,23 @@ Idle(void *arg)
 				goto popret;
 		}
 
+#ifdef _3DS
+		// C3D_FrameBegin has synchronized the previous frame. Menu cleanup starts
+		// only after gameplay has been stable long enough to replace cached menu
+		// bindings, then retires one raster per rendered frame.
+		FrontEndMenuManager.ServiceDeferredMenuTextureUnload();
+#endif
+
 		DefinedState();
 
 #ifndef FIX_BUGS
-		RwCameraSetFarClipPlane(Scene.camera, CTimeCycle::GetFarClip());
-		RwCameraSetFogDistance(Scene.camera, CTimeCycle::GetFogStart());
+		RwCameraSetFarClipPlane(Scene.camera, Apply3DSFarClipProfile(CTimeCycle::GetFarClip()));
+		RwCameraSetFogDistance(Scene.camera, Apply3DSFogProfile(CTimeCycle::GetFogStart()));
 #endif
 
 		tbStartTimer(0, "RenderScene");
 		RenderScene();
 		tbEndTimer("RenderScene");
-
 #ifdef EXTENDED_PIPELINES
 		CustomPipes::EnvMapRender();
 #endif
@@ -2094,15 +2191,26 @@ Idle(void *arg)
 		if((TheCamera.m_BlurType == MOTION_BLUR_NONE || TheCamera.m_BlurType == MOTION_BLUR_LIGHT_SCENE) &&
 		   TheCamera.m_ScreenReductionPercentage > 0.0f)
 		        TheCamera.SetMotionBlurAlpha(150);
+		bool stereo3D = false;
+#ifdef _3DS
+		stereo3D = rw::c3d::stereoControlsActive();
+#endif
 
 #ifdef SCREEN_DROPLETS
-		CPostFX::GetBackBuffer(Scene.camera);
-		ScreenDroplets::Process();
-		ScreenDroplets::Render();
+		if(!stereo3D){
+			CPostFX::GetBackBuffer(Scene.camera);
+			ScreenDroplets::Process();
+			ScreenDroplets::Render();
+		}
 #endif
 
 		tbStartTimer(0, "RenderMotionBlur");
-		TheCamera.RenderMotionBlur();
+		// Keep the baseline colour overlay unless PS2's dedicated grading owns it.
+#ifdef _3DS
+		if(!rw::c3d::ps2GraphicsEnabled() ||
+		   (TheCamera.m_BlurType != MOTION_BLUR_NONE && TheCamera.m_BlurType != MOTION_BLUR_LIGHT_SCENE))
+#endif
+			TheCamera.RenderMotionBlur();
 		tbEndTimer("RenderMotionBlur");
 
 		tbStartTimer(0, "Render2dStuff");
@@ -2383,10 +2491,22 @@ void TheGame(void)
 
 			PUSH_MEMID(MEMID_GAME_PROCESS)
 			CPointLights::InitPerFrame();
+#ifdef _3DS
+			uint64 profileGameplayStart = rw::c3d::profileTimerStart();
+#endif
 			CGame::Process();
+#ifdef _3DS
+			rw::c3d::profileRecordGameplay(profileGameplayStart);
+#endif
 			POP_MEMID();
 
+#ifdef _3DS
+			uint64 profileAudioStart = rw::c3d::profileTimerStart();
+#endif
 			DMAudio.Service();
+#ifdef _3DS
+			rw::c3d::profileRecordAudio(profileAudioStart);
+#endif
 
 			if (CGame::bDemoMode && CTimer::GetTimeInMilliseconds() > (3*60 + 30)*1000 && !CCutsceneMgr::IsCutsceneProcessing())
 			{
@@ -2412,8 +2532,8 @@ void TheGame(void)
 
 #ifdef FIX_BUGS
 				// This has to be done BEFORE RwCameraBeginUpdate
-				RwCameraSetFarClipPlane(Scene.camera, CTimeCycle::GetFarClip());
-				RwCameraSetFogDistance(Scene.camera, CTimeCycle::GetFogStart());
+				RwCameraSetFarClipPlane(Scene.camera, Apply3DSFarClipProfile(CTimeCycle::GetFarClip()));
+				RwCameraSetFogDistance(Scene.camera, Apply3DSFogProfile(CTimeCycle::GetFogStart()));
 #endif
 
 				if (CWeather::LightningFlash && !CCullZones::CamNoRain())
@@ -2421,10 +2541,14 @@ void TheGame(void)
 				else
 					DoRWStuffStartOfFrame_Horizon(CTimeCycle::GetSkyTopRed(), CTimeCycle::GetSkyTopGreen(), CTimeCycle::GetSkyTopBlue(), CTimeCycle::GetSkyBottomRed(), CTimeCycle::GetSkyBottomGreen(), CTimeCycle::GetSkyBottomBlue(), 255);
 
+#ifdef _3DS
+				FrontEndMenuManager.ServiceDeferredMenuTextureUnload();
+#endif
+
 				DefinedState();
 #ifndef FIX_BUGS
-				RwCameraSetFarClipPlane(Scene.camera, CTimeCycle::GetFarClip());
-				RwCameraSetFogDistance(Scene.camera, CTimeCycle::GetFogStart());
+				RwCameraSetFarClipPlane(Scene.camera, Apply3DSFarClipProfile(CTimeCycle::GetFarClip()));
+				RwCameraSetFogDistance(Scene.camera, Apply3DSFogProfile(CTimeCycle::GetFogStart()));
 #endif
 
 				RenderScene();

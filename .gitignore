@@ -10,11 +10,15 @@
 
 # Local regression and asset-inspection helpers used during hardware testing
 /scripts/tests/
-/scripts/tools/
+/scripts/tools/*
+!/scripts/tools/bake_vegetation.py
+!/scripts/tools/generate_install_manifest.py
+**/vegetation.vgi
 
 # Local toolchains
 /toolchains/
 /tools/cia-tools/
+/tools/save_converter/
 
 # Agent working state (implementation plans and scratch notes)
 /docs/superpowers/plans/

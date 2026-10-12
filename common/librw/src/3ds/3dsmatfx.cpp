@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <assert.h>
 
 #include "../rwbase.h"
@@ -131,103 +132,6 @@ setTransitionVehicleReflection(Clump *clump, Texture *texture,
 #endif
 
 static inline bool
-isVehicleDepthOffsetTexture(Texture *tex)
-{
-#ifdef RE3_3DS_BUILD
-	/* Match only stock DFF materials that are independent overlays.  The broad
-	 * *8bit128 rule was intentionally removed because those atlases are shared
-	 * by bodywork, lamps and trim. */
-	if(tex == nil)
-		return false;
-	const char *name = tex->name;
-	const char *mask = tex->mask;
-	return strcmp(name, "taxi64") == 0 ||
-	       strcmp(name, "ambudecals128") == 0 ||
-	       strcmp(mask, "coachdecals4bit128") == 0 ||
-	       strcmp(name, "poldecals128") == 0 ||
-	       strcmp(name, "lcpdbadge4bit64") == 0 ||
-	       strcmp(name, "badges64") == 0 ||
-	       strcmp(name, "lcpd4bit64aback") == 0 ||
-	       strcmp(mask, "fdlc128") == 0 ||
-	       strncmp(mask, "numders", 7) == 0 ||
-	       strncmp(name, "mrwhoopdecals", 15) == 0 ||
-	       strcmp(name, "mrwongsdecal4bit128") == 0 ||
-	       strcmp(mask, "mulesigns4bit256a") == 0 ||
-	       strcmp(mask, "panlantic_128") == 0 ||
-	       strcmp(mask, "armour_logosa_128") == 0 ||
-	       strcmp(mask, "toyz_128") == 0 ||
-	       strcmp(mask, "yankeesigns4bit256a") == 0;
-#elif defined(RESTORIES_3DS_BUILD)
-	/* Match the same verified LCS overlay materials as the default renderer.
-	 * MatFX vehicles take this path, while ordinary vehicles use 3dsrender. */
-	if(tex == nil)
-		return false;
-	const char *name = tex->name;
-	const char *mask = tex->mask;
-	return strncmp(name, "plates", 6) == 0 ||
-	       strcmp(name, "xv_licenseplates") == 0 ||
-	       strcmp(name, "licenseplates") == 0 ||
-	       strcmp(name, "taxi64") == 0 ||
-	       strcmp(name, "ambudecals128") == 0 ||
-	       strcmp(name, "coachdecals4bit128") == 0 ||
-	       strcmp(mask, "coachdecals4bit128") == 0 ||
-	       strcmp(name, "poldecals128") == 0 ||
-	       strcmp(name, "lcpdbadge4bit64") == 0 ||
-	       strcmp(name, "badges64") == 0 ||
-	       strcmp(name, "lcpd4bit64aback") == 0 ||
-	       strcmp(name, "polmavdecals128") == 0 ||
-	       strcmp(mask, "fdlc128") == 0 ||
-	       strncmp(mask, "numders", 7) == 0 ||
-	       strncmp(name, "mrwhoopdecals", 15) == 0 ||
-	       strcmp(name, "mrwongsdecal4bit128") == 0 ||
-	       strcmp(name, "ib_mulesigns") == 0 ||
-	       strcmp(mask, "mulesigns4bit256a") == 0 ||
-	       strcmp(mask, "panlantic_128") == 0 ||
-	       strcmp(mask, "armour_logosa_128") == 0 ||
-	       strcmp(mask, "toyz_128") == 0 ||
-	       strcmp(name, "ib_yankeesigns") == 0 ||
-	       strcmp(mask, "yankeesigns4bit256a") == 0;
-#else
-	/* Vice City plates and Hotring sponsor/number meshes sit only a tiny distance
-	 * above their backing body polygons.  Match only those texture families so
-	 * the offset cannot affect ordinary paint, glass or lamp materials. */
-	if(tex == nil)
-		return false;
-	const char *name = tex->name;
-	const char *mask = tex->mask;
-	return strncmp(name, "plates", 6) == 0 ||
-	       strncmp(name, "hotringad", 9) == 0 ||
-	       strncmp(name, "hotrinaad", 9) == 0 ||
-	       strncmp(name, "hotrinbad", 9) == 0 ||
-	       strncmp(name, "hotrinadv", 9) == 0 ||
-	       strncmp(name, "hotrinanum", 10) == 0 ||
-	       strncmp(name, "hotrinbnum", 10) == 0 ||
-	       strcmp(name, "ambudecals128") == 0 ||
-	       strcmp(mask, "bensonsigns4bit256") == 0 ||
-	       strcmp(mask, "bobcatlogo") == 0 ||
-	       strcmp(name, "boxville864bit256signs") == 0 ||
-	       strcmp(name, "chopper86decals128a") == 0 ||
-	       strcmp(mask, "coach86decals4bit128") == 0 ||
-	       strcmp(name, "vcpoldecals128") == 0 ||
-	       strcmp(name, "vcpdbadge4bit64") == 0 ||
-	       strcmp(name, "vcfd8bit128a") == 0 ||
-	       strncmp(name, "kaufmandecal", 12) == 0 ||
-	       strcmp(name, "mrwhoop86decals128") == 0 ||
-	       strcmp(mask, "mulesigns4bit256a") == 0 ||
-	       strcmp(name, "policedecals64") == 0 ||
-	       strcmp(name, "polmavdecals128a") == 0 ||
-	       strcmp(name, "rumpo864bit256signs") == 0 ||
-	       strcmp(mask, "securica86logos128") == 0 ||
-	       strcmp(name, "spandsign8bit128b") == 0 ||
-	       strncmp(mask, "vcnmavlogo", 10) == 0 ||
-	       strcmp(mask, "vcnmavdecal") == 0 ||
-	       strcmp(name, "yankee864bit256signs") == 0;
-#endif
-}
-
-static const float VEHICLE_DECAL_DEPTH_OFFSET = 0.0060f;
-
-static inline bool
 textureHasAlpha(Texture *tex)
 {
 	return tex && tex->raster && GETC3DRASTEREXT(tex->raster)->hasAlpha;
@@ -323,7 +227,7 @@ combinerMatFXTextureOnly(void)
 
 static void
 matfxTextureRender(InstanceDataHeader *header, InstanceData *inst, uint32 flags,
-	Texture *texture)
+	Texture *texture, Atomic *atomic, float &decalDepthOffset)
 {
 	Material *m = inst->material;
 	
@@ -331,7 +235,7 @@ matfxTextureRender(InstanceDataHeader *header, InstanceData *inst, uint32 flags,
 	 * skinned peds on 3DS.  Sample the base texture directly so lighting can't
 	 * turn individual triangles into dark facets. */
 	matfxTextureShader->use();
-	C3D_TexEnvColor(C3D_GetTexEnv(0), packTevMaterialColor(m->color));
+	C3D_SetTexEnvColor(0, packTevMaterialColor(m->color));
 	protectVehicleTexture(texture);
 	RGBA vertexColor = m->color;
 	vertexColor.alpha = 0xFF;
@@ -342,18 +246,14 @@ matfxTextureRender(InstanceDataHeader *header, InstanceData *inst, uint32 flags,
 	 * transparent white background is drawn as an opaque rectangle. */
 	rw::SetRenderState(VERTEXALPHA,
 		inst->vertexAlpha || m->color.alpha != 0xFF || textureHasAlpha(texture));
-	bool depthOffset = isVehicleDepthOffsetTexture(texture);
-	if(depthOffset)
-		C3D_DepthMap(true, -1.0f, VEHICLE_DECAL_DEPTH_OFFSET);
-	drawInst(header, inst);
-	if(depthOffset)
-		C3D_DepthMap(true, -1.0f, 0.0f);
+	drawVehicleMesh(header, inst, PROFILE_DRAW_MATFX, atomic, decalDepthOffset);
 }
 
 void
-matfxDefaultRender(InstanceDataHeader *header, InstanceData *inst, uint32 flags)
+matfxDefaultRender(InstanceDataHeader *header, InstanceData *inst, uint32 flags,
+	Atomic *atomic, float &decalDepthOffset)
 {
-	matfxTextureRender(header, inst, flags, inst->material->texture);
+	matfxTextureRender(header, inst, flags, inst->material->texture, atomic, decalDepthOffset);
 }
 
 
@@ -432,7 +332,7 @@ uploadEnvMatrix(Frame *frame)
 void
 matfxEnvRender(InstanceDataHeader *header, InstanceData *inst, uint32 flags,
 	Texture *baseTexture, MatFX::Env *env, Atomic *atomic,
-	RGBAf *ambient, bool *ambientValid, bool *envMatrixValid)
+	RGBAf *ambient, bool *ambientValid, bool *envMatrixValid, float &decalDepthOffset)
 {
 	Material *m;
 	m = inst->material;
@@ -441,16 +341,16 @@ matfxEnvRender(InstanceDataHeader *header, InstanceData *inst, uint32 flags,
 	 * makes them look like milky white plastic, so keep them on the verified
 	 * texture/material-only path. */
 	if(inst->vertexAlpha || m->color.alpha != 0xFF || textureHasAlpha(baseTexture)){
-		matfxTextureRender(header, inst, flags, baseTexture);
+		matfxTextureRender(header, inst, flags, baseTexture, atomic, decalDepthOffset);
 		return;
 	}
 
-	if(env->coefficient == 0.0f
+	if(getEntityRenderStyle().reflection <= 0.f || getEntityRenderStyle().opacity < 1.f || env->coefficient == 0.0f
 #ifndef RESTORIES_3DS_BUILD
 	   || env->tex == nil
 #endif
 	){
-		matfxTextureRender(header, inst, flags, baseTexture);
+		matfxTextureRender(header, inst, flags, baseTexture, atomic, decalDepthOffset);
 		return;
 	}
 
@@ -472,7 +372,7 @@ matfxEnvRender(InstanceDataHeader *header, InstanceData *inst, uint32 flags,
 			delta.x * delta.x + delta.y * delta.y + delta.z * delta.z <
 			35.0f * 35.0f;
 		if(!nearTrafficReflection){
-			matfxTextureRender(header, inst, flags, baseTexture);
+			matfxTextureRender(header, inst, flags, baseTexture, atomic, decalDepthOffset);
 			return;
 		}
 	}
@@ -483,14 +383,14 @@ matfxEnvRender(InstanceDataHeader *header, InstanceData *inst, uint32 flags,
 		(transitionReflection ? lcsTransitionVehicleReflectionFrame :
 		 lcsTrafficVehicleReflectionFrame);
 	if(reflectionTexture == nil || reflectionFrame == nil){
-		matfxTextureRender(header, inst, flags, baseTexture);
+		matfxTextureRender(header, inst, flags, baseTexture, atomic, decalDepthOffset);
 		return;
 	}
 #endif
 
 	envShader->use();
-	C3D_TexEnvColor(C3D_GetTexEnv(0), packTevMaterialColor(m->color));
-	float coefficient = env->coefficient;
+	C3D_SetTexEnvColor(0, packTevMaterialColor(m->color));
+	float coefficient = env->coefficient * getEntityRenderStyle().reflection;
 	if(coefficient < 0.0f) coefficient = 0.0f;
 	if(coefficient > 1.0f) coefficient = 1.0f;
 	#ifdef RESTORIES_3DS_BUILD
@@ -502,9 +402,9 @@ matfxEnvRender(InstanceDataHeader *header, InstanceData *inst, uint32 flags,
 		coefficient *= lcsPlayerVehicleReflectionStrength;
 	else if(transitionReflection)
 		coefficient *= lcsTransitionVehicleReflectionStrength;
-	C3D_TexEnvColor(C3D_GetTexEnv(4), packTevReflectionColor(coefficient, *ambient));
+	C3D_SetTexEnvColor(4, packTevReflectionColor(coefficient, *ambient));
 	#else
-	C3D_TexEnvColor(C3D_GetTexEnv(1), packTevReflectionColor(coefficient, *ambient));
+	C3D_SetTexEnvColor(1, packTevReflectionColor(coefficient, *ambient));
 	#endif
 	protectVehicleTexture(baseTexture);
 
@@ -542,22 +442,18 @@ matfxEnvRender(InstanceDataHeader *header, InstanceData *inst, uint32 flags,
 
 	rw::SetRenderState(VERTEXALPHA,
 		inst->vertexAlpha || m->color.alpha != 0xFF || textureHasAlpha(baseTexture));
-	bool depthOffset = isVehicleDepthOffsetTexture(baseTexture);
-	if(depthOffset)
-		C3D_DepthMap(true, -1.0f, VEHICLE_DECAL_DEPTH_OFFSET);
-	drawInst(header, inst);
-	if(depthOffset)
-		C3D_DepthMap(true, -1.0f, 0.0f);
+	drawVehicleMesh(header, inst, PROFILE_DRAW_MATFX, atomic, decalDepthOffset);
 }
 
 void
 matfxRenderCB(Atomic *atomic, InstanceDataHeader *header)
 {
 	uint32 flags = atomic->geometry->flags;
+	float decalDepthOffset = -1.0f;
 	setWorldMatrix(atomic->getFrame()->getLTM());
 
 	setAttribPointers(header);
-	RGBAf ambient;
+	RGBAf ambient = {};
 	bool ambientValid = false;
 	bool envMatrixValid = false;
 
@@ -568,15 +464,14 @@ matfxRenderCB(Atomic *atomic, InstanceDataHeader *header)
 		MatFX *matfx = MatFX::get(inst->material);
 
 		if(matfx == nil)
-			matfxDefaultRender(header, inst, flags);
+			matfxDefaultRender(header, inst, flags, atomic, decalDepthOffset);
 		else switch(matfx->type){
 		case MatFX::ENVMAP:
 			matfxEnvRender(header, inst, flags, inst->material->texture,
-				&matfx->fx[0].env, atomic, &ambient, &ambientValid,
-				&envMatrixValid);
+				&matfx->fx[0].env, atomic, &ambient, &ambientValid, &envMatrixValid, decalDepthOffset);
 			break;
 		default:
-			matfxDefaultRender(header, inst, flags);
+			matfxDefaultRender(header, inst, flags, atomic, decalDepthOffset);
 			break;
 		}
 		inst++;
