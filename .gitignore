@@ -26,6 +26,7 @@
 PROGRESS.md
 DECISIONS.md
 /.worktrees/
+/.superpowers/
 
 # Build products and diagnostics
 **/[Bb]uild/*
