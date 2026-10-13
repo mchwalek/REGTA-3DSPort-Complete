@@ -117,10 +117,15 @@ running-punch `SetAttack(nil)` path. This matches PS2 VA `0x34b514`.
 
   This range also reaches AI code (`PedAI.cpp`) through the shared
   `m_fRange` field — see §4.
-- **Body tracking.** No change: keep the existing ±25°
-  `RotatePlayerToTrackTarget()` call for melee. The PS2 equivalent wasn't
-  found during RE; keeping the existing behavior is the conservative
-  choice and already helps "turn toward target."
+- **Body tracking.** `RotatePlayerToTrackTarget()`'s ±25° clamp must be
+  skipped for melee outside `PED_FIGHT`, not kept unconditionally. PS2's
+  equivalent function skips the clamp whenever the weapon has
+  `CANAIM_WITHARM` (true for every PS2 melee row) and the ped isn't
+  actively in a fight move; running the clamp every frame for melee (the
+  original, PS2-equivalent-not-found choice above) drags the
+  stick-derived rotation back toward the target every frame, which reads
+  as "movement is frozen" while locked on. Fix: skip the clamp when
+  `IsTypeMelee() && m_nPedState != PED_FIGHT`.
 
 ### 3. Victim and move selection (`stories/src/peds/PedFight.cpp`, `ChooseAttackPlayer`, ~1711-1957)
 
