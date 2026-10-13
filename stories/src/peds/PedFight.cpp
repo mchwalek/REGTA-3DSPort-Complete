@@ -1469,37 +1469,21 @@ CPed::Fight(void)
 				DMAudio.PlayOneShot(m_audioEntityId, SOUND_MELEE_ATTACK_START, weapon << 8);
 			}
 
-			CVector touchingNodePos(0.0f, 0.0f, 0.0f);
-
-			switch (m_curFightMove) {
-			//	case FIGHTMOVE_KNEE:
-			//		TransformToNode(touchingNodePos, PED_LOWERLEGR);
-			//		break;
-			//	case FIGHTMOVE_PUNCHHOOK:
-			//	case FIGHTMOVE_PUNCHJAB:
-			//		TransformToNode(touchingNodePos, PED_HANDL);
-			//		break;
-				case FIGHTMOVE_LONGKICK:
-				case FIGHTMOVE_ROUNDHOUSE:
-			//	case FIGHTMOVE_FWDLEFT:
-			//	case FIGHTMOVE_BACKRIGHT:
-				case FIGHTMOVE_GROUNDKICK:
-					TransformToNode(touchingNodePos, PED_FOOTR);
-					break;
-				case FIGHTMOVE_FWDRIGHT:
-					TransformToNode(touchingNodePos, PED_HEAD);
-					break;
-			//	case FIGHTMOVE_BACKKICK:
-			//	case FIGHTMOVE_BACKFLIP:
-			//		TransformToNode(touchingNodePos, PED_FOOTL);
-			//		break;
-			//	case FIGHTMOVE_BACKLEFT:
-			//		TransformToNode(touchingNodePos, PED_UPPERARML);
-			//		break;
-				default:
-					TransformToNode(touchingNodePos, PED_HANDR);
-					break;
-			}
+			// PS2 doesn't use an animated bone node for the strike point at all - it
+			// transforms a fixed local-space offset (indexed by hit level) through the
+			// ped's own matrix. Using an animated node (e.g. PED_HANDR for a left-hook
+			// move) can place the strike sphere on a hand/foot that's nowhere near the
+			// victim mid-swing, causing whiffs. Table and values from PS2 EUR/USA
+			// Fight()'s hit-level offset table (static .bss init): a point ~0.7m
+			// directly ahead of the ped, height varying by hit level.
+			static const CVector HitLevelOffsets[] = {
+				CVector(0.0f, 0.0f, 0.0f),   // HITLEVEL_NULL
+				CVector(0.0f, 0.7f, -1.0f),  // HITLEVEL_GROUND
+				CVector(0.0f, 0.7f, 0.0f),   // HITLEVEL_LOW
+				CVector(0.0f, 0.7f, 0.2f),   // HITLEVEL_MEDIUM
+				CVector(0.0f, 0.7f, 0.5f),   // HITLEVEL_HIGH
+			};
+			CVector touchingNodePos = GetMatrix() * HitLevelOffsets[curMove.hitLevel];
 
 			FightStrike(touchingNodePos, fightWithWeapon);
 			m_fightButtonPressure = 0;
@@ -1780,6 +1764,16 @@ CPed::ChooseAttackPlayer(uint8 buttonPressure, bool fightWithWeapon)
 				victimPed = lockOnTarget;
 				victimAngle = nearPedAngle;
 				distToVictim = dist;
+			} else {
+				// PS2-faithful: a far-away lock-on target still becomes the
+				// walk-up target, with no upper distance cap (matches PS2
+				// ChooseAttackPlayer, which never bails out of its lock-on
+				// branch on distance alone). Without this, a target locked
+				// on at any range beyond weaponAttackDist fell through to
+				// the no-victim path and whiffed at thin air instead of
+				// walking into range.
+				walkUpTo = lockOnTarget;
+				walkAngle = nearPedAngle;
 			}
 		} else if (CGame::nastyGame && dist < 1.2f) {
 			if (lockOnTarget->DyingOrDead()) {
@@ -1790,10 +1784,10 @@ CPed::ChooseAttackPlayer(uint8 buttonPressure, bool fightWithWeapon)
 				groundAttackAliveAngle = nearPedAngle;
 			}
 		}
-		// Falls through to the no-victim/no-ground/no-walkup branches below
-		// (walkUpTo stays nil, numPedsWeCanReach stays 0) when the lock-on
-		// target is too far or otherwise ineligible -- matching the design
-		// spec's "otherwise, fall through to the no-victim path."
+		// Falls through to the no-victim/no-ground branches below
+		// (numPedsWeCanReach stays 0) only when the lock-on target is on
+		// the ground/getting up and the nastyGame+1.2m ground-attack check
+		// above doesn't match either.
 
 	} else {
 	for (int i = 0; i < m_numNearPeds; ++i) {
