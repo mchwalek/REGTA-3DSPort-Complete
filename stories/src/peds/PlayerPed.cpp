@@ -1169,7 +1169,13 @@ CPlayerPed::CanIKReachThisTarget(CVector target, CWeapon* weapon, bool zRotImpor
 void
 CPlayerPed::RotatePlayerToTrackTarget(void)
 {
-	if (CWeaponInfo::GetWeaponInfo(GetWeapon()->m_eWeaponType)->IsFlagSet(WEAPONFLAG_CANAIM_WITHARM))
+	// PS2 skips this +-25 deg body-heading clamp for any weapon with CANAIM_WITHARM,
+	// unless the ped is actively in a fight move (PED_FIGHT). Every PS2 melee weapon
+	// row carries CANAIM_WITHARM; reLCS's melee WEAPON.DAT rows deliberately don't (to
+	// avoid unwanted arm-IK via CPedIK::AIMS_WITH_ARM - see PlayerPed.cpp's melee
+	// lock-on gate comments), so use IsTypeMelee() as the equivalent proxy here too.
+	if ((CWeaponInfo::GetWeaponInfo(GetWeapon()->m_eWeaponType)->IsFlagSet(WEAPONFLAG_CANAIM_WITHARM) || GetWeapon()->IsTypeMelee()) &&
+		m_nPedState != PED_FIGHT)
 		return;
 
 	float angleToFace = CGeneral::GetRadianAngleBetweenPoints(
