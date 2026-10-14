@@ -47,22 +47,34 @@ Toolchain is hard-pinned by `common/devkitarm-r55.mk`: it errors unless
 Build one game with `scripts/build.sh [re3|revc|relcs]` (also accepts
 `all`, and aliases `iii`/`vc`/`lcs`). It passes the correct flag set per
 tree automatically — **don't call `make` directly** unless you also pass
-identical flags. `miami` and `stories` use a flat `build/obj/` directory,
-so a bare `make` after a `scripts/build.sh` run will silently mix object
-files built with different flags into one binary. If in doubt, `make -C
-<tree>/build -f GNUmakefile clean` first.
+identical flags. All three trees fingerprint their object directory by the
+exact `-D` flag set (`PREFIX := ./obj/$(FINGERPRINT)/`, an md5 of the
+concatenated config strings, identical scheme in `III`/`miami`/`stories`),
+so different flags can't silently reuse another build's objects — but the
+*final* `relcs.elf`/`.3dsx` filename is not fingerprinted. A bare `make -C
+<tree>/build -f GNUmakefile` with no flags builds a flag-incomplete-but-
+internally-consistent object set into a different `obj/<fingerprint>/` and
+silently overwrites the real binary with one missing the 3DS feature flags.
+If in doubt, `make -C <tree>/build -f GNUmakefile clean` first.
 
-To compile a single file for a quick syntax check:
+To compile a single file for a quick syntax check, discover the real
+fingerprinted object path for your flags with `object-info` first — there
+is no make rule for a flat `obj/src/...` path:
 
 ```sh
 make -C stories/build -f GNUmakefile \
   LOADING_PIPELINE=1 BOTTOM_LOADING=1 BOTTOM_RADAR=1 \
-  obj/src/core/BottomScreen3DS.o
+  object-info | grep BottomScreen3DS
+# ->	 ./obj/<fingerprint>/src/core/BottomScreen3DS.o
+
+make -C stories/build -f GNUmakefile \
+  LOADING_PIPELINE=1 BOTTOM_LOADING=1 BOTTOM_RADAR=1 \
+  obj/<fingerprint>/src/core/BottomScreen3DS.o
 ```
 
 (match the flags `scripts/build.sh relcs` uses; see that script for the
-exact set per game). Add `-n` to see the compiler invocation without
-running it.
+exact set per game). Add `-n` to the second command to see the compiler
+invocation without running it.
 
 Outputs land in `<tree>/build/`: `relcs.elf`, `relcs.3dsx`, `relcs.lst`,
 and a map file literally named `.map`. None of these are checked in.

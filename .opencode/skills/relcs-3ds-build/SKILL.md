@@ -43,26 +43,57 @@ which relinks the ELF/map/lst/3dsx even with no source changes.
 
 ## THE FLAG-CONSISTENCY TRAP
 
-`stories/build/obj/` is a **flat** directory (not fingerprinted by flags like
-III's `obj/$(FINGERPRINT)/`). Running a bare
-`make -C stories/build -f GNUmakefile` without the same `LOADING_PIPELINE=1
-BOTTOM_LOADING=1 BOTTOM_RADAR=1` flags reuses previously-compiled objects and
-silently produces a mixed-flag binary. Always use `scripts/build.sh relcs` or
-pass the identical flag set by hand. To force a clean rebuild:
-`make -C stories/build -f GNUmakefile clean` (clean only the tree you're
+All three games (`III`, `miami`, `stories`) fingerprint their object
+directory by the exact `-D` flag set: `PREFIX := ./obj/$(FINGERPRINT)/`,
+where `FINGERPRINT` is an md5 of the concatenated `RE3_CFG`/`LIBRW_CFG`/
+`MPG123_CFG`/`DEBUG`/`OPTFLAGS` strings — identical scheme in all three
+`GNUmakefile`s. **A differently-flagged build can never silently reuse
+another build's objects** — different flags hash to a different
+`obj/<fingerprint>/` and rebuild from scratch there. (Earlier guidance here
+claimed `stories`'/`miami`'s `obj/` was flat and unfingerprinted unlike
+III's — verified false by reading all three `GNUmakefile`s side by side;
+there is no flat `obj/src/...` rule in any of them, only
+`$(PREFIX)src/%.o: ../src/%.cpp`.)
+
+The real trap is narrower but still real: the **final binary name is not
+fingerprinted** (`$(TARGET).elf`/`.3dsx`, `TARGET := relcs`). A bare `make
+-C stories/build -f GNUmakefile` with no `LOADING_PIPELINE=1
+BOTTOM_LOADING=1 BOTTOM_RADAR=1` computes a different, all-defaults
+fingerprint, builds a clean (not mixed) but **feature-flag-incomplete**
+object set in that other `obj/<fingerprint2>/`, and links it into the
+*same* `relcs.elf`/`relcs.3dsx` output path — silently overwriting a
+correctly-flagged build with one missing the 3DS-specific loading
+pipeline/bottom-loading/bottom-radar code. Always use `scripts/build.sh
+relcs` or pass the identical flag set by hand. `make -C stories/build -f
+GNUmakefile clean` removes the currently-fingerprinted `obj/` subtree for
+whatever flags you pass it with — a safe way to force a from-scratch
+rebuild if you suspect a stale object (clean only the tree you're
 rebuilding — do not touch III/miami's `build/` dirs unnecessarily).
 
 ## Single-file compile (fast iteration / syntax check)
 
+Object paths live under the flag-dependent `obj/<fingerprint>/` (see
+above) — there is no rule for a flat `obj/src/...` path, so don't guess it
+by hand (deleting a stray flat `obj/src/....o` left over from an older
+checkout and rebuilding it will fail with "No rule to make target", which
+is the tell that you're looking at the wrong path). Discover the real path
+for your flags with `object-info`, then build that exact target:
+
 ```sh
 make -C $WORKSPACE_ROOT/repo/stories/build -f GNUmakefile \
   LOADING_PIPELINE=1 BOTTOM_LOADING=1 BOTTOM_RADAR=1 \
-  obj/src/core/BottomScreen3DS.o
+  object-info | grep BottomScreen3DS
+# -> 	 ./obj/<fingerprint>/src/core/BottomScreen3DS.o
+
+make -C $WORKSPACE_ROOT/repo/stories/build -f GNUmakefile \
+  LOADING_PIPELINE=1 BOTTOM_LOADING=1 BOTTOM_RADAR=1 \
+  obj/<fingerprint>/src/core/BottomScreen3DS.o
 ```
 
-Add `-n` to preview the exact compiler invocation without running it. Force
-recompilation of one file with `-W ../src/core/Foo.cpp`. Helper targets:
-`make -C stories/build source-info` / `object-info`.
+Add `-n` to the second command to preview the exact compiler invocation
+without running it. Force recompilation of one file with `-W
+../src/core/Foo.cpp`. `source-info` lists every compiled source file the
+same way, if you need to confirm a file is actually part of the build.
 
 ## Packaging a .cia
 
