@@ -212,7 +212,8 @@ case "$game" in
 			movies \
 			txd/LOADSC0.TXD \
 			models/generic/race_arrow.dff \
-			models/generic/race_arrow.txd
+			models/generic/race_arrow.txd \
+			DATA/WEAPON.DAT
 		do
 			copy_runtime_override "$relative_path"
 		done

@@ -243,6 +243,49 @@ and a map file literally named `.map`. None of these are checked in.
     if the first attempt is in fact still live (see the `relcs-3ds-build`
     skill's "Do not wrap this in a short Bash timeout" warning for why a
     half-killed transfer is worse than a slow one).
+15. **`CPed::SetPointGunAt`/`CPlayerPed::RotatePlayerToTrackTarget` have
+    melee-vs-gun branches that are easy to get backwards — shared by all
+    three trees, but only reachable on 3DS via reLCS's melee lock-on.**
+    PS2's `SetPointGunAt` (`SLES_541.35` VA `0x1ba618` in reLCS's build)
+    returns immediately — no `PED_AIM_GUN` state, no `SetMoveState(PEDMOVE_STILL)`,
+    no frozen aim-pose anim — whenever the weapon's `m_eWeaponFire ==
+    WEAPON_FIRE_MELEE`; `RotatePlayerToTrackTarget`'s own PS2 equivalent (VA
+    `0x34ce68`) only applies its ±25° body-heading clamp when the weapon
+    lacks `WEAPONFLAG_CANAIM_WITHARM` (true for guns, false for every PS2
+    melee weapon) **or** the ped is mid-`PED_FIGHT`. Both read like "this is
+    gun-specific, melee falls through to a no-op below" at first glance, but
+    the melee branch needing explicit handling is the point, not an
+    afterthought — a one-line gate (`GetWeapon()->IsTypeMelee()`) is the
+    whole fix in both. Getting either backwards reproduces two different-
+    looking "can't move while locked on" bugs: skip the `SetPointGunAt` gate
+    and the ped glues into `PED_AIM_GUN`/`PEDMOVE_STILL` until a fight move
+    happens to call `EndFight`→`RestorePreviousState`; skip the
+    `RotatePlayerToTrackTarget` gate and the ±25° clamp runs every frame and
+    continuously yanks the stick-derived heading back toward the target, so
+    the ped can only ever walk toward/into it, never away or sideways — both
+    present as "frozen" to a player but have unrelated root causes requiring
+    separate fixes. See `git log --grep="PED_AIM_GUN for melee"` and
+    `--grep="body-tracking clamp"`.
+16. **`CPed::Fight()`'s melee strike point is a fixed ped-local offset on
+    PS2, not an animated bone node — shared by all three trees' fight code,
+    confirmed via reLCS's `stories/src/peds/PedFight.cpp`.** PS2's `Fight()`
+    strike block (`SLES_541.35` VA `0x1bed40-0x1beef4`) computes
+    `touchPos = GetMatrix() * offset[hitLevel]` from a fixed 5-entry local-
+    space table (`(0,0,0)` null, `(0,0.7,-1.0)` ground, `(0,0.7,0.0)` low,
+    `(0,0.7,0.2)` medium, `(0,0.7,0.5)` high — always ~0.7m straight ahead of
+    the ped's own matrix, height varying by hit level) — it never reads a
+    bone/node position at all. Code that instead picks an *animated* bone
+    node per fight move (e.g. `PED_HANDR` for a punch, `PED_FOOTR` for a
+    kick) looks more "correct" by GTA-engine convention (plenty of other
+    systems — ragdoll contact points, weapon fire offsets — do use bone
+    nodes) but is wrong for this specific function: the strike sphere ends
+    up tracking whichever hand/foot node the swing animation happens to have
+    retracted at that frame, which silently whiffs attacks that use the
+    "wrong" limb for their node (e.g. a left-hook move whose node mapping
+    defaults to the right hand). If a melee move starts whiffing after an
+    animation/move-table change, check whether the contact point is still
+    using this fixed-offset table before assuming the animation or hit-
+    detection radius is at fault. See `git log --grep="melee whiffing"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 

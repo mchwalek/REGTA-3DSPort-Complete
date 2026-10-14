@@ -1503,7 +1503,13 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 #ifdef _3DS
 		if(CPad::GetPad(0)->Is3DSFreeAimActive()){
 			CPed *aimPed = (CPed*)CamTargetEntity;
-			float range = CWeaponInfo::GetWeaponInfo(aimPed->GetWeapon()->m_eWeaponType)->m_fRange;
+			/* The melee lock-on fix (docs/superpowers/specs/2026-10-12-melee-lock-on-design.md)
+			 * made WEAPON.DAT's melee m_fRange PS2-exact (10.0f/4.0f), which
+			 * is correct for lock-on but would place this free-aim point
+			 * 10m ahead of the ped for melee weapons; keep the free-aim
+			 * point placement close-range for melee, matching its
+			 * pre-override reach. */
+			float range = aimPed->GetWeapon()->IsTypeMelee() ? 2.4f : CWeaponInfo::GetWeaponInfo(aimPed->GetWeapon()->m_eWeaponType)->m_fRange;
 			if(CPad::GetPad(0)->Is3DSFreeAimEnteredThisFrame()){
 				/* PS2 zeroes the equivalent angular speeds on a fresh
 				 * camera init rather than inheriting momentum from
