@@ -1485,7 +1485,7 @@ CPed::Fight(void)
 			// transforms a fixed local-space offset (indexed by hit level) through the
 			// ped's own matrix. Using an animated node (e.g. PED_HANDR for a left-hook
 			// move) can place the strike sphere on a hand/foot that's nowhere near the
-			// victim mid-swing, causing whiffs. Table and values from PS2 EUR/USA
+			// victim mid-swing, causing whiffs. Table and values from PS2's
 			// Fight()'s hit-level offset table (static .bss init): a point ~0.7m
 			// directly ahead of the ped, height varying by hit level.
 			static const CVector HitLevelOffsets[] = {

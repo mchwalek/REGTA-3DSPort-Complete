@@ -269,8 +269,7 @@ and a map file literally named `.map`. None of these are checked in.
 16. **`CPed::Fight()`'s melee strike point is a fixed ped-local offset on
     PS2, not an animated bone node — shared by all three trees' fight code,
     confirmed via reLCS's `stories/src/peds/PedFight.cpp`.** PS2's `Fight()`
-    strike block (`SLES_541.35`, disassembled around the equivalent of VA
-    `0x1bed48-0x1beefc` in the USA build) computes
+    strike block (`SLES_541.35` VA `0x1bed40-0x1beef4`) computes
     `touchPos = GetMatrix() * offset[hitLevel]` from a fixed 5-entry local-
     space table (`(0,0,0)` null, `(0,0.7,-1.0)` ground, `(0,0.7,0.0)` low,
     `(0,0.7,0.2)` medium, `(0,0.7,0.5)` high — always ~0.7m straight ahead of
