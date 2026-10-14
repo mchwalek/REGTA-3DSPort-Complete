@@ -151,6 +151,18 @@ CheckForPedsOnGroundToAttack(CPed *attacker, CPed **pedOnGround)
 void
 CPed::SetPointGunAt(CEntity *to)
 {
+	// PS2 (VA 0x1ba618) returns immediately for melee weapons (m_eWeaponFire ==
+	// WEAPON_FIRE_MELEE) before doing anything here - no look/aim flags, no
+	// PED_AIM_GUN state, no frozen aim-pose anim, no SetMoveState(STILL). The
+	// lock-on target itself is set separately by SetWeaponLockOnTarget, and
+	// RotatePlayerToTrackTarget/ChooseAttackPlayer read m_pPointGunAt directly,
+	// so melee lock-on/targeting still works with this early return. Without
+	// it, melee lock-on put the player into PED_AIM_GUN + PEDMOVE_STILL and
+	// froze them in place until a fight move (which restores the prior state
+	// via EndFight->RestorePreviousState) happened to unstick them.
+	if (GetWeapon()->IsTypeMelee())
+		return;
+
 	if (to) {
 		SetLookFlag(to, true, true);
 		SetAimFlag(to);
