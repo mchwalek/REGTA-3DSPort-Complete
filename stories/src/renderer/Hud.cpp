@@ -741,7 +741,7 @@ void CHud::Draw()
 
 		if (m_WantedState != FADED_OUT
 #ifdef ENABLE_3DS_BOTTOM_RADAR
-			&& playerPed->m_pWanted->GetWantedLevel() > 0
+			&& (playerPed->m_pWanted->GetWantedLevel() > 0 || playerPed->m_pWanted->m_nMinWantedLevel > 0)
 #endif
 		) {
 			char wantedStar[] = "\x16";
