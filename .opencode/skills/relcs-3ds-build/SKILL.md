@@ -147,3 +147,37 @@ $WORKSPACE_ROOT/repo/scripts/verify-layout.sh
 `test_3ds_world_and_menus.py`'s `test_compiled_menus` needs `DEVKITARM`
 exported (see above) — it defaults to a `toolchains/devkitARM-r55` path that
 does not exist in this environment.
+
+## A new `gamefiles/<game>/` override needs its install-manifest entry too
+
+`scripts/verify-layout.sh` checks two independent things, and passing the
+first doesn't mean the second passes: source-tree symlinks, and
+`common/3ds/InstallManifest.h` (a checked-in, non-gitignored generated
+header with a per-file `{path, size, sha256}` entry for everything under
+each game's `gamefiles/<game>/`, read at runtime by
+`RegtaInstall::validate()` in `common/3ds/GameInstallation.h` before the
+game boots — a mismatch makes the game show an install-error screen and
+exit, not crash loudly). Adding a *new* `gamefiles/relcs/...` runtime
+override file (per the two-edit pattern in `AGENTS.md` landmine #5) also
+needs:
+
+```sh
+python3 scripts/tools/generate_install_manifest.py
+```
+
+run and committed, or `verify-layout.sh` silently starts failing on the
+*next* full check even though the override itself is wired up correctly.
+This was the root cause of a "the game quits shortly after booting"
+regression during a WEAPON.DAT override — the new file was correctly
+gitignore-allowed and copied by `setup-game.sh`, but the manifest wasn't
+regenerated, so the on-device/emulator install check failed on a file the
+override added.
+
+**Separately:** `3dslink` only pushes the `.3dsx` binary — it never pushes
+new or changed SD-card data files (`AGENTS.md` landmine #14 territory, but
+worth restating for `gamefiles/` overrides specifically). After adding or
+changing any `gamefiles/<game>/` override, re-run
+`scripts/setup-game.sh <game> <original-data-dir> <sd-target-dir>` to
+refresh the local SD staging directory (e.g. `sdstage/`) — a `3dslink`
+deploy alone will boot a binary that expects the new override data but
+never received it.

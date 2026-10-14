@@ -618,3 +618,79 @@ codebase, not the original — that it's actually populated/scoped the way
 the disassembly's variable naming implies. A method name like
 `GetBoundRect()` reading like "the entity's bounds" is exactly the kind of
 false friend a faithful transcription walks straight into.
+
+## Case study: melee lock-on — a fix that needed three separate RE passes because each fix exposed the next gun-vs-melee assumption
+
+A user-reported "melee lock-on feels wrong" led to a first RE pass
+(`ChooseAttackPlayer`'s victim selection, cone/distance constants, combo
+chaining — all found by locating the function via a float-immediate scan
+for its 30°/55°/45° cone constants, then confirming the exact VA by
+matching gp-relative loads) and a WEAPON.DAT range fix. That shipped,
+passed full task-level and whole-branch review, and the user still reported
+new on-device symptoms after live testing: "Toni can't walk while locked
+on" and "whiffing a lot." Both turned out to be separate bugs the first
+pass's reviewers had no way to see, because neither symptom was reachable
+from the code the first pass's diff touched — they lived in functions nobody
+had RE'd yet. Two more RE+fix rounds were needed:
+
+1. **`CPed::Fight()`'s strike point.** Located by finding `Fight()` itself
+   first (via its caller graph — the only PS2 function calling the
+   already-known `ChooseAttackPlayer` VA from inside a `m_curFightMove`
+   switch), then disassembling its strike-window block. PS2 computes the
+   contact point as `GetMatrix() * offset[hitLevel]` from a fixed 5-entry
+   local-space table — never reads an animated bone/node position at all.
+   reLCS's `Fight()` picked an *animated* bone node per move (default
+   `PED_HANDR`), which miss when the swing anim has that hand retracted —
+   explaining "whiffing a lot" even at point-blank range, locked on or not.
+2. **`RotatePlayerToTrackTarget`'s clamp.** Found immediately adjacent to
+   `MovementDisabledBecauseOfTargeting` in the disassembly (the two
+   functions sit back-to-back in PS2's `.text`, both reached from the same
+   `ProcessPlayerWeapon` lock-on block) — a reminder that once one function
+   in a cluster is located, its neighbors in the binary are often the
+   missing piece, not a fresh search. PS2 skips its ±25° body-heading clamp
+   whenever the weapon has `CANAIM_WITHARM` and the ped isn't in
+   `PED_FIGHT`; every PS2 melee weapon carries that flag. reLCS's melee
+   WEAPON.DAT rows deliberately don't (an earlier, correct decision — see
+   below), so the clamp ran every frame for fists, continuously dragging
+   the stick-derived heading back toward the target: Toni could only ever
+   walk *into* the locked ped, never away — read by the user as "frozen."
+3. **`CPed::SetPointGunAt`.** Even after fix 2, the user reported the same
+   symptom in a new shape: "he can only rotate now." A single punch
+   unstuck fists; the bat unstuck only while the attack button was held;
+   the katana unstuck on repeated presses — three *different-looking*
+   unstick triggers were the tell that a single shared gate, not the
+   per-weapon combat code, was the root cause. PS2's `SetPointGunAt`
+   checks `m_eWeaponFire == WEAPON_FIRE_MELEE` near the top and returns
+   before any state change; reLCS's version ran the full gun-oriented body
+   (`PED_AIM_GUN` + `SetMoveState(PEDMOVE_STILL)` + a frozen aim-pose anim)
+   unconditionally. Each of the three unstick triggers happened to call a
+   different function (`StartFightAttack`→`EndFight`→`RestorePreviousState`
+   for fists; `PED_ATTACK` re-entry for the bat's held-fire path; repeated
+   `StartFightAttack` for the katana) that incidentally exits `PED_AIM_GUN`
+   — none of them existed to fix the freeze, so the "fix" was really three
+   unrelated accidents sharing one disguise.
+
+**A deliberate non-fix from fix 2's investigation is itself a reusable
+lesson:** the obvious-looking alternative — just set `CANAIM_WITHARM` on
+melee weapons in WEAPON.DAT to match PS2's data exactly — was rejected
+*before* writing any of fixes 2–3, because that flag also drives
+`CPedIK::AIMS_WITH_ARM` (arm-IK-aims the ped's limb at the target like a
+holding a pistol, correct for guns, wrong for a fist or a bat). Matching a
+PS2 data flag byte-for-byte is not always the right port of PS2's
+*behavior* when the port's own code wires that flag to more than one
+consumer — porting the two or three outcomes directly in code (an
+`IsTypeMelee()` gate at each affected call site) reproduced PS2's actual
+behavior without the side effect. Always grep every reader of a flag
+before copying its value from the disassembled data table.
+
+**Lesson:** a single user-visible symptom ("feels clunky") can be the
+visible tip of several independent gun-vs-melee branch points that were
+each individually written with only guns in mind, and a correct fix for one
+will not reveal the next — each discovery came from a *new* on-device
+report after the previous fix shipped, not from static review of the first
+diff. When RE'ing a "melee does X differently from guns" bug, don't stop at
+the first branch point found; grep every sibling function in the same
+input-handling pipeline (attack input → lock-on gate → body tracking →
+victim selection → strike detection) for the same `CANAIM`/`CANAIM_WITHARM`/
+weapon-fire-type pattern, since PS2 routinely uses exactly these flags as a
+gun/melee discriminator in functions that look gun-only at a glance.
