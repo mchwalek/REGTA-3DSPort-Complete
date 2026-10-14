@@ -66,21 +66,23 @@ recompilation of one file with `-W ../src/core/Foo.cpp`. Helper targets:
 
 ## Packaging a .cia
 
-`repo/packaging/production_cia/build_production.sh` is a portable bash
-script (table-driven over re3/revc/relcs). It now accepts an optional list of
-games — you do NOT need all three ELFs built:
+`scripts/package-cia.sh [re3|revc|relcs ...]` (aliases `iii`/`vc`/`lcs`/
+`stories` accepted, same as `build.sh`) wraps
+`packaging/production_cia/build_production.sh` (a portable, table-driven
+bash script over re3/revc/relcs) and defaults `BANNERTOOL`/`MAKEROM`/
+`THREEDSXTOOL` to the vendored `$WORKSPACE_ROOT/hosttools/`/`sdk-r55/`
+locations, so no env vars are required in the common case:
 
 ```sh
-BANNERTOOL=$WORKSPACE_ROOT/hosttools/bannertool \
-MAKEROM=$WORKSPACE_ROOT/hosttools/makerom \
-THREEDSXTOOL=$WORKSPACE_ROOT/sdk-r55/tools/bin/3dsxtool \
-  $WORKSPACE_ROOT/repo/packaging/production_cia/build_production.sh relcs
+scripts/package-cia.sh relcs
 ```
 
-Omit the trailing `relcs` to package all three games (each requires its own
-ELF to already be built). Output lands in
-`repo/packaging/production_cia/output/` (gitignored):
-`GTALCS For Nintendo 3DS.3dsx` and `.cia`, plus intermediate `.bnr`/`.smdh`.
+Omit the game argument to package all three (each requires its own ELF to
+already be built). Override any of `BANNERTOOL`/`MAKEROM`/`THREEDSXTOOL` by
+exporting them before calling the script if the vendored copies aren't
+where expected. Output lands in `packaging/production_cia/output/`
+(gitignored): `GTALCS For Nintendo 3DS.3dsx` and `.cia`, plus intermediate
+`.bnr`/`.smdh`.
 
 Known-good relcs CIA sha256 (from the 3DS menu accept/cancel remap commit
 `f1ae416`) for sanity-checking that packaging still works end-to-end:
@@ -112,17 +114,20 @@ Usage — the 3DS must already be sitting in Homebrew Launcher (or another
 netloader-capable app) waiting for a connection; it listens on TCP/UDP 17491:
 
 ```sh
-$WORKSPACE_ROOT/hosttools/3dslink -a <3DS-LAN-IP> stories/build/relcs.3dsx
+scripts/deploy.sh relcs <3DS-LAN-IP>
 ```
 
-Add `-s` to keep a server running after upload so the console's stdout/stderr
-streams back to the terminal. **Do not wrap this in a short Bash timeout** —
-a ~4 MB `.3dsx` over Wi-Fi takes noticeably longer than a quick command, and
-killing the transfer mid-upload leaves the console in a bad state (it may
-boot the partial app or drop out of listening mode), requiring the user to
-relaunch Homebrew Launcher on-device before the next attempt.
+(`<3DS-LAN-IP>` defaults to `$N3DS_IP` if omitted.) This wraps
+`$WORKSPACE_ROOT/hosttools/3dslink -a <ip> stories/build/relcs.3dsx` with a
+build-output existence check. For an upload that keeps streaming the
+console's stdout/stderr afterward, call `3dslink` directly with `-s`.
+**Do not wrap either in a short Bash timeout** — a ~4 MB `.3dsx` over Wi-Fi
+takes noticeably longer than a quick command, and killing the transfer
+mid-upload leaves the console in a bad state (it may boot the partial app
+or drop out of listening mode), requiring the user to relaunch Homebrew
+Launcher on-device before the next attempt.
 
-**A captured Bash tool run of `deploy.sh`/`3dslink` showing progress stuck at
+**A captured Bash tool run of `scripts/deploy.sh`/`3dslink` showing progress stuck at
 some percentage (e.g. `"... sent (48.92%), 189 blocks"`) with no further
 output is expected, not a sign of a stalled/failed transfer.** `3dslink`
 renders its progress bar with carriage returns (`\r`), overwriting the same
@@ -133,7 +138,7 @@ the process went on to finish normally and already exited. Confirm via
 transfer already completed (or failed) and isn't still in flight; the
 percentage in the captured text is not meaningful once the process has
 exited. The only reliable way to know if the deploy actually worked is to
-ask whether the app launched on the console — don't re-run `deploy.sh`
+ask whether the app launched on the console — don't re-run `scripts/deploy.sh`
 speculatively based on a stale percentage, since that risks compounding a
 genuinely bad console state if the first attempt is in fact still live.
 

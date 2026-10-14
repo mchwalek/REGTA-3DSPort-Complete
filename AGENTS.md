@@ -67,6 +67,20 @@ running it.
 Outputs land in `<tree>/build/`: `relcs.elf`, `relcs.3dsx`, `relcs.lst`,
 and a map file literally named `.map`. None of these are checked in.
 
+Package a `.cia`/`.3dsx` for a built game with `scripts/package-cia.sh
+[re3|revc|relcs ...]` (same aliases as `build.sh`; no args packages all
+three, each requiring its own ELF already built). It wraps
+`packaging/production_cia/build_production.sh` with `BANNERTOOL`/`MAKEROM`/
+`THREEDSXTOOL` defaulted to the vendored `hosttools/`/`sdk-r55/` locations —
+see the `relcs-3ds-build` skill for details and the known-good sha256 to
+sanity-check packaging still works.
+
+Deploy a built `.3dsx` to a real 3DS over the network with
+`scripts/deploy.sh <re3|revc|relcs> [3ds-ip]` (`3ds-ip` defaults to
+`$N3DS_IP`). The console must already be sitting in Homebrew Launcher
+waiting for a connection — see landmine #14 below for a capture artifact to
+not mistake for a failed transfer.
+
 ## Landmines
 
 1. **Never run a bare `git add -A` / `git add .`.** `sdstage/` is a local SD
@@ -226,7 +240,7 @@ and a map file literally named `.map`. None of these are checked in.
     port (PS2 disassembly implied the field behaves like a normal ratio
     denominator; the port's own codebase never populates it), caught in
     code review before merge; see `git log --grep="lock-on reticle"`.
-14. **A captured `deploy.sh`/`3dslink` run showing progress stuck at some
+14. **A captured `scripts/deploy.sh`/`3dslink` run showing progress stuck at some
     percentage (e.g. `"... sent (48.92%), 189 blocks"`) with no further
     output is expected, not evidence of a stalled/failed transfer.**
     `3dslink` renders its progress bar with carriage returns (`\r`),
@@ -238,7 +252,7 @@ and a map file literally named `.map`. None of these are checked in.
     (or failed) and isn't still in flight; the percentage in the captured
     text means nothing once the process has exited. The only reliable way to
     know if the deploy actually worked is to ask whether the app launched on
-    the console — don't re-run `deploy.sh` speculatively based on a stale
+    the console — don't re-run `scripts/deploy.sh` speculatively based on a stale
     percentage, since that risks compounding a genuinely bad console state
     if the first attempt is in fact still live (see the `relcs-3ds-build`
     skill's "Do not wrap this in a short Bash timeout" warning for why a
