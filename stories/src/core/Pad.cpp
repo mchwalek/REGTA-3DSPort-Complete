@@ -12,6 +12,9 @@
 #endif
 
 #include "Pad.h"
+#ifdef DEBUGMENU
+#include "debugmenu.h"
+#endif
 #include "ControllerConfig.h"
 #include "Timer.h"
 #include "Frontend.h"
@@ -2182,6 +2185,13 @@ CPad::AffectFrom3DS()
 		g3DSTouchActiveZone = TOUCH_ZONE_NONE;
 	}
 
+#ifdef DEBUGMENU
+	// Debug menu owns the pad while open; touch-overlay timeout above still runs every frame.
+	if(DebugMenuIsOn()){
+		PCTempJoyState.Clear();
+		return;
+	}
+#endif
 	const u32 cheatCombo = KEY_L | KEY_R | KEY_ZL | KEY_ZR;
 	if((held & cheatCombo) != cheatCombo)
 		g3DSCheatKeyboardLatched = false;

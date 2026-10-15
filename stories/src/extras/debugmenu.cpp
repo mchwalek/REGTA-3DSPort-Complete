@@ -281,15 +281,24 @@ static int buttondown[3];
 static int lastbuttondown;
 static int *buttonptr;
 static int button1justdown, button2justdown, button3justdown;
+#ifdef _3DS
+static float mouseX = -1.0f, mouseY = -1.0f;	// no pointer: never inside any rect
+#else
 static float mouseX, mouseY;
+#endif
 
 static int menuOn;
 static int menuInitialized;
 static int screenWidth, screenHeight;
 static RwRaster *cursor, *arrow;
 
+#ifdef _3DS
+static int firstBorder = 4;
+static int topBorder = 4;
+#else
 static int firstBorder = 10;
 static int topBorder = 40;	//10;
+#endif
 static int leading = 4;
 static int gap = 10;
 static int minwidth = 100;
@@ -305,8 +314,14 @@ MenuEntry *mouseOverEntry;
 MenuEntry scrollUpEntry("SCROLLUP"), scrollDownEntry("SCROLLDOWN");	// dummies
 
 
+#ifdef _3DS
+// Select is the toggle modifier; while it's held the menu ignores all keys so Select+Up doesn't also navigate.
+#define KEYJUSTDOWN(k) (!(hidKeysHeld() & KEY_SELECT) && (hidKeysDown() & Menu3DSKeyMask(k)) != 0)
+#define KEYDOWN(k) (!(hidKeysHeld() & KEY_SELECT) && (hidKeysHeld() & Menu3DSKeyMask(k)) != 0)
+#else
 #define KEYJUSTDOWN(k) ControlsManager.GetIsKeyboardKeyJustDown((RsKeyCodes)k)
 #define KEYDOWN(k) ControlsManager.GetIsKeyboardKeyDown((RsKeyCodes)k)
+#endif
 #define CTRLJUSTDOWN(key) \
 	       ((KEYDOWN(rsLCTRL) || KEYDOWN(rsRCTRL)) && KEYJUSTDOWN((RsKeyCodes)key) || \
 	        (KEYJUSTDOWN(rsLCTRL) || KEYJUSTDOWN(rsRCTRL)) && KEYDOWN((RsKeyCodes)key))
@@ -528,7 +543,7 @@ void
 MenuEntry_Cmd::processInput(bool mouseOver, bool selected)
 {
 	// Don't execute on button3
-	if(this->triggerFunc && (selected && (leftjustdown || rightjustdown) || (mouseOver && button1justdown)))
+	if(this->triggerFunc && (selected && (leftjustdown || rightjustdown || KEYJUSTDOWN(rsENTER)) || (mouseOver && button1justdown)))
 		this->triggerFunc();
 }
 
@@ -987,9 +1002,8 @@ processInput(void)
 		activeMenu = mouseOverEntry->menu;
 		activeMenu->changeSelection(mouseOverEntry);
 	}
-	if(KEYJUSTDOWN(rsENTER)){
-		if(activeMenu->selectedEntry && activeMenu->selectedEntry->type == MENUSUB)
-			activeMenu = ((MenuEntry_Sub*)activeMenu->selectedEntry)->submenu;
+	if(KEYJUSTDOWN(rsENTER) && activeMenu->selectedEntry && activeMenu->selectedEntry->type == MENUSUB){
+		activeMenu = ((MenuEntry_Sub*)activeMenu->selectedEntry)->submenu;
 	}else if(KEYJUSTDOWN(rsBACKSP)){
 		if(activeMenu->parent)
 			activeMenu = activeMenu->parent;
@@ -1038,17 +1052,32 @@ DebugMenuProcess(void)
 	// We only process some input here
 
 	CPad *pad = CPad::GetPad(0);
+#ifdef _3DS
+	u32 held = hidKeysHeld(), down = hidKeysDown();
+	if((held & (KEY_SELECT | KEY_DUP)) == (KEY_SELECT | KEY_DUP) && (down & (KEY_SELECT | KEY_DUP)))
+		menuOn = !menuOn;
+#else
 	if(CTRLJUSTDOWN('M'))
 		menuOn = !menuOn;
+#endif
 	if(!menuOn)
 		return;
 
-	pad->DisablePlayerControls = 1;
+#ifndef _3DS
+	pad->DisablePlayerControls = 1;	// 3DS: CPad::AffectFrom3DS swallows input instead
+#endif
 	// TODO: this could happen earlier
 	if(!menuInitialized)
 		DebugMenuInit();
+#ifndef _3DS
 	updateMouse();
+#endif
+}
 
+bool
+DebugMenuIsOn(void)
+{
+	return menuOn != 0;
 }
 
 void
@@ -1086,7 +1115,9 @@ DebugMenuRender(void)
 	processInput();
 	RtCharsetBufferFlush();
 
+#ifndef _3DS
 	drawMouse();
+#endif
 }
 
 
