@@ -1104,8 +1104,6 @@ DebugMenuProcess(void)
 #ifdef _3DS
 	u32 held = hidKeysHeld(), down = hidKeysDown();
 	// Toggle chord is R+B+D-pad Up (keep in sync with CPad::AffectFrom3DS's swallow guard).
-	// Not Select alone: Select is CycleCameraModeJustDown in control Modes 0/2/3, so pressing
-	// it first (before Up) would cycle the camera before the chord even completes.
 	const u32 menuToggleCombo = MENU_TOGGLE_MODIFIER | KEY_DUP;
 	// Opening is blocked over the pause menu: Render2dStuff doesn't run there, so the menu would be invisible.
 	if((held & menuToggleCombo) == menuToggleCombo && (down & menuToggleCombo) &&
