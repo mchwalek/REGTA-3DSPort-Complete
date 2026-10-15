@@ -852,7 +852,11 @@ ResetCamStatics(void)
 }
 
 #ifdef MISSION_SWITCHER
+#ifdef _3DS
+int32 nextMissionToSwitch = 9;	// missions[9] "Home Sweet Home"; 0-8 are "initial:" bootstrap scripts
+#else
 int32 nextMissionToSwitch = 0;
+#endif
 static void
 SwitchToMission(void)
 {
