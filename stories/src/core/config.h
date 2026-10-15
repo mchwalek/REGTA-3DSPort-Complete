@@ -325,6 +325,10 @@ enum Config {
 #undef DEBUGMENU
 #undef RELOADABLES
 #undef MISSION_SWITCHER
+#ifdef RELCS_DEBUGMENU // opt-in: DEBUGMENU=1 scripts/build.sh relcs
+#define DEBUGMENU
+#define MISSION_SWITCHER
+#endif
 #endif
 
 // Rendering/display
