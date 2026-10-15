@@ -316,9 +316,11 @@ MenuEntry scrollUpEntry("SCROLLUP"), scrollDownEntry("SCROLLDOWN");	// dummies
 
 
 #ifdef _3DS
-// Select is the toggle modifier; while it's held the menu ignores all keys so Select+Up doesn't also navigate.
-#define KEYJUSTDOWN(k) (!(hidKeysHeld() & KEY_SELECT) && (hidKeysDown() & Menu3DSKeyMask(k)) != 0)
-#define KEYDOWN(k) (!(hidKeysHeld() & KEY_SELECT) && (hidKeysHeld() & Menu3DSKeyMask(k)) != 0)
+// R+B is the toggle chord (see MENU_TOGGLE_COMBO below); while both are held the
+// menu ignores all keys, so the chord's own Up/R/B presses don't also navigate.
+#define MENU_TOGGLE_MODIFIER (KEY_R | KEY_B)
+#define KEYJUSTDOWN(k) ((hidKeysHeld() & MENU_TOGGLE_MODIFIER) != MENU_TOGGLE_MODIFIER && (hidKeysDown() & Menu3DSKeyMask(k)) != 0)
+#define KEYDOWN(k) ((hidKeysHeld() & MENU_TOGGLE_MODIFIER) != MENU_TOGGLE_MODIFIER && (hidKeysHeld() & Menu3DSKeyMask(k)) != 0)
 #else
 #define KEYJUSTDOWN(k) ControlsManager.GetIsKeyboardKeyJustDown((RsKeyCodes)k)
 #define KEYDOWN(k) ControlsManager.GetIsKeyboardKeyDown((RsKeyCodes)k)
@@ -1101,8 +1103,12 @@ DebugMenuProcess(void)
 	CPad *pad = CPad::GetPad(0);
 #ifdef _3DS
 	u32 held = hidKeysHeld(), down = hidKeysDown();
+	// Toggle chord is R+B+D-pad Up (keep in sync with CPad::AffectFrom3DS's swallow guard).
+	// Not Select alone: Select is CycleCameraModeJustDown in control Modes 0/2/3, so pressing
+	// it first (before Up) would cycle the camera before the chord even completes.
+	const u32 menuToggleCombo = MENU_TOGGLE_MODIFIER | KEY_DUP;
 	// Opening is blocked over the pause menu: Render2dStuff doesn't run there, so the menu would be invisible.
-	if((held & (KEY_SELECT | KEY_DUP)) == (KEY_SELECT | KEY_DUP) && (down & (KEY_SELECT | KEY_DUP)) &&
+	if((held & menuToggleCombo) == menuToggleCombo && (down & menuToggleCombo) &&
 	   (menuOn || !FrontEndMenuManager.m_bMenuActive))
 		menuOn = !menuOn;
 #else

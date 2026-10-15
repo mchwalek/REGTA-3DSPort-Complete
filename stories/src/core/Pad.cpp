@@ -2187,8 +2187,10 @@ CPad::AffectFrom3DS()
 
 #ifdef DEBUGMENU
 	// Debug menu owns the pad while open; touch-overlay timeout above still runs every frame.
-	// Also swallow the Select+Up opening press, so D-pad Up doesn't reach the stereo/performance hotkeys.
-	if(DebugMenuIsOn() || ((held & KEY_SELECT) && (down & KEY_DUP))){
+	// Also swallow the R+B+Up opening chord (keep in sync with DebugMenuProcess's toggle check),
+	// so D-pad Up doesn't reach the stereo/performance hotkeys on the frame the menu opens.
+	const u32 menuToggleCombo = KEY_R | KEY_B | KEY_DUP;
+	if(DebugMenuIsOn() || ((held & menuToggleCombo) == menuToggleCombo && (down & menuToggleCombo))){
 		PCTempJoyState.Clear();
 		return;
 	}
