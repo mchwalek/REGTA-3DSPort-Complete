@@ -852,7 +852,7 @@ ResetCamStatics(void)
 }
 
 #ifdef MISSION_SWITCHER
-int8 nextMissionToSwitch = 0;
+int32 nextMissionToSwitch = 0;
 static void
 SwitchToMission(void)
 {
