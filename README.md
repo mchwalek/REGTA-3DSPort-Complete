@@ -622,7 +622,7 @@ Some actions differ between games; follow the in-game tutorials and button
 prompts for those.
 
 **Debug menu (reLCS, developer builds only).** Build with
-`DEBUGMENU=1 scripts/build.sh relcs` to compile in the re3 debug menu.
+`scripts/build-debug.sh` to compile in the re3 debug menu.
 In game (not from the pause menu), press **R + B + D-pad Up** to show/hide
 it (game input is ignored while it's open). Only the current menu is shown.
 D-pad Up/Down select, Left/Right change a value, A enters a submenu or runs
