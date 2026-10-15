@@ -621,6 +621,16 @@ All three games use Nintendo button labels and the same basic controls:
 Some actions differ between games; follow the in-game tutorials and button
 prompts for those.
 
+**Debug menu (reLCS, developer builds only).** Build with
+`DEBUGMENU=1 scripts/build.sh relcs` to compile in the re3 debug menu.
+In game, press **Select + D-pad Up** to show/hide it (game input is
+ignored while it's open). D-pad Up/Down select, Left/Right change a value,
+A enters a submenu or runs a command, B goes back, L/R scroll, hold Y for
+steps of 5. *Game → Select mission / Start selected mission* fails the
+current mission and launches the chosen one from main.scm with no story
+progress applied, so some missions may misbehave. Release builds don't
+include the menu.
+
 ### PS2 Graphics
 
 **PS2 Graphics** is a separate switch in Options → Display settings,
