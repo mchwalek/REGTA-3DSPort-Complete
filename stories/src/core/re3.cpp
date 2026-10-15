@@ -852,7 +852,11 @@ ResetCamStatics(void)
 }
 
 #ifdef MISSION_SWITCHER
-int8 nextMissionToSwitch = 0;
+#ifdef _3DS
+int32 nextMissionToSwitch = 9;	// missions[9] "Home Sweet Home"; 0-8 are "initial:" bootstrap scripts
+#else
+int32 nextMissionToSwitch = 0;
+#endif
 static void
 SwitchToMission(void)
 {
@@ -1001,7 +1005,7 @@ DebugMenuPopulate(void)
 		DebugMenuAddCmd("Cheats", "Strong grip", StrongGripCheat);
 		DebugMenuAddCmd("Cheats", "Pickup chicks", PickUpChicksCheat);
 
-		static int spawnCarId = MI_LANDSTAL;
+		static int32 spawnCarId = MI_LANDSTAL;
 		e = DebugMenuAddVar("Spawn", "Spawn Car ID", &spawnCarId, nil, 1, MI_SPIDER, MI_VCNMAV, carnames);
 		DebugMenuEntrySetWrap(e, true);
 		DebugMenuAddCmd("Spawn", "Spawn Car", [](){
@@ -1078,7 +1082,7 @@ extern bool gbRenderWorld2;
 
 #ifdef EXTENDED_COLOURFILTER
 		static const char *filternames[] = { "None", "PSP", "PS2" };
-		e = DebugMenuAddVar("Render", "Colourfilter", &CPostFX::EffectSwitch, nil, 1, CPostFX::POSTFX_OFF, CPostFX::POSTFX_PS2, filternames);
+		e = DebugMenuAddVar("Render", "Colourfilter", (int32*)&CPostFX::EffectSwitch, nil, 1, CPostFX::POSTFX_OFF, CPostFX::POSTFX_PS2, filternames);
 		DebugMenuEntrySetWrap(e, true);
 		DebugMenuAddVar("Render", "Intensity", &CPostFX::Intensity, nil, 0.05f, 0, 10.0f);
 		DebugMenuAddVarBool8("Render", "Blur", &CPostFX::BlurOn, nil);
@@ -1088,7 +1092,8 @@ extern bool gbRenderWorld2;
 #ifndef MASTER
 		DebugMenuAddVarBool8("Render", "Occlusion debug", &bDispayOccDebugStuff, nil);
 #endif
-#ifdef LIBRW
+#if defined LIBRW && !defined _3DS
+		// this librw's MatFX has no envMap* toggles
 		DebugMenuAddVarBool32("Render", "MatFX env map apply light", &rw::MatFX::envMapApplyLight, nil);
 		DebugMenuAddVarBool32("Render", "MatFX env map flip U", &rw::MatFX::envMapFlipU, nil);
 		DebugMenuAddVarBool32("Render", "MatFX env map use matcolor", &rw::MatFX::envMapUseMatColor, nil);

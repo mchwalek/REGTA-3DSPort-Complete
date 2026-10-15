@@ -8,6 +8,10 @@
 #include "re3_inttypes.h"
 #include "debugmenu.h"
 #include <new>
+#ifdef _3DS
+#include <3ds.h>
+#include "Frontend.h"
+#endif
 
 #ifdef _WIN32
 #define snprintf _snprintf
@@ -278,15 +282,24 @@ static int buttondown[3];
 static int lastbuttondown;
 static int *buttonptr;
 static int button1justdown, button2justdown, button3justdown;
+#ifdef _3DS
+static float mouseX = -1.0f, mouseY = -1.0f;	// no pointer: never inside any rect
+#else
 static float mouseX, mouseY;
+#endif
 
 static int menuOn;
 static int menuInitialized;
 static int screenWidth, screenHeight;
 static RwRaster *cursor, *arrow;
 
+#ifdef _3DS
+static int firstBorder = 4;
+static int topBorder = 4;
+#else
 static int firstBorder = 10;
 static int topBorder = 40;	//10;
+#endif
 static int leading = 4;
 static int gap = 10;
 static int minwidth = 100;
@@ -302,12 +315,40 @@ MenuEntry *mouseOverEntry;
 MenuEntry scrollUpEntry("SCROLLUP"), scrollDownEntry("SCROLLDOWN");	// dummies
 
 
+#ifdef _3DS
+// R+B is the toggle chord (see MENU_TOGGLE_COMBO below); while both are held the
+// menu ignores all keys, so the chord's own Up/R/B presses don't also navigate.
+#define MENU_TOGGLE_MODIFIER (KEY_R | KEY_B)
+#define KEYJUSTDOWN(k) ((hidKeysHeld() & MENU_TOGGLE_MODIFIER) != MENU_TOGGLE_MODIFIER && (hidKeysDown() & Menu3DSKeyMask(k)) != 0)
+#define KEYDOWN(k) ((hidKeysHeld() & MENU_TOGGLE_MODIFIER) != MENU_TOGGLE_MODIFIER && (hidKeysHeld() & Menu3DSKeyMask(k)) != 0)
+#else
 #define KEYJUSTDOWN(k) ControlsManager.GetIsKeyboardKeyJustDown((RsKeyCodes)k)
 #define KEYDOWN(k) ControlsManager.GetIsKeyboardKeyDown((RsKeyCodes)k)
+#endif
 #define CTRLJUSTDOWN(key) \
 	       ((KEYDOWN(rsLCTRL) || KEYDOWN(rsRCTRL)) && KEYJUSTDOWN((RsKeyCodes)key) || \
 	        (KEYJUSTDOWN(rsLCTRL) || KEYJUSTDOWN(rsRCTRL)) && KEYDOWN((RsKeyCodes)key))
 #define CTRLDOWN(key) ((KEYDOWN(rsLCTRL) || KEYDOWN(rsRCTRL)) && KEYDOWN((RsKeyCodes)key))
+#ifdef _3DS
+// Debug menu is keyboard-driven upstream; map the keys it reads onto the 3DS pad.
+static u32
+Menu3DSKeyMask(int key)
+{
+	switch(key){
+	case rsUP: return KEY_DUP;
+	case rsDOWN: return KEY_DDOWN;
+	case rsLEFT: return KEY_DLEFT;
+	case rsRIGHT: return KEY_DRIGHT;
+	case rsPGUP: return KEY_L;
+	case rsPGDN: return KEY_R;
+	case rsENTER: return KEY_A;
+	case rsBACKSP: return KEY_B;
+	case rsLSHIFT:
+	case rsRSHIFT: return KEY_Y;
+	default: return 0;
+	}
+}
+#endif
 
 
 bool
@@ -504,9 +545,15 @@ FLOATTYPES
 void
 MenuEntry_Cmd::processInput(bool mouseOver, bool selected)
 {
+#ifdef _3DS
+	// A only: Left/Right auto-repeat would re-fire commands (e.g. relaunch a mission every 50ms)
+	if(this->triggerFunc && selected && KEYJUSTDOWN(rsENTER))
+		this->triggerFunc();
+#else
 	// Don't execute on button3
 	if(this->triggerFunc && (selected && (leftjustdown || rightjustdown) || (mouseOver && button1justdown)))
 		this->triggerFunc();
+#endif
 }
 
 void
@@ -664,6 +711,7 @@ Menu::update(void)
 	this->scrollDownR = this->scrollUpR;
 	this->scrollDownR.y = bottomy;
 
+#ifndef _3DS	// 3DS lays out and draws only the active menu (no room for side-by-side columns)
 	// Update active submenu
 	if(this->selectedEntry && this->selectedEntry->type == MENUSUB){
 		Menu *submenu = ((MenuEntry_Sub*)this->selectedEntry)->submenu;
@@ -673,6 +721,7 @@ Menu::update(void)
 		submenu->r.h = this->r.h;
 		submenu->update();
 	}
+#endif
 }
 
 void
@@ -691,12 +740,35 @@ Menu::draw(void)
 				style = this == activeMenu ? MENUFONT_SEL_ACTIVE : MENUFONT_SEL_INACTIVE;
 			if(style != MENUFONT_SEL_ACTIVE && e == mouseOverEntry)
 				style = MENUFONT_MOUSE;
+#ifdef _3DS
+			// 400px screen, 9px glyphs: unpadded value right after the names; a value
+			// too long for that replaces the name, clipped to what fits on screen.
+			bool showName = true;
+			if(e->type == MENUVAR){
+				((MenuEntry_Var*)e)->getValStr(val, 100);
+				char *v = val;
+				while(*v == ' ')
+					v++;
+				int len = strlen(v);
+				int vx = e->r.x + this->maxNameWidth + gap*fontscale;
+				if(vx + fontGetLen(len) > screenWidth){
+					showName = false;
+					len = Min(len, (screenWidth - e->r.x)/fontGetLen(1));
+					v[len] = '\0';
+					vx = screenWidth - fontGetLen(len);
+				}
+				fontPrint(v, vx, e->r.y, style);
+			}
+			if(showName)
+				fontPrint(e->name, e->r.x, e->r.y, style);
+#else
 			fontPrint(e->name, e->r.x, e->r.y, style);
 			if(e->type == MENUVAR){
 				int valw = fontGetLen(((MenuEntry_Var*)e)->getValWidth());
 				((MenuEntry_Var*)e)->getValStr(val, 100);
 				fontPrint(val, e->r.x+this->r.w-valw, e->r.y, style);
 			}
+#endif
 		}
 		i++;
 	}
@@ -706,8 +778,10 @@ Menu::draw(void)
 	if(this->isScrollingDown)
 		drawArrow(this->scrollDownR, 1, isMouseInRect(this->scrollDownR));
 
+#ifndef _3DS
 	if(this->selectedEntry && this->selectedEntry->type == MENUSUB)
 		((MenuEntry_Sub*)this->selectedEntry)->submenu->draw();
+#endif
 }
 
 Menu::~Menu(void)
@@ -964,9 +1038,8 @@ processInput(void)
 		activeMenu = mouseOverEntry->menu;
 		activeMenu->changeSelection(mouseOverEntry);
 	}
-	if(KEYJUSTDOWN(rsENTER)){
-		if(activeMenu->selectedEntry && activeMenu->selectedEntry->type == MENUSUB)
-			activeMenu = ((MenuEntry_Sub*)activeMenu->selectedEntry)->submenu;
+	if(KEYJUSTDOWN(rsENTER) && activeMenu->selectedEntry && activeMenu->selectedEntry->type == MENUSUB){
+		activeMenu = ((MenuEntry_Sub*)activeMenu->selectedEntry)->submenu;
 	}else if(KEYJUSTDOWN(rsBACKSP)){
 		if(activeMenu->parent)
 			activeMenu = activeMenu->parent;
@@ -1009,23 +1082,63 @@ updateMouse(void)
 	pad->NewMouseControllerState.y = 0.0f;
 }
 
+#ifdef _3DS
+// Same geometry as the PC toplevel layout, but for the active menu alone
+static void
+layoutActiveMenu(void)
+{
+	activeMenu->r.x = firstBorder*fontscale;
+	activeMenu->r.y = topBorder + fontDesc.height*fontscale + 10;
+	activeMenu->r.w = minwidth;	// update menu will expand
+	activeMenu->r.h = screenHeight - 10 - activeMenu->r.y;
+	activeMenu->update();
+}
+#endif
+
 void
 DebugMenuProcess(void)
 {
 	// We only process some input here
 
 	CPad *pad = CPad::GetPad(0);
+#ifdef _3DS
+	u32 held = hidKeysHeld(), down = hidKeysDown();
+	// Toggle chord is R+B+D-pad Up (keep in sync with CPad::AffectFrom3DS's swallow guard).
+	const u32 menuToggleCombo = MENU_TOGGLE_MODIFIER | KEY_DUP;
+	// Opening is blocked over the pause menu: Render2dStuff doesn't run there, so the menu would be invisible.
+	if((held & menuToggleCombo) == menuToggleCombo && (down & menuToggleCombo) &&
+	   (menuOn || !FrontEndMenuManager.m_bMenuActive))
+		menuOn = !menuOn;
+#else
 	if(CTRLJUSTDOWN('M'))
 		menuOn = !menuOn;
+#endif
 	if(!menuOn)
 		return;
 
-	pad->DisablePlayerControls = 1;
+#ifndef _3DS
+	pad->DisablePlayerControls = 1;	// 3DS: CPad::AffectFrom3DS swallows input instead
+#endif
 	// TODO: this could happen earlier
 	if(!menuInitialized)
 		DebugMenuInit();
+#ifdef _3DS
+	// Commands run here, before rendering: mission switch / car spawn can stream or free
+	// models (librw 3DS frees GPU buffers immediately) that this frame's draws would use.
+	// screenWidth is 0 until the first DebugMenuRender.
+	if(screenWidth){
+		layoutActiveMenu();
+		processInput();
+	}
+#else
 	updateMouse();
+#endif
+}
 
+bool
+DebugMenuIsOn(void)
+{
+	return menuOn != 0;
 }
 
 void
@@ -1051,6 +1164,15 @@ DebugMenuRender(void)
 //	else
 		fontscale = 1;
 
+#ifdef _3DS
+	// One column: title shows which submenu is active
+	const char *title = "Debug Menu";
+	if(activeMenu->parent && activeMenu->parent->selectedEntry)
+		title = activeMenu->parent->selectedEntry->name;
+	fontPrint(title, firstBorder*fontscale+30, topBorder, 0);
+	layoutActiveMenu();
+	activeMenu->draw();
+#else
 	Pt sz;
 	sz = fontPrint("Debug Menu", firstBorder*fontscale+30, topBorder, 0);
 
@@ -1061,9 +1183,12 @@ DebugMenuRender(void)
 	toplevel.update();
 	toplevel.draw();
 	processInput();
+#endif
 	RtCharsetBufferFlush();
 
+#ifndef _3DS
 	drawMouse();
+#endif
 }
 
 

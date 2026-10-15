@@ -152,6 +152,7 @@ void DebugMenuInit(void);
 void DebugMenuShutdown(void);
 void DebugMenuProcess(void);
 void DebugMenuRender(void);
+bool DebugMenuIsOn(void);
 
 
 // Some overloads for simplicity

@@ -1958,6 +1958,9 @@ void CRunningScript::LogAfterProcessingCommand(int32 command)
 void
 CTheScripts::SwitchToMission(int32 mission)
 {
+	if (mission < 0 || mission >= (int32)CTheScripts::NumberOfMissionScripts)
+		return;
+
 	for (CRunningScript* pScript = CTheScripts::pActiveScripts; pScript != nil; pScript = pScript->GetNext()) {
 		if (!pScript->m_bIsMissionScript || !pScript->m_bDeatharrestEnabled) {
 			continue;
@@ -1974,9 +1977,6 @@ CTheScripts::SwitchToMission(int32 mission)
 
 		CMessages::ClearMessages();
 	}
-
-	if (CTheScripts::NumberOfExclusiveMissionScripts > 0 && mission <= UINT16_MAX - 2)
-		return;
 
 #ifdef MISSION_REPLAY
 	missionRetryScriptIndex = mission;
