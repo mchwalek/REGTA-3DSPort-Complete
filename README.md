@@ -623,13 +623,15 @@ prompts for those.
 
 **Debug menu (reLCS, developer builds only).** Build with
 `DEBUGMENU=1 scripts/build.sh relcs` to compile in the re3 debug menu.
-In game, press **Select + D-pad Up** to show/hide it (game input is
-ignored while it's open). D-pad Up/Down select, Left/Right change a value,
-A enters a submenu or runs a command, B goes back, L/R scroll, hold Y for
-steps of 5. *Game → Select mission / Start selected mission* fails the
-current mission and launches the chosen one from main.scm with no story
-progress applied, so some missions may misbehave. Release builds don't
-include the menu.
+In game (not from the pause menu), press **Select + D-pad Up** to show/hide
+it (game input is ignored while it's open). Only the current menu is shown.
+D-pad Up/Down select, Left/Right change a value, A enters a submenu or runs
+a command, B goes back, L/R scroll; holding Y makes Up/Down and L/R move 5
+entries at a time (values still change by one step). *Game → Select mission /
+Start selected mission* fails the current mission and launches the chosen
+one from main.scm with no story progress applied, so some missions may
+misbehave. The list starts at "Home Sweet Home"; entries 0-8 ("initial: …")
+are bootstrap scripts, not missions. Release builds don't include the menu.
 
 ### PS2 Graphics
 
