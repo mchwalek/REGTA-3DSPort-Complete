@@ -8,6 +8,9 @@
 #include "re3_inttypes.h"
 #include "debugmenu.h"
 #include <new>
+#ifdef _3DS
+#include <3ds.h>
+#endif
 
 #ifdef _WIN32
 #define snprintf _snprintf
@@ -308,6 +311,26 @@ MenuEntry scrollUpEntry("SCROLLUP"), scrollDownEntry("SCROLLDOWN");	// dummies
 	       ((KEYDOWN(rsLCTRL) || KEYDOWN(rsRCTRL)) && KEYJUSTDOWN((RsKeyCodes)key) || \
 	        (KEYJUSTDOWN(rsLCTRL) || KEYJUSTDOWN(rsRCTRL)) && KEYDOWN((RsKeyCodes)key))
 #define CTRLDOWN(key) ((KEYDOWN(rsLCTRL) || KEYDOWN(rsRCTRL)) && KEYDOWN((RsKeyCodes)key))
+#ifdef _3DS
+// Debug menu is keyboard-driven upstream; map the keys it reads onto the 3DS pad.
+static u32
+Menu3DSKeyMask(int key)
+{
+	switch(key){
+	case rsUP: return KEY_DUP;
+	case rsDOWN: return KEY_DDOWN;
+	case rsLEFT: return KEY_DLEFT;
+	case rsRIGHT: return KEY_DRIGHT;
+	case rsPGUP: return KEY_L;
+	case rsPGDN: return KEY_R;
+	case rsENTER: return KEY_A;
+	case rsBACKSP: return KEY_B;
+	case rsLSHIFT:
+	case rsRSHIFT: return KEY_Y;
+	default: return 0;
+	}
+}
+#endif
 
 
 bool
