@@ -183,19 +183,27 @@ CCam::Process(void)
 		break;
 	case MODE_FOLLOWPED:
 	/* 3DS: m_bUseMouse3rdPerson is only ever true while the free-aim latch is
-	 * held, so this routes free aim to the aim camera instead of the free cam,
-	 * whose Shooting snap-back would drag the view back behind the player. */
+	 * held, so this routes free aim to the aim camera instead of the orbit
+	 * cam, whose auto-rotate-behind would fight the free-aim latch. */
 #if defined(PC_PLAYER_CONTROLS) || defined(_3DS)
 		if(CCamera::m_bUseMouse3rdPerson)
 			Process_FollowPedWithMouse(CameraTarget, TargetOrientation, SpeedVar, TargetSpeedVar);
 		else
 #endif
+#ifdef _3DS
+		/* PS2 LCS's real on-foot camera is this orbit cam (ported from
+		 * VA 0x281f50), not the pitchless VC string cam below -- see
+		 * docs/superpowers/specs/2026-10-16-ps2-on-foot-camera-design.md.
+		 * Always used on _3DS once free aim is ruled out above. */
+		Process_FollowPed_Rotation(CameraTarget, TargetOrientation, SpeedVar, TargetSpeedVar);
+#else
 #ifdef FREE_CAM
 			if(CCamera::bFreeCam)
 				Process_FollowPed_Rotation(CameraTarget, TargetOrientation, SpeedVar, TargetSpeedVar);
 			else
 #endif
 			Process_FollowPed(CameraTarget, TargetOrientation, SpeedVar, TargetSpeedVar);
+#endif
 		break;
 //	case MODE_AIMING:
 	case MODE_DEBUG:
