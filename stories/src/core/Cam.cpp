@@ -4734,6 +4734,22 @@ CCam::ProcessArrestCamTwo(void)
 }
 
 
+// ---- PS2 MODE_FOLLOWPED pure-math helpers ----
+// Ported from SLES_541.35 VA 0x281f50-0x283db4 (PS2 LCS's on-foot orbit
+// camera). See docs/superpowers/specs/2026-10-16-ps2-on-foot-camera-design.md
+// for full derivation. Kept as free functions (not CCam members) so each one
+// can be extracted verbatim and host-compiled by
+// scripts/tests/test_3ds_ps2_follow_ped_cam.py.
+
+// Per-zoom pitch offset that pulls Source below/above the pivot (table
+// field 2 = 0.15 rad, plus the active zoom level's ZExtra, PS2 values
+// 0.06/-0.1/-0.07 rad for zoom 1/2/3 -> 12.0 deg/2.9 deg/4.6 deg).
+float
+PS2FollowPedLookDown(float zoomZExtra)
+{
+	return 0.15f + zoomZExtra;
+}
+
 #ifdef FREE_CAM
 void
 CCam::Process_FollowPed_Rotation(const CVector &CameraTarget, float TargetOrientation, float, float)
