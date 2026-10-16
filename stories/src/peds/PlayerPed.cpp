@@ -1121,6 +1121,8 @@ CPlayerPed::EvaluateNeighbouringTarget(CEntity *candidate, CEntity **targetPtr, 
 				candidate->GetPosition().y - TheCamera.GetPosition().y);
 
 			angleBetweenUs = CGeneral::LimitAngle(angleBetweenUs - angleOffset);
+			if (Abs(angleBetweenUs) >= 0.8727f)  // PS2 0x34d740, 50 degrees
+				return;
 			float closeness;
 			if (lookToLeft) {
 				closeness = angleBetweenUs > 0.0f ? -Abs(angleBetweenUs) : -100000.0f;
@@ -1213,7 +1215,8 @@ CPlayerPed::FindNextWeaponLockOnTarget(CEntity *previousTarget, bool lookToLeft)
 	// nextTarget = nil; // duplicate
 	float lastCloseness = -10000.0f;
 	// CGeneral::GetATanOfXY(GetForward().x, GetForward().y); // unused
-	CVector distVec = previousTarget->GetPosition() - TheCamera.GetPosition();
+	CVector refPos = previousTarget ? previousTarget->GetPosition() : m_vecLastLockOnPos;
+	CVector distVec = refPos - TheCamera.GetPosition();
 	float referenceBeta = CGeneral::GetATanOfXY(distVec.x, distVec.y);
 
 	for (int h = CPools::GetPedPool()->GetSize() - 1; h >= 0; h--) {
