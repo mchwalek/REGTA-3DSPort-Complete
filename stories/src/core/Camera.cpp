@@ -151,9 +151,19 @@ CCamera::Init(void)
 	Cams[0].m_fTargetZoomGroundOne = 0.25f;
 	Cams[0].m_fTargetZoomGroundTwo = 1.5f;
 	Cams[0].m_fTargetZoomGroundThree = 4.0f;
+#ifdef _3DS
+	// PS2 LCS values (VA 0x28da1c..0x28da2c) -- the VC values above make
+	// Process_FollowPed's CAM_ZOOM_1 camera sit *below* its own target and
+	// look up at the ped's face. See
+	// docs/superpowers/specs/2026-10-16-ps2-on-foot-camera-design.md.
+	Cams[0].m_fTargetZoomOneZExtra = 0.06f;
+	Cams[0].m_fTargetZoomTwoZExtra = -0.1f;
+	Cams[0].m_fTargetZoomThreeZExtra = -0.07f;
+#else
 	Cams[0].m_fTargetZoomOneZExtra = -0.14f;
 	Cams[0].m_fTargetZoomTwoZExtra = 0.16f;
 	Cams[0].m_fTargetZoomThreeZExtra = 0.25f;
+#endif
 	// TODO: another weird value
 	Cams[0].m_fTargetZoomZCloseIn = 0.90040702f;
 	m_bMoveCamToAvoidGeom = false;
