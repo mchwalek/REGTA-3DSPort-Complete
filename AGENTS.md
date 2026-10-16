@@ -188,6 +188,16 @@ not mistake for a failed transfer.
     `git log --grep="camera's true yaw"`. Never carry a `CCam::Beta`/`Alpha`
     value across a camera-mode dispatch switch without checking both modes'
     conventions match.
+
+    As of the PS2-on-foot-camera parity port (see
+    `docs/superpowers/specs/2026-10-16-ps2-on-foot-camera-design.md`), `_3DS`
+    builds route `MODE_FOLLOWPED` exclusively to `Process_FollowPed_Rotation`
+    (Target->Source convention, matching `Process_FollowPedWithMouse`), so
+    the two on-foot cameras reachable on `_3DS` now agree and this specific
+    mismatch is retired for `_3DS`. Non-`_3DS` builds still dispatch to the
+    unmodified `Process_FollowPed` (Source->Target convention) and keep the
+    original hazard -- the general rule above still applies there, and to
+    any future `_3DS` camera mode added to the dispatch switch.
 11. **A new `CWorld::ProcessLineOfSight` ray placed near the player ped's own
     body will self-collide with the player unless explicitly excluded —
     shared by all three trees, but only exercised on 3DS so far (the free-aim
@@ -349,6 +359,30 @@ not mistake for a failed transfer.
     makes `static` storage safe — if not, the field needs explicit
     save-format versioning, not a plain member add. See
     `git log --grep="save compatibility"`.
+18. **`#ifdef FREE_CAM` is not a `_3DS`-only guard — `FREE_CAM` is defined
+    unconditionally for every build, including non-`_3DS` — shared by all
+    three trees, caught during the PS2-on-foot-camera-parity port's final
+    review.** `stories/src/core/config.h:478` has a bare
+    `#define FREE_CAM // Rotating cam` with no platform conditional around
+    it, so `#ifdef FREE_CAM` blocks in `Cam.cpp`/`Camera.cpp` compile into
+    *every* build, not just `_3DS`. Code that rewrites the body of a
+    function already wrapped in `#ifdef FREE_CAM` (e.g.
+    `CCam::Process_FollowPed_Rotation`) with new `_3DS`-specific behavior,
+    reasoning "this function only ever runs when `_3DS` reaches it," is
+    wrong — the non-`_3DS` dispatch path (`Cam.cpp`'s `MODE_FOLLOWPED` case)
+    can still reach the same function whenever the player enables the
+    Display→FreeCam option, with no `_3DS` guard anywhere inside. This
+    shipped as a real (if currently unobservable, since this repo's
+    `GNUmakefile`/`scripts/build.sh` only ever build `stories` with
+    `-D_3DS`) violation during the PS2 on-foot camera port — the rewritten
+    function body had no `#ifdef _3DS` of its own, silently changing what
+    a hypothetical non-`_3DS` build's FreeCam option would do — caught by
+    the final whole-branch review, fixed by nesting
+    `#ifdef _3DS ... #else <original body> #endif` *inside* the existing
+    `#ifdef FREE_CAM`. Any new platform-specific behavior added inside an
+    already-`#ifdef FREE_CAM`-wrapped function needs its own explicit
+    `#ifdef _3DS` (or equivalent), never assumed from the outer guard. See
+    `git log --grep="gate PS2 on-foot camera"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 

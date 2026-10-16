@@ -4071,6 +4071,12 @@ int16 CPad::LookAroundLeftRight(void)
 	float axis = freeAim ? GetPad(0)->NewState.LeftStickX : GetPad(0)->NewState.RightStickX;
 	if ( freeAim )
 		return (int16)axis;
+	/* PS2 LCS's on-foot orbit camera (CCam::Process_FollowPed_Rotation) also
+	 * wants the raw stick axis -- it applies its own quadratic response,
+	 * like free aim does. Only MODE_FOLLOWPED needs this; vehicle/other
+	 * cameras keep the deadzone/piecewise shaping below. */
+	if ( TheCamera.Cams[0].Mode == CCam::MODE_FOLLOWPED )
+		return (int16)axis;
 #else
 	const bool freeAim = false;
 	float axis = GetPad(0)->NewState.RightStickX;
@@ -4105,8 +4111,9 @@ int16 CPad::LookAroundUpDown(void)
 #ifdef _3DS
 	/* See LookAroundLeftRight: PS2's free-aim stick reader has no deadzone
 	 * or piecewise gain, only the raw axis -- shaping happens in the
-	 * camera. */
-	if ( freeAim )
+	 * camera. The on-foot orbit camera (Process_FollowPed_Rotation) wants
+	 * the same raw-axis behaviour for MODE_FOLLOWPED. */
+	if ( freeAim || TheCamera.Cams[0].Mode == CCam::MODE_FOLLOWPED )
 		return axis;
 #endif
 
