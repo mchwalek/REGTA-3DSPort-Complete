@@ -34,6 +34,13 @@ bool CPlayerPed::bDontAllowWeaponChange;
 bool CPlayerPed::bDebugPlayerInfo;
 #endif
 
+// static: see the comment on these fields in PlayerPed.h -- keeping them out of CPlayerPed's
+// instance layout avoids changing sizeof(CPlayerPed), which the 3DS raw-memcpy save format has
+// no version tolerance for. Initial values are set in the constructor below like any other field.
+uint8 CPlayerPed::m_nLockOnCooldown;
+bool CPlayerPed::m_bLostLockOnTarget;
+CVector CPlayerPed::m_vecLastLockOnPos;
+
 const uint32 CPlayerPed::nSaveStructSize =
 #ifdef COMPATIBLE_SAVES
 	1752;
@@ -195,6 +202,9 @@ CPlayerPed::CPlayerPed(void) : CPed(PEDTYPE_PLAYER1)
 	m_fAttackButtonCounter = 0.0f;
 	m_bHaveTargetSelected = false;
 	m_bHasLockOnTarget = false;
+	m_nLockOnCooldown = 0;
+	m_bLostLockOnTarget = false;
+	m_vecLastLockOnPos = CVector(0.0f, 0.0f, 0.0f);
 	m_bCanBeDamaged = true;
 	m_bNoPosForMeleeAttack = false;
 	m_fWalkAngle = 0.0f;
@@ -1118,6 +1128,8 @@ CPlayerPed::EvaluateNeighbouringTarget(CEntity *candidate, CEntity **targetPtr, 
 				candidate->GetPosition().y - TheCamera.GetPosition().y);
 
 			angleBetweenUs = CGeneral::LimitAngle(angleBetweenUs - angleOffset);
+			if (Abs(angleBetweenUs) >= 0.8727f)  // PS2 0x34d740, 50 degrees
+				return;
 			float closeness;
 			if (lookToLeft) {
 				closeness = angleBetweenUs > 0.0f ? -Abs(angleBetweenUs) : -100000.0f;
@@ -1133,6 +1145,16 @@ CPlayerPed::EvaluateNeighbouringTarget(CEntity *candidate, CEntity **targetPtr, 
 	}
 }
 
+static float
+LockOnCloseness(float dist, float angle, bool priority, bool onScreen, bool missionChar)
+{
+	float closeness = -dist - 5.0f * Abs(angle);
+	if (priority) closeness += 30.0f;
+	if (onScreen) closeness += 15.0f;     // PS2 0x34d510 -> GetIsOnScreen() 0x306008
+	if (missionChar) closeness += 40.0f;  // PS2: CharCreatedBy == MISSION_CHAR
+	return closeness;
+}
+
 void
 CPlayerPed::EvaluateTarget(CEntity *candidate, CEntity **targetPtr, float *lastCloseness, float distLimit, float angleOffset, bool priority)
 {
@@ -1143,10 +1165,9 @@ CPlayerPed::EvaluateTarget(CEntity *candidate, CEntity **targetPtr, float *lastC
 			float angleBetweenUs = CGeneral::GetATanOfXY(distVec.x, distVec.y);
 			angleBetweenUs = CGeneral::LimitAngle(angleBetweenUs - angleOffset);
 
-			float closeness = -dist - 5.0f * Abs(angleBetweenUs);
-			if (priority) {
-				closeness += 30.0f;
-			}
+			float closeness = LockOnCloseness(dist, angleBetweenUs, priority,
+				candidate->GetIsOnScreen(),
+				candidate->IsPed() && ((CPed*)candidate)->CharCreatedBy == MISSION_CHAR);
 
 			if (closeness > *lastCloseness) {
 				*targetPtr = candidate;
@@ -1201,7 +1222,8 @@ CPlayerPed::FindNextWeaponLockOnTarget(CEntity *previousTarget, bool lookToLeft)
 	// nextTarget = nil; // duplicate
 	float lastCloseness = -10000.0f;
 	// CGeneral::GetATanOfXY(GetForward().x, GetForward().y); // unused
-	CVector distVec = previousTarget->GetPosition() - TheCamera.GetPosition();
+	CVector refPos = previousTarget ? previousTarget->GetPosition() : m_vecLastLockOnPos;
+	CVector distVec = refPos - TheCamera.GetPosition();
 	float referenceBeta = CGeneral::GetATanOfXY(distVec.x, distVec.y);
 
 	for (int h = CPools::GetPedPool()->GetSize() - 1; h >= 0; h--) {
@@ -1263,7 +1285,7 @@ CPlayerPed::FindWeaponLockOnTarget(void)
 					&& (!pedToCheck->bInVehicle || (pedToCheck->m_pMyVehicle && pedToCheck->m_pMyVehicle->IsBike()))
 #endif
 					&& pedToCheck->m_leader != this && !pedToCheck->bNeverEverTargetThisPed
-					&& OurPedCanSeeThisOne(pedToCheck) && CanIKReachThisTarget(pedToCheck->GetPosition(), GetWeapon(), true)) {
+					&& OurPedCanSeeThisOne(pedToCheck, true) && CanIKReachThisTarget(pedToCheck->GetPosition(), GetWeapon(), true)) {
 
 					EvaluateTarget(pedToCheck, &nextTarget, &lastCloseness,
 						weaponRange, referenceBeta, IsThisPedAnAimingPriority(pedToCheck));
@@ -1560,8 +1582,19 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
 	// here rather than a hand-picked weapon-type list. PS2 also only blocks
 	// lock-on while sprinting for non-melee weapons.
 	const bool isMeleeWeapon = GetWeapon()->IsTypeMelee();
+
+	bool targetJustDown = padUsed->TargetJustDown();
+	if (m_nLockOnCooldown) {
+		m_nLockOnCooldown--;
+		if (m_nLockOnCooldown == 0 && padUsed->GetTarget())
+			targetJustDown = true;   // PS2 0x34b13c: re-lock when cooldown expires with Target held
+	}
+	if (!padUsed->GetTarget())
+		m_bLostLockOnTarget = false;  // PS2 0x34b198
+
 	if (padUsed->GetTarget() && m_nSelectedWepSlot == m_currentWeapon && (isMeleeWeapon || m_nMoveState != PEDMOVE_SPRINT) &&
 		!TheCamera.Using1stPersonWeaponMode() && (weaponInfo->IsFlagSet(WEAPONFLAG_CANAIM) || isMeleeWeapon)) {
+		if (m_nLockOnCooldown == 0) {
 		if (m_pPointGunAt) {
 			// what??
 			if (!m_pPointGunAt
@@ -1585,6 +1618,8 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
 				(((CPed*)m_pPointGunAt)->bInVehicle && (!((CPed*)m_pPointGunAt)->m_pMyVehicle || !((CPed*)m_pPointGunAt)->m_pMyVehicle->IsBike())) ||
 #endif
 				!CGame::nastyGame && ((CPed*)m_pPointGunAt)->DyingOrDead())) {
+				m_vecLastLockOnPos = m_pPointGunAt->GetPosition();
+				m_bLostLockOnTarget = true;
 				ClearWeaponTarget();
 				return;
 			}
@@ -1608,11 +1643,20 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
 			TheCamera.UpdateAimingCoors(m_pPointGunAt->GetPosition());
 
 		} else if (!CCamera::m_bUseMouse3rdPerson) {
-			if (padUsed->TargetJustDown() || TheCamera.m_bJustJumpedOutOf1stPersonBecauseOfTarget)
+			if (m_bLostLockOnTarget) {
+				if (padUsed->ShiftTargetLeftJustDown())
+					FindNextWeaponLockOnTarget(nil, true);
+				if (padUsed->ShiftTargetRightJustDown())
+					FindNextWeaponLockOnTarget(nil, false);
+			}
+			if ((targetJustDown && (padUsed->GetMode() == 3 || !padUsed->GetLeftShoulder1()))
+				|| TheCamera.m_bJustJumpedOutOf1stPersonBecauseOfTarget)
 				FindWeaponLockOnTarget();
+		}
 		}
 	} else if (m_pPointGunAt) {
 		ClearWeaponTarget();
+		m_nLockOnCooldown = 6;   // PS2 0x34bd70
 	}
 
 	if (m_pPointGunAt) {
