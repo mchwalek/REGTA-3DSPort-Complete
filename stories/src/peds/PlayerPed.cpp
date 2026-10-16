@@ -1136,6 +1136,16 @@ CPlayerPed::EvaluateNeighbouringTarget(CEntity *candidate, CEntity **targetPtr, 
 	}
 }
 
+static float
+LockOnCloseness(float dist, float angle, bool priority, bool onScreen, bool missionChar)
+{
+	float closeness = -dist - 5.0f * Abs(angle);
+	if (priority) closeness += 30.0f;
+	if (onScreen) closeness += 15.0f;     // PS2 0x34d510 -> GetIsOnScreen() 0x306008
+	if (missionChar) closeness += 40.0f;  // PS2: CharCreatedBy == MISSION_CHAR
+	return closeness;
+}
+
 void
 CPlayerPed::EvaluateTarget(CEntity *candidate, CEntity **targetPtr, float *lastCloseness, float distLimit, float angleOffset, bool priority)
 {
@@ -1146,10 +1156,9 @@ CPlayerPed::EvaluateTarget(CEntity *candidate, CEntity **targetPtr, float *lastC
 			float angleBetweenUs = CGeneral::GetATanOfXY(distVec.x, distVec.y);
 			angleBetweenUs = CGeneral::LimitAngle(angleBetweenUs - angleOffset);
 
-			float closeness = -dist - 5.0f * Abs(angleBetweenUs);
-			if (priority) {
-				closeness += 30.0f;
-			}
+			float closeness = LockOnCloseness(dist, angleBetweenUs, priority,
+				candidate->GetIsOnScreen(),
+				candidate->IsPed() && ((CPed*)candidate)->CharCreatedBy == MISSION_CHAR);
 
 			if (closeness > *lastCloseness) {
 				*targetPtr = candidate;
