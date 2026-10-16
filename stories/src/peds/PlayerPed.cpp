@@ -1275,7 +1275,7 @@ CPlayerPed::FindWeaponLockOnTarget(void)
 					&& (!pedToCheck->bInVehicle || (pedToCheck->m_pMyVehicle && pedToCheck->m_pMyVehicle->IsBike()))
 #endif
 					&& pedToCheck->m_leader != this && !pedToCheck->bNeverEverTargetThisPed
-					&& OurPedCanSeeThisOne(pedToCheck) && CanIKReachThisTarget(pedToCheck->GetPosition(), GetWeapon(), true)) {
+					&& OurPedCanSeeThisOne(pedToCheck, true) && CanIKReachThisTarget(pedToCheck->GetPosition(), GetWeapon(), true)) {
 
 					EvaluateTarget(pedToCheck, &nextTarget, &lastCloseness,
 						weaponRange, referenceBeta, IsThisPedAnAimingPriority(pedToCheck));
