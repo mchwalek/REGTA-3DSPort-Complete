@@ -1490,11 +1490,16 @@ CCamera::CamControl(void)
 			   && (!CCamera::bFreeCam || m_bEnable1rstPersonCamCntrlsScript)
 #endif
 			   ){
-				// See if we want to enter first person mode
+				// See if we want to enter first person mode.
+				// On _3DS the stick now drives Process_FollowPed_Rotation's
+				// orbit pitch/yaw while on foot instead -- see
+				// docs/superpowers/specs/2026-10-16-ps2-on-foot-camera-design.md.
+#ifndef _3DS
 				if(CPad::GetPad(0)->LookAroundLeftRight() || CPad::GetPad(0)->LookAroundUpDown()){
 					m_uiFirstPersonCamLastInputTime = CTimer::GetTimeInMilliseconds();
 					m_bFirstPersonBeingUsed = true;
 				}
+#endif
 				if(m_bFirstPersonBeingUsed){
 					// Or if we want to go back to 3rd person
 					if(CPad::GetPad(0)->GetPedWalkLeftRight() || CPad::GetPad(0)->GetPedWalkUpDown() ||
