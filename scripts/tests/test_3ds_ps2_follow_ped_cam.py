@@ -100,6 +100,28 @@ int main(){
         out = self._run("float\nPS2FollowPedPitchStep(", driver)
         self.assertEqual(out.strip(), "ok")
 
+    def test_stick_speed_is_quadratic_and_signed(self):
+        driver = r"""
+int main(){
+	float gain = 1.0f/1120.0f;
+	float posSpeed = PS2FollowPedStickSpeed(64.0f, gain, 70.0f, 0.0f, 1.0f);
+	float negSpeed = PS2FollowPedStickSpeed(-64.0f, gain, 70.0f, 0.0f, 1.0f);
+	assert(posSpeed > 0.0f);
+	assert(negSpeed < 0.0f);
+	assert(Abs(posSpeed + negSpeed) < 0.0001f);
+	// Zero axis -> zero speed.
+	float zero = PS2FollowPedStickSpeed(0.0f, gain, 70.0f, 0.0f, 1.0f);
+	assert(Abs(zero) < 0.0001f);
+	// Clamped to +-0.1.
+	float huge = PS2FollowPedStickSpeed(128.0f, gain, 70.0f, 0.0f, 1.0f);
+	assert(huge <= 0.1f);
+	printf("ok\n");
+	return 0;
+}
+"""
+        out = self._run("float\nPS2FollowPedStickSpeed(", driver)
+        self.assertEqual(out.strip(), "ok")
+
 
 if __name__ == "__main__":
     unittest.main()

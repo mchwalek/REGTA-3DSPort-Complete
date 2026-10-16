@@ -4779,6 +4779,26 @@ PS2FollowPedPitchStep(float targetPitch, float alpha, float dt)
 	return alpha + step;
 }
 
+// Smoothed C-stick angular speed: quadratic response (sens^2 * |axis| *
+// axis * gain * FOV, PS2 sens=0.007) exponentially blended into prevSpeed
+// at the same 0.8^dt rate as the pitch easing, clamped to +-0.1 and zeroed
+// below 1e-4 (PS2 dead-stick snap-to-zero).
+float
+PS2FollowPedStickSpeed(float axis, float gain, float fov, float prevSpeed, float dt)
+{
+	const float sens = 0.007f;
+	float target = sens*sens * Abs(axis) * axis * gain * fov;
+	float base = Pow(0.8f, dt);
+	float speed = base*prevSpeed + (1.0f - base)*target;
+	if(speed > 0.1f)
+		speed = 0.1f;
+	else if(speed < -0.1f)
+		speed = -0.1f;
+	if(Abs(speed) < 0.0001f)
+		speed = 0.0f;
+	return speed;
+}
+
 #ifdef FREE_CAM
 void
 CCam::Process_FollowPed_Rotation(const CVector &CameraTarget, float TargetOrientation, float, float)
