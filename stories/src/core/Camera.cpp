@@ -151,9 +151,19 @@ CCamera::Init(void)
 	Cams[0].m_fTargetZoomGroundOne = 0.25f;
 	Cams[0].m_fTargetZoomGroundTwo = 1.5f;
 	Cams[0].m_fTargetZoomGroundThree = 4.0f;
+#ifdef _3DS
+	// PS2 LCS values (VA 0x28da1c..0x28da2c) -- the VC values above make
+	// Process_FollowPed's CAM_ZOOM_1 camera sit *below* its own target and
+	// look up at the ped's face. See
+	// docs/superpowers/specs/2026-10-16-ps2-on-foot-camera-design.md.
+	Cams[0].m_fTargetZoomOneZExtra = 0.06f;
+	Cams[0].m_fTargetZoomTwoZExtra = -0.1f;
+	Cams[0].m_fTargetZoomThreeZExtra = -0.07f;
+#else
 	Cams[0].m_fTargetZoomOneZExtra = -0.14f;
 	Cams[0].m_fTargetZoomTwoZExtra = 0.16f;
 	Cams[0].m_fTargetZoomThreeZExtra = 0.25f;
+#endif
 	// TODO: another weird value
 	Cams[0].m_fTargetZoomZCloseIn = 0.90040702f;
 	m_bMoveCamToAvoidGeom = false;
@@ -410,8 +420,13 @@ CCamera::Process(void)
 		Cams[ActiveCam].Source=priorPresetPose3DS.source;Cams[ActiveCam].Front=priorPresetPose3DS.front;Cams[ActiveCam].Up=priorPresetPose3DS.up;
 		const CameraPreset3DS::Angles angles=CameraPreset3DS::Read(priorPresetPose3DS);
 		Cams[ActiveCam].Beta=angles.yaw;Cams[ActiveCam].Alpha=angles.pitch;
+		// Process_FollowPed_Rotation (the on-foot orbit cam, _3DS's only
+		// MODE_FOLLOWPED path) uses the Target->Source Beta convention, so
+		// every non-vehicle handoff needs the same +PI flip the vehicle
+		// branch below already applies under FREE_CAM.
+		if(!vehicle)Cams[ActiveCam].Beta=CameraPreset3DS::Wrap(angles.yaw+PI);
 #ifdef FREE_CAM
-		if(vehicle && bFreeCam)Cams[ActiveCam].Beta=CameraPreset3DS::Wrap(angles.yaw+PI);
+		else if(bFreeCam)Cams[ActiveCam].Beta=CameraPreset3DS::Wrap(angles.yaw+PI);
 #endif
 		Cams[ActiveCam].BetaSpeed=Cams[ActiveCam].AlphaSpeed=0.f;Cams[ActiveCam].ResetStatics=false;
 		presetDistance3DS.Begin(priorPresetPose3DS,pTargetEntity->GetPosition());
@@ -1475,11 +1490,16 @@ CCamera::CamControl(void)
 			   && (!CCamera::bFreeCam || m_bEnable1rstPersonCamCntrlsScript)
 #endif
 			   ){
-				// See if we want to enter first person mode
+				// See if we want to enter first person mode.
+				// On _3DS the stick now drives Process_FollowPed_Rotation's
+				// orbit pitch/yaw while on foot instead -- see
+				// docs/superpowers/specs/2026-10-16-ps2-on-foot-camera-design.md.
+#ifndef _3DS
 				if(CPad::GetPad(0)->LookAroundLeftRight() || CPad::GetPad(0)->LookAroundUpDown()){
 					m_uiFirstPersonCamLastInputTime = CTimer::GetTimeInMilliseconds();
 					m_bFirstPersonBeingUsed = true;
 				}
+#endif
 				if(m_bFirstPersonBeingUsed){
 					// Or if we want to go back to 3rd person
 					if(CPad::GetPad(0)->GetPedWalkLeftRight() || CPad::GetPad(0)->GetPedWalkUpDown() ||

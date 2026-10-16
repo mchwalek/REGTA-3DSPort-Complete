@@ -183,19 +183,27 @@ CCam::Process(void)
 		break;
 	case MODE_FOLLOWPED:
 	/* 3DS: m_bUseMouse3rdPerson is only ever true while the free-aim latch is
-	 * held, so this routes free aim to the aim camera instead of the free cam,
-	 * whose Shooting snap-back would drag the view back behind the player. */
+	 * held, so this routes free aim to the aim camera instead of the orbit
+	 * cam, whose auto-rotate-behind would fight the free-aim latch. */
 #if defined(PC_PLAYER_CONTROLS) || defined(_3DS)
 		if(CCamera::m_bUseMouse3rdPerson)
 			Process_FollowPedWithMouse(CameraTarget, TargetOrientation, SpeedVar, TargetSpeedVar);
 		else
 #endif
+#ifdef _3DS
+		/* PS2 LCS's real on-foot camera is this orbit cam (ported from
+		 * VA 0x281f50), not the pitchless VC string cam below -- see
+		 * docs/superpowers/specs/2026-10-16-ps2-on-foot-camera-design.md.
+		 * Always used on _3DS once free aim is ruled out above. */
+		Process_FollowPed_Rotation(CameraTarget, TargetOrientation, SpeedVar, TargetSpeedVar);
+#else
 #ifdef FREE_CAM
 			if(CCamera::bFreeCam)
 				Process_FollowPed_Rotation(CameraTarget, TargetOrientation, SpeedVar, TargetSpeedVar);
 			else
 #endif
 			Process_FollowPed(CameraTarget, TargetOrientation, SpeedVar, TargetSpeedVar);
+#endif
 		break;
 //	case MODE_AIMING:
 	case MODE_DEBUG:
@@ -4734,10 +4742,236 @@ CCam::ProcessArrestCamTwo(void)
 }
 
 
+// ---- PS2 MODE_FOLLOWPED pure-math helpers ----
+// Ported from SLES_541.35 VA 0x281f50-0x283db4 (PS2 LCS's on-foot orbit
+// camera). See docs/superpowers/specs/2026-10-16-ps2-on-foot-camera-design.md
+// for full derivation. Kept as free functions (not CCam members) so each one
+// can be extracted verbatim and host-compiled by
+// scripts/tests/test_3ds_ps2_follow_ped_cam.py.
+
+// Per-zoom pitch offset that pulls Source below/above the pivot (table
+// field 2 = 0.15 rad, plus the active zoom level's ZExtra, PS2 values
+// 0.06/-0.1/-0.07 rad for zoom 1/2/3 -> 12.0 deg/2.9 deg/4.6 deg).
+float
+PS2FollowPedLookDown(float zoomZExtra)
+{
+	return 0.15f + zoomZExtra;
+}
+
+// Cam-on-a-string ground distance, clamped to PS2's [2.0, 2.0+zoomSmooth].
+float
+PS2FollowPedStringDist(float dist, float zoomSmooth)
+{
+	float minDist = 2.0f;
+	float maxDist = 2.0f + zoomSmooth;
+	if(dist < minDist)
+		return minDist;
+	if(dist > maxDist)
+		return maxDist;
+	return dist;
+}
+
+// One frame's worth of exponential pitch easing toward targetPitch, capped
+// at +-0.1*dt (PS2 table fields 5/6: base 0.8, step limit 0.1). Same
+// Pow(base,dt)-blend idiom already used by this file's car-cam equivalent
+// (see Process_FollowCar_Rotation's targetAlphaBlendAmount, Cam.cpp:5218).
+float
+PS2FollowPedPitchStep(float targetPitch, float alpha, float dt)
+{
+	float step = (1.0f - Pow(0.8f, dt)) * (targetPitch - alpha);
+	float cap = 0.1f * dt;
+	if(step > cap)
+		step = cap;
+	else if(step < -cap)
+		step = -cap;
+	return alpha + step;
+}
+
+// Smoothed C-stick angular speed: quadratic response (sens^2 * |axis| *
+// axis * gain * FOV, PS2 sens=0.007) exponentially blended into prevSpeed
+// at the same 0.8^dt rate as the pitch easing, clamped to +-0.1 and zeroed
+// below 1e-4 (PS2 dead-stick snap-to-zero).
+float
+PS2FollowPedStickSpeed(float axis, float gain, float fov, float prevSpeed, float dt)
+{
+	const float sens = 0.007f;
+	float target = sens*sens * Abs(axis) * axis * gain * fov;
+	float base = Pow(0.8f, dt);
+	float speed = base*prevSpeed + (1.0f - base)*target;
+	if(speed > 0.1f)
+		speed = 0.1f;
+	else if(speed < -0.1f)
+		speed = -0.1f;
+	if(Abs(speed) < 0.0001f)
+		speed = 0.0f;
+	return speed;
+}
+
+// Speed-proportional auto-rotate-behind-ped step: rate 0.1*dt*|pedSpeed|,
+// capped at +-0.02*dt, disabled below the PS2 "basically stopped" or
+// "basically already behind" thresholds.
+float
+PS2FollowPedAutoRotateStep(float betaDelta, float pedSpeed, float dt)
+{
+	if(pedSpeed*pedSpeed <= 0.001f || Abs(betaDelta) < 0.01f)
+		return 0.0f;
+	float sign = (betaDelta < 0.0f) ? -1.0f : 1.0f;
+	float cap = 0.02f * dt;
+	float step = 0.1f * dt * Abs(pedSpeed);
+	if(step > cap)
+		step = cap;
+	return step * sign;
+}
+
 #ifdef FREE_CAM
 void
 CCam::Process_FollowPed_Rotation(const CVector &CameraTarget, float TargetOrientation, float, float)
 {
+#ifdef _3DS
+	// PS2 LCS's on-foot MODE_FOLLOWPED camera, VA 0x281f50-0x283db4. See
+	// docs/superpowers/specs/2026-10-16-ps2-on-foot-camera-design.md.
+	const float PS2_FOLLOWPED_PIVOT_Z = 0.6f;	// table field 0
+	float dt = CTimer::GetTimeStep();
+
+	// Step 1: pivot.
+	CVector TargetCoors = DoAverageOnVector(CameraTarget);
+	TargetCoors.z += PS2_FOLLOWPED_PIVOT_Z;
+
+	// Step 2: distances + look-down offset.
+	float zoomZExtra;
+	if(TheCamera.PedZoomIndicator == CAM_ZOOM_1)
+		zoomZExtra = m_fTargetZoomOneZExtra;
+	else if(TheCamera.PedZoomIndicator == CAM_ZOOM_3)
+		zoomZExtra = m_fTargetZoomThreeZExtra;
+	else
+		zoomZExtra = m_fTargetZoomTwoZExtra;
+	float lookDown = PS2FollowPedLookDown(zoomZExtra);
+
+	// Step 3: FOV.
+	if(ResetStatics)
+		FOV = DefaultFOV;
+	else
+		FOV += (DefaultFOV - FOV) * Min(1.0f, dt);
+
+	// Step 4: reset.
+	if(ResetStatics || TheCamera.m_bCamDirectlyBehind || TheCamera.m_bCamDirectlyInFront){
+		Beta = TargetOrientation + PI;
+		if(TheCamera.m_bCamDirectlyInFront)
+			Beta += PI;
+		while(Beta >= PI) Beta -= 2.0f*PI;
+		while(Beta < -PI) Beta += 2.0f*PI;
+		BetaSpeed = AlphaSpeed = 0.0f;
+		Alpha = -lookDown;
+		Distance = 1000.0f;
+		Source = TargetCoors - CVector(-Cos(Beta)*Cos(Alpha+lookDown), -Sin(Beta)*Cos(Alpha+lookDown), Sin(Alpha+lookDown)) * (2.0f + TheCamera.m_fPedZoomValueSmooth);
+		ResetStatics = false;
+	}
+
+	// Step 5: string distance (how far the ped has actually moved from last
+	// frame's rendered Source, clamped to PS2's [2.0, 2.0+zoomSmooth]).
+	float rawDist = (TargetCoors - Source).Magnitude();
+	float CamDist = PS2FollowPedStringDist(rawDist, TheCamera.m_fPedZoomValueSmooth);
+
+	// Step 6: speed-proportional auto-rotate back behind the ped.
+	float pedSpeed = ((CPed*)CamTargetEntity)->GetMoveSpeed().Magnitude2D();
+	float behindBeta = TargetOrientation + PI;
+	while(behindBeta >= PI) behindBeta -= 2.0f*PI;
+	while(behindBeta < -PI) behindBeta += 2.0f*PI;
+	float betaDelta = behindBeta - Beta;
+	while(betaDelta >= PI) betaDelta -= 2.0f*PI;
+	while(betaDelta < -PI) betaDelta += 2.0f*PI;
+	if(Abs(betaDelta) < DEGTORAD(170.0f)){
+		Beta += PS2FollowPedAutoRotateStep(betaDelta, pedSpeed, dt);
+		while(Beta >= PI) Beta -= 2.0f*PI;
+		while(Beta < -PI) Beta += 2.0f*PI;
+	}
+
+	// Step 7: sticky geometric pitch, re-derived from last frame's actual
+	// (possibly collision-adjusted) Source so wall/height snaps bleed back
+	// into Alpha smoothly instead of being invisible to it.
+	CVector lastDir = TargetCoors - Source;
+	float lastLen = lastDir.Magnitude();
+	float targetPitch = ((lastLen > 0.0001f) ? Asin(Clamp(lastDir.z/lastLen, -1.0f, 1.0f)) : Alpha) - lookDown;
+	if(targetPitch > DEGTORAD(45.0f))
+		targetPitch = DEGTORAD(45.0f);
+	else if(targetPitch < -DEGTORAD(85.0f))
+		targetPitch = -DEGTORAD(85.0f);
+	Alpha = PS2FollowPedPitchStep(targetPitch, Alpha, dt);
+	if(Alpha > DEGTORAD(45.0f))
+		Alpha = DEGTORAD(45.0f);
+	else if(Alpha < -DEGTORAD(85.0f))
+		Alpha = -DEGTORAD(85.0f);
+
+	// Step 8: C-stick yaw/pitch (raw axis outside free aim, see Pad.cpp diff).
+	float stickX = -(float)CPad::GetPad(0)->LookAroundLeftRight();
+	float stickY = (float)CPad::GetPad(0)->LookAroundUpDown();
+	BetaSpeed = PS2FollowPedStickSpeed(stickX, 1.0f/1120.0f, FOV, BetaSpeed, dt);
+	AlphaSpeed = PS2FollowPedStickSpeed(stickY, 0.6f/1120.0f, FOV, AlphaSpeed, dt);
+	Beta += BetaSpeed * dt;
+	while(Beta >= PI) Beta -= 2.0f*PI;
+	while(Beta < -PI) Beta += 2.0f*PI;
+	Alpha += AlphaSpeed * dt;
+	if(Alpha > DEGTORAD(45.0f))
+		Alpha = DEGTORAD(45.0f);
+	else if(Alpha < -DEGTORAD(85.0f))
+		Alpha = -DEGTORAD(85.0f);
+
+	// Step 9: pose. Front is the "clean" pitch (no look-down) that other
+	// code reads; Source is placed using Alpha+lookDown so the pivot sits
+	// above/below screen centre per PS2's zoom table.
+	Front = CVector(-Cos(Beta)*Cos(Alpha), -Sin(Beta)*Cos(Alpha), Sin(Alpha));
+	float sourcePitch = Alpha + lookDown;
+	if(sourcePitch > HALFPI)
+		sourcePitch = HALFPI;
+	else if(sourcePitch < -HALFPI)
+		sourcePitch = -HALFPI;
+	CVector SourceDir(-Cos(Beta)*Cos(sourcePitch), -Sin(Beta)*Cos(sourcePitch), Sin(sourcePitch));
+	Source = TargetCoors - SourceDir * CamDist;
+	m_cvecTargetCoorsForFudgeInter = TargetCoors;
+
+	// Step 10: LOS-only wall pull-in, no height change, no sphere loop.
+	CEntity *entity = nil;
+	CColPoint colPoint;
+	CWorld::pIgnoreEntity = CamTargetEntity;
+	if(CWorld::ProcessLineOfSight(TargetCoors, Source, colPoint, entity, true, true, true, true, false, false, true)){
+		float HitDist = (TargetCoors - colPoint.point).Magnitude();
+		float PullIn = CamDist - HitDist;
+		if(entity->IsPed() && PullIn > 0.2125f){
+			CWorld::pIgnoreEntity = entity;
+			CEntity *entity2 = nil;
+			CColPoint colPoint2;
+			if(CWorld::ProcessLineOfSight(colPoint.point, Source, colPoint2, entity2, true, true, true, true, false, false, true)){
+				CVector toward = TargetCoors - colPoint2.point;
+				float towardLen = toward.Magnitude();
+				Source = colPoint2.point + ((towardLen > 0.0001f) ? toward*(0.004f/towardLen) : CVector(0.0f, 0.0f, 0.0f));
+				float dist2 = (TargetCoors - colPoint2.point).Magnitude();
+				if(dist2 < 0.4125f)
+					RwCameraSetNearClipPlane(Scene.camera, Max(dist2-0.3f, 0.05f));
+			}else{
+				RwCameraSetNearClipPlane(Scene.camera, Min(PullIn-0.35f, 0.9f));
+			}
+			CWorld::pIgnoreEntity = CamTargetEntity;
+		}else{
+			CVector toward = TargetCoors - colPoint.point;
+			float towardLen = toward.Magnitude();
+			Source = colPoint.point + ((towardLen > 0.0001f) ? toward*(0.004f/towardLen) : CVector(0.0f, 0.0f, 0.0f));
+			if(HitDist < 0.4125f)
+				RwCameraSetNearClipPlane(Scene.camera, Max(HitDist-0.3f, 0.05f));
+		}
+	}
+	CWorld::pIgnoreEntity = nil;
+
+	// Step 11: tail.
+	float finalDist = (TargetCoors - Source).Magnitude();
+	if(finalDist <= Distance + 0.01f*CamDist*dt)
+		Distance = finalDist;
+	else
+		Distance += 0.01f*CamDist*dt;
+
+	TheCamera.m_bCamDirectlyBehind = false;
+	TheCamera.m_bCamDirectlyInFront = false;
+	GetVectorsReadyForRW();
+#else
 	FOV = DefaultFOV;
 
 	const float MinDist = 2.0f;
@@ -4940,6 +5174,7 @@ CCam::Process_FollowPed_Rotation(const CVector &CameraTarget, float TargetOrient
 	}
 
 	GetVectorsReadyForRW();
+#endif
 }
 
 // LCS cam hehe
