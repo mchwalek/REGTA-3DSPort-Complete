@@ -34,6 +34,13 @@ bool CPlayerPed::bDontAllowWeaponChange;
 bool CPlayerPed::bDebugPlayerInfo;
 #endif
 
+// static: see the comment on these fields in PlayerPed.h -- keeping them out of CPlayerPed's
+// instance layout avoids changing sizeof(CPlayerPed), which the 3DS raw-memcpy save format has
+// no version tolerance for. Initial values are set in the constructor below like any other field.
+uint8 CPlayerPed::m_nLockOnCooldown;
+bool CPlayerPed::m_bLostLockOnTarget;
+CVector CPlayerPed::m_vecLastLockOnPos;
+
 const uint32 CPlayerPed::nSaveStructSize =
 #ifdef COMPATIBLE_SAVES
 	1752;
