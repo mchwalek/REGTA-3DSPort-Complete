@@ -1572,8 +1572,19 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
 	// here rather than a hand-picked weapon-type list. PS2 also only blocks
 	// lock-on while sprinting for non-melee weapons.
 	const bool isMeleeWeapon = GetWeapon()->IsTypeMelee();
+
+	bool targetJustDown = padUsed->TargetJustDown();
+	if (m_nLockOnCooldown) {
+		m_nLockOnCooldown--;
+		if (m_nLockOnCooldown == 0 && padUsed->GetTarget())
+			targetJustDown = true;   // PS2 0x34b13c: re-lock when cooldown expires with Target held
+	}
+	if (!padUsed->GetTarget())
+		m_bLostLockOnTarget = false;  // PS2 0x34b198
+
 	if (padUsed->GetTarget() && m_nSelectedWepSlot == m_currentWeapon && (isMeleeWeapon || m_nMoveState != PEDMOVE_SPRINT) &&
 		!TheCamera.Using1stPersonWeaponMode() && (weaponInfo->IsFlagSet(WEAPONFLAG_CANAIM) || isMeleeWeapon)) {
+		if (m_nLockOnCooldown == 0) {
 		if (m_pPointGunAt) {
 			// what??
 			if (!m_pPointGunAt
@@ -1597,6 +1608,8 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
 				(((CPed*)m_pPointGunAt)->bInVehicle && (!((CPed*)m_pPointGunAt)->m_pMyVehicle || !((CPed*)m_pPointGunAt)->m_pMyVehicle->IsBike())) ||
 #endif
 				!CGame::nastyGame && ((CPed*)m_pPointGunAt)->DyingOrDead())) {
+				m_vecLastLockOnPos = m_pPointGunAt->GetPosition();
+				m_bLostLockOnTarget = true;
 				ClearWeaponTarget();
 				return;
 			}
@@ -1620,11 +1633,20 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
 			TheCamera.UpdateAimingCoors(m_pPointGunAt->GetPosition());
 
 		} else if (!CCamera::m_bUseMouse3rdPerson) {
-			if (padUsed->TargetJustDown() || TheCamera.m_bJustJumpedOutOf1stPersonBecauseOfTarget)
+			if (m_bLostLockOnTarget) {
+				if (padUsed->ShiftTargetLeftJustDown())
+					FindNextWeaponLockOnTarget(nil, true);
+				if (padUsed->ShiftTargetRightJustDown())
+					FindNextWeaponLockOnTarget(nil, false);
+			}
+			if ((targetJustDown && (padUsed->GetMode() == 3 || !padUsed->GetLeftShoulder1()))
+				|| TheCamera.m_bJustJumpedOutOf1stPersonBecauseOfTarget)
 				FindWeaponLockOnTarget();
+		}
 		}
 	} else if (m_pPointGunAt) {
 		ClearWeaponTarget();
+		m_nLockOnCooldown = 6;   // PS2 0x34bd70
 	}
 
 	if (m_pPointGunAt) {
