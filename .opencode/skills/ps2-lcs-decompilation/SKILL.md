@@ -548,6 +548,50 @@ player ped, grep for how sibling LOS calls in the *same* function guard
 against this, even when the new call is a faithful transcription of PS2
 disassembly.
 
+## Case study: disambiguating PS2 camera-mode functions via the dispatch jump table, not plausibility
+
+Investigating reLCS's "camera points at Toni's face from below" bug
+(`docs/superpowers/specs/2026-10-16-ps2-on-foot-camera-design.md`) initially
+mis-identified which PS2 function implements the default on-foot camera.
+reLCS's own `CCam::Process_FollowPed_Rotation` is a dormant pitch/yaw orbit
+camera only reachable today via the 3DS free-aim latch or the Display→
+FreeCam option — and a PS2 function at VA `0x280ee8-0x281f4c` (already
+documented in this skill's free-aim case study above) is *also* a pitch/yaw
+orbit camera with a `TargetCoors` pivot builder, a per-weapon tuning table,
+and stick-driven Alpha/Beta. Structurally it looked like the obvious PS2
+counterpart to port into `Process_FollowPed_Rotation` — plausible shape,
+plausible constants, right general behavior. **It was wrong.** `0x280ee8` is
+PS2's lock-on/free-aim camera (reached only for `MODE_SYPHON` and
+`MODE_SYPHON_CRIM_IN_FRONT`); the actual default on-foot `MODE_FOLLOWPED`
+camera is a completely different function at `0x281f50-0x283db4`, found only
+by locating `CCam::Process`'s own dispatch jump table in `.rodata`
+(`find_addr_refs`/`words` on a VA known to sit inside the dispatch switch,
+which turned up a 46-entry table at `0x3bbe10`, index = `Mode-1`) and reading
+off `jumpTable[MODE_FOLLOWPED-1]` directly — not by picking whichever
+disassembled function *looked like* a plausible on-foot camera.
+
+The two functions share enough surface similarity (both: pivot = ped pos +
+fixed Z offset + lateral offset; both: pitch/yaw via Alpha/Beta; both: a
+per-row tuning table; both: quadratic stick response) that a constants-only
+sanity check would not have caught the swap — porting `0x280ee8`'s numbers
+into `Process_FollowPed_Rotation` would have produced a camera that *felt*
+plausible (an orbit cam with reasonable-looking pitch/distance) while being
+the wrong game mode's camera entirely, with the wrong distance curve, the
+wrong default pitch, and no speed-proportional auto-rotate-behind-ped (a
+behavior unique to the real on-foot function, absent from the lock-on one).
+
+**Lesson:** when a reLCS function name has an obvious-sounding PS2
+counterpart already found by structural similarity (another orbit camera,
+another state machine with the right number of cases), confirm the mapping
+via the *dispatch mechanism itself* — a jump table, a `switch` on a mode
+enum, a caller graph — before trusting "this disassembled function behaves
+like what I'm looking for." Two functions in the same binary solving
+adjacent problems (here: two different on-foot third-person cameras, one
+for aiming, one for walking around) are exactly the case where plausibility
+alone is misleading, because the engine's authors reused the same basic
+camera-math idiom (pivot offset + Alpha/Beta + per-row tuning table) for
+both. See `git log --grep="on-foot follow camera"` for the correction.
+
 ## Case study: PS2-exact lock-on reticle (`CWeaponEffects`) — a whole feature silently wrong, not a constant
 
 reLCS's `stories/src/weapons/WeaponEffects.cpp` is unmodified reVC code (one
