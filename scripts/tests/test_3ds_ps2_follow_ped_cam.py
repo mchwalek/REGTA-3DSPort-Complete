@@ -122,6 +122,26 @@ int main(){
         out = self._run("float\nPS2FollowPedStickSpeed(", driver)
         self.assertEqual(out.strip(), "ok")
 
+    def test_auto_rotate_step_caps_and_thresholds(self):
+        driver = r"""
+int main(){
+	// Stopped ped: no auto-rotate.
+	assert(Abs(PS2FollowPedAutoRotateStep(1.0f, 0.0f, 1.0f)) < 0.0001f);
+	// Already behind: no auto-rotate.
+	assert(Abs(PS2FollowPedAutoRotateStep(0.0f, 5.0f, 1.0f)) < 0.0001f);
+	// Fast-moving ped, big delta: capped at 0.02*dt.
+	float step = PS2FollowPedAutoRotateStep(1.0f, 10.0f, 1.0f);
+	assert(Abs(step - 0.02f) < 0.0001f);
+	// Sign follows betaDelta.
+	float negStep = PS2FollowPedAutoRotateStep(-1.0f, 10.0f, 1.0f);
+	assert(negStep < 0.0f);
+	printf("ok\n");
+	return 0;
+}
+"""
+        out = self._run("float\nPS2FollowPedAutoRotateStep(", driver)
+        self.assertEqual(out.strip(), "ok")
+
 
 if __name__ == "__main__":
     unittest.main()

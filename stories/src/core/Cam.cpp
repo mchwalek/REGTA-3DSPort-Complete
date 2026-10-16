@@ -4799,6 +4799,22 @@ PS2FollowPedStickSpeed(float axis, float gain, float fov, float prevSpeed, float
 	return speed;
 }
 
+// Speed-proportional auto-rotate-behind-ped step: rate 0.1*dt*|pedSpeed|,
+// capped at +-0.02*dt, disabled below the PS2 "basically stopped" or
+// "basically already behind" thresholds.
+float
+PS2FollowPedAutoRotateStep(float betaDelta, float pedSpeed, float dt)
+{
+	if(pedSpeed*pedSpeed <= 0.001f || Abs(betaDelta) < 0.01f)
+		return 0.0f;
+	float sign = (betaDelta < 0.0f) ? -1.0f : 1.0f;
+	float cap = 0.02f * dt;
+	float step = 0.1f * dt * Abs(pedSpeed);
+	if(step > cap)
+		step = cap;
+	return step * sign;
+}
+
 #ifdef FREE_CAM
 void
 CCam::Process_FollowPed_Rotation(const CVector &CameraTarget, float TargetOrientation, float, float)
