@@ -420,8 +420,13 @@ CCamera::Process(void)
 		Cams[ActiveCam].Source=priorPresetPose3DS.source;Cams[ActiveCam].Front=priorPresetPose3DS.front;Cams[ActiveCam].Up=priorPresetPose3DS.up;
 		const CameraPreset3DS::Angles angles=CameraPreset3DS::Read(priorPresetPose3DS);
 		Cams[ActiveCam].Beta=angles.yaw;Cams[ActiveCam].Alpha=angles.pitch;
+		// Process_FollowPed_Rotation (the on-foot orbit cam, _3DS's only
+		// MODE_FOLLOWPED path) uses the Target->Source Beta convention, so
+		// every non-vehicle handoff needs the same +PI flip the vehicle
+		// branch below already applies under FREE_CAM.
+		if(!vehicle)Cams[ActiveCam].Beta=CameraPreset3DS::Wrap(angles.yaw+PI);
 #ifdef FREE_CAM
-		if(vehicle && bFreeCam)Cams[ActiveCam].Beta=CameraPreset3DS::Wrap(angles.yaw+PI);
+		else if(bFreeCam)Cams[ActiveCam].Beta=CameraPreset3DS::Wrap(angles.yaw+PI);
 #endif
 		Cams[ActiveCam].BetaSpeed=Cams[ActiveCam].AlphaSpeed=0.f;Cams[ActiveCam].ResetStatics=false;
 		presetDistance3DS.Begin(priorPresetPose3DS,pTargetEntity->GetPosition());
