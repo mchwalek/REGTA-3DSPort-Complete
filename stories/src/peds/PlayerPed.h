@@ -32,6 +32,9 @@ public:
 	bool m_bHasLockOnTarget;
 	bool m_bCanBeDamaged;
 	bool m_bNoPosForMeleeAttack;
+	uint8 m_nLockOnCooldown;     // frames remaining before a new lock-on may be attempted (PS2 0xc88)
+	bool m_bLostLockOnTarget;    // true if a target was lost to death/vehicle-entry, for cycle-with-no-target (PS2 0xc94)
+	CVector m_vecLastLockOnPos;  // position of the lost target, used as the cycle reference (PS2 0xca0)
 	bool unk1;
 	CVector m_vecSafePos[6]; // safe places from the player, for example behind a tree
 	CPed *m_pPedAtSafePos[6];

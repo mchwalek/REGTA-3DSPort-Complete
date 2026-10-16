@@ -195,6 +195,9 @@ CPlayerPed::CPlayerPed(void) : CPed(PEDTYPE_PLAYER1)
 	m_fAttackButtonCounter = 0.0f;
 	m_bHaveTargetSelected = false;
 	m_bHasLockOnTarget = false;
+	m_nLockOnCooldown = 0;
+	m_bLostLockOnTarget = false;
+	m_vecLastLockOnPos = CVector(0.0f, 0.0f, 0.0f);
 	m_bCanBeDamaged = true;
 	m_bNoPosForMeleeAttack = false;
 	m_fWalkAngle = 0.0f;
