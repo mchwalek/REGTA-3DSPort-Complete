@@ -4750,6 +4750,19 @@ PS2FollowPedLookDown(float zoomZExtra)
 	return 0.15f + zoomZExtra;
 }
 
+// Cam-on-a-string ground distance, clamped to PS2's [2.0, 2.0+zoomSmooth].
+float
+PS2FollowPedStringDist(float dist, float zoomSmooth)
+{
+	float minDist = 2.0f;
+	float maxDist = 2.0f + zoomSmooth;
+	if(dist < minDist)
+		return minDist;
+	if(dist > maxDist)
+		return maxDist;
+	return dist;
+}
+
 #ifdef FREE_CAM
 void
 CCam::Process_FollowPed_Rotation(const CVector &CameraTarget, float TargetOrientation, float, float)

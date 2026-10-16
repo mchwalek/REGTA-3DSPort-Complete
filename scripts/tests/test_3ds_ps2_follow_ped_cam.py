@@ -68,6 +68,19 @@ int main(){
         out = self._run("float\nPS2FollowPedLookDown(", driver)
         self.assertEqual(out.strip(), "ok")
 
+    def test_string_dist_clamps_to_zoom_range(self):
+        driver = r"""
+int main(){
+	assert(Abs(PS2FollowPedStringDist(1.0f, 0.25f) - 2.0f) < 0.0001f);
+	assert(Abs(PS2FollowPedStringDist(100.0f, 0.25f) - 2.25f) < 0.0001f);
+	assert(Abs(PS2FollowPedStringDist(2.1f, 0.25f) - 2.1f) < 0.0001f);
+	printf("ok\n");
+	return 0;
+}
+"""
+        out = self._run("float\nPS2FollowPedStringDist(", driver)
+        self.assertEqual(out.strip(), "ok")
+
 
 if __name__ == "__main__":
     unittest.main()
