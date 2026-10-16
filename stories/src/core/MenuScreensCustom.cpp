@@ -57,12 +57,9 @@
 	#define CUTSCENE_BORDERS_TOGGLE
 #endif
 
-#if defined(FREE_CAM) && !defined(_3DS)
+#ifdef FREE_CAM
 	#define FREE_CAM_TOGGLE MENUACTION_CFO_SELECT, "FEC_FRC", { new CCFOSelect((int8*)&TheCamera.bFreeCam, "Display", "FreeCam", off_on, 2, false) }, 0, 0, MENUALIGN_LEFT,
 #else
-	// On _3DS, Process_FollowPed_Rotation (the PS2-ported orbit camera) is
-	// always used for on-foot MODE_FOLLOWPED -- this option no longer
-	// toggles anything meaningful, so the row is hidden.
 	#define FREE_CAM_TOGGLE
 #endif
 
