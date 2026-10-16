@@ -188,6 +188,16 @@ not mistake for a failed transfer.
     `git log --grep="camera's true yaw"`. Never carry a `CCam::Beta`/`Alpha`
     value across a camera-mode dispatch switch without checking both modes'
     conventions match.
+
+    As of the PS2-on-foot-camera parity port (see
+    `docs/superpowers/specs/2026-10-16-ps2-on-foot-camera-design.md`), `_3DS`
+    builds route `MODE_FOLLOWPED` exclusively to `Process_FollowPed_Rotation`
+    (Target->Source convention, matching `Process_FollowPedWithMouse`), so
+    the two on-foot cameras reachable on `_3DS` now agree and this specific
+    mismatch is retired for `_3DS`. Non-`_3DS` builds still dispatch to the
+    unmodified `Process_FollowPed` (Source->Target convention) and keep the
+    original hazard -- the general rule above still applies there, and to
+    any future `_3DS` camera mode added to the dispatch switch.
 11. **A new `CWorld::ProcessLineOfSight` ray placed near the player ped's own
     body will self-collide with the player unless explicitly excluded —
     shared by all three trees, but only exercised on 3DS so far (the free-aim
