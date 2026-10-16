@@ -81,6 +81,25 @@ int main(){
         out = self._run("float\nPS2FollowPedStringDist(", driver)
         self.assertEqual(out.strip(), "ok")
 
+    def test_pitch_step_converges_and_respects_cap(self):
+        driver = r"""
+int main(){
+	// Far from target: step is capped at 0.1*dt.
+	float a = PS2FollowPedPitchStep(1.0f, 0.0f, 1.0f);
+	assert(Abs(a - 0.1f) < 0.0001f);
+	// Already at target: no movement.
+	float b = PS2FollowPedPitchStep(0.3f, 0.3f, 1.0f);
+	assert(Abs(b - 0.3f) < 0.0001f);
+	// dt = 0 is a no-op.
+	float c = PS2FollowPedPitchStep(1.0f, 0.2f, 0.0f);
+	assert(Abs(c - 0.2f) < 0.0001f);
+	printf("ok\n");
+	return 0;
+}
+"""
+        out = self._run("float\nPS2FollowPedPitchStep(", driver)
+        self.assertEqual(out.strip(), "ok")
+
 
 if __name__ == "__main__":
     unittest.main()

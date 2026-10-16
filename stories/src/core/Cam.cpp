@@ -4763,6 +4763,22 @@ PS2FollowPedStringDist(float dist, float zoomSmooth)
 	return dist;
 }
 
+// One frame's worth of exponential pitch easing toward targetPitch, capped
+// at +-0.1*dt (PS2 table fields 5/6: base 0.8, step limit 0.1). Same
+// Pow(base,dt)-blend idiom already used by this file's car-cam equivalent
+// (see Process_FollowCar_Rotation's targetAlphaBlendAmount, Cam.cpp:5218).
+float
+PS2FollowPedPitchStep(float targetPitch, float alpha, float dt)
+{
+	float step = (1.0f - Pow(0.8f, dt)) * (targetPitch - alpha);
+	float cap = 0.1f * dt;
+	if(step > cap)
+		step = cap;
+	else if(step < -cap)
+		step = -cap;
+	return alpha + step;
+}
+
 #ifdef FREE_CAM
 void
 CCam::Process_FollowPed_Rotation(const CVector &CameraTarget, float TargetOrientation, float, float)
