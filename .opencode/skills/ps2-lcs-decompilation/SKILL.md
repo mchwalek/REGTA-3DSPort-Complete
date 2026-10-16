@@ -738,3 +738,111 @@ input-handling pipeline (attack input → lock-on gate → body tracking →
 victim selection → strike detection) for the same `CANAIM`/`CANAIM_WITHARM`/
 weapon-fire-type pattern, since PS2 routinely uses exactly these flags as a
 gun/melee discriminator in functions that look gun-only at a glance.
+
+## Case study: lock-on target selection ("autoaim too sensitive, snaps to far peds") — six small deltas, no single smoking gun
+
+A user report of "autoaim snaps to something off-screen" / "locks too far
+in general" did **not** resolve into one wrong constant. reLCS's gun
+lock-on (`CPlayerPed::FindWeaponLockOnTarget`/`EvaluateTarget`/
+`FindNextWeaponLockOnTarget`/`EvaluateNeighbouringTarget`,
+`stories/src/peds/PlayerPed.cpp`) is byte-identical to `miami/`'s in every
+constant that matters for raw range/angle (scoring formula
+`-dist2D - 5*|angle| (+30 priority)`, the 40m `OurPedCanSeeThisOne` cap,
+WEAPON.DAT ranges already matched the PS2 weapon table byte-for-byte —
+confirmed by extracting PS2's own weapon table from `GAME.DAT` at offset
+`0x40a980`, stride `0x70`). **Nothing in the obvious places was wrong.**
+Disassembling PS2's equivalent functions found six separate, independent
+behavior deltas instead, none of which alone was an obvious smoking gun:
+
+1. **`EvaluateTarget` (PS2 VA `0x34d510`) has two scoring bonuses reLCS
+   never had:** `+15.0` closeness if the candidate is on-screen (a call to
+   `0x306008`, confirmed to be a `GetIsOnScreen()`-equivalent: reads
+   `m_modelIndex` → `CModelInfo` → colmodel bounding sphere → a
+   `TheCamera.IsSphereVisible`-style frustum test — reLCS already has the
+   exact matching helper at `CEntity::GetIsOnScreen()`,
+   `stories/src/entities/Entity.cpp:533-536`, just never wired into the
+   score), and `+40.0` if the candidate is a ped with byte field `0x1ac ==
+   2`. That field was identified as `CPed::CharCreatedBy` (`Ped.h:613`,
+   confirmed by matching offsets, not by guessing) and `2` as
+   `MISSION_CHAR` (`Ped.h:337`) — i.e. **PS2 actively prefers locking onto
+   mission-relevant peds and onscreen peds over ordinary pedestrians**,
+   which reLCS's pure distance/angle score has no equivalent for.
+2. **The *initial* lock-on search's LOS check blocks shootable objects on
+   PS2 but not in reLCS.** `FindWeaponLockOnTarget`'s ped loop called
+   `OurPedCanSeeThisOne(pedToCheck)` (shootablesDoBlock defaulting false);
+   PS2's equivalent call passes `shootablesDoBlock = true` here — matching
+   what reLCS's own L/R-cycle variant (`FindNextWeaponLockOnTarget`)
+   already did. The one-argument/two-argument call difference between two
+   near-identical function names in the same file is exactly the kind of
+   swap this skill's "generic one-argument setters" pitfall warns about —
+   except here it was an *omitted* argument (defaulting to the wrong
+   value) rather than a swapped VA.
+3. **PS2 has a 6-frame cooldown after a lock-on target is lost, during
+   which no new lock-on fires, and a forced re-lock the instant it
+   expires if Target is still held** — found by tracing a byte field at
+   CPlayerPed offset `0xc88` (decremented every frame in
+   `ProcessPlayerWeapon`'s prologue, set to `6` whenever the lock-on gate
+   fails while a target still exists, including on manual Target
+   release). reLCS had no such field or delay at all — every frame with
+   Target held re-evaluates fresh with no debounce, which if not costly
+   on its own, combines with delta 1's on-screen bonus to let a stale,
+   now-offscreen prior target get immediately replaced by whatever is
+   currently onscreen even one frame later, producing a visibly "twitchy"
+   re-lock.
+4. **PS2 suppresses the *initial* lock-on trigger while L1 is held**, but
+   only in `CPad::Mode` 0-2 (PS2 has 5 control schemes, 0-4; mode 4 remaps
+   Target itself to L1, so the suppression doesn't apply there). reLCS's
+   `CPad::GetTarget()`/`TargetJustDown()` already branch on `CURMODE`
+   (reLCS has 4 schemes, 0-3, with mode 3 ≡ PS2's mode 4's L1-as-Target
+   convention) for *which* button is Target, but had no L1-suppression
+   logic at all for modes 0-2's schemes.
+5. **PS2 allows L2/R2 target-cycling even with no current lock-on
+   target**, by falling back to a *saved* last-known position (PS2 field
+   `0xca0`, a `CVector`, populated whenever a target is dropped due to
+   death or entering a vehicle — tracked by a companion flag at `0xc94`).
+   reLCS's `FindNextWeaponLockOnTarget(CEntity *previousTarget, ...)`
+   unconditionally dereferenced `previousTarget->GetPosition()`, so it was
+   simply never callable with no target at all — not a wrong value, a
+   missing code path.
+6. **`EvaluateNeighbouringTarget` (PS2 VA `0x34d740`, the L/R-cycle
+   scorer) has a hard 50° (`0.8727` rad) angular cutoff** reLCS's version
+   never had — without it, the cycle button can "jump" to a candidate far
+   outside the visually reasonable cone just because it has the smallest
+   signed angle among *all* ped-pool entries, including ones behind or far
+   to the side.
+
+**Why this needed RE rather than source archaeology:** `miami/`'s
+identical functions have exactly the same gaps (this is upstream-inherited
+behavior, not a 3DS-port regression), so diffing against the sibling tree
+found nothing — all three deltas affecting on-screen behavior are PS2-only
+information with no equivalent anywhere in any existing fork.
+
+**Fix shipped:** all six deltas ported in
+`docs/superpowers/plans/2026-10-16-lock-on-ps2-parity.md` (full VAs, field
+offsets, and exact diffs in the companion spec,
+`docs/superpowers/specs/2026-10-16-lock-on-ps2-parity-design.md`), landing
+as six small, independently-reviewed commits rather than one large diff —
+each delta was independently falsifiable (a single call-site argument, a
+single new field, a single early-out), which made this a good case for
+task-per-delta decomposition instead of one "port the whole function"
+task.
+
+**A second-order bug this shipped alongside (see `AGENTS.md` landmine
+#17):** the three new `CPlayerPed` fields needed to carry deltas 3 and 5
+(a cooldown counter and a last-known-position fallback) grew
+`sizeof(CPlayerPed)`, which silently broke every existing 3DS save file
+(3DS saves are a raw, unversioned `memcpy` blob — see the landmine for the
+full mechanism). **Adding new `CPlayerPed`/`CPed` fields while porting a
+PS2 behavior delta is itself a landmine independent of whether the delta
+is correctly ported** — budget an on-device load-an-old-save check into
+the verification plan whenever a lock-on/ped-state RE fix adds fields, not
+just a fresh-save smoke test.
+
+**Lesson:** a "snaps to the wrong target" / "feels too sensitive" symptom
+does not imply a single wrong range or angle constant — RE every function
+in the target-selection pipeline (initial search, per-candidate scoring,
+LOS gating, cycle-with-a-target, cycle-with-no-target, the frame-level
+gate/cooldown around all of the above) independently, because PS2 GTA
+engines routinely spread a dozen small, independently-motivated tweaks
+across that whole pipeline rather than concentrating tuning in one
+function.

@@ -322,7 +322,44 @@ not mistake for a failed transfer.
     animation/move-table change, check whether the contact point is still
     using this fixed-offset table before assuming the animation or hit-
     detection radius is at fault. See `git log --grep="melee whiffing"`.
-17. **`#ifdef FREE_CAM` is not a `_3DS`-only guard — `FREE_CAM` is defined
+17. **Adding a field to `CPed`/`CPlayerPed` grows `sizeof()` and silently
+    breaks every existing 3DS save file — shared by all three trees'
+    structure, but only load-bearing on 3DS.** `COMPATIBLE_SAVES` is
+    explicitly `#undef`'d for `_3DS` in `stories/src/core/config.h:499-509`
+    ("Match re3/reVC on 3DS: save the native 32-bit ARM structures"), so on
+    3DS `CPed`/`CPlayerPed` save/load is a raw, unversioned
+    `memcpy(ptr, pPed, sizeof(CPlayerPed))` blob (save:
+    `stories/src/core/Pools.cpp:546-547`, load: `:600-607`) with no size
+    field and no version check — every byte after the ped block (wanted
+    level, player model name, everything else in the save) is positioned
+    purely by `sizeof(CPlayerPed)` matching between the binary that wrote
+    the file and the binary reading it. `//VALIDATE_SIZE(CPlayerPed,
+    0x5F0);` (`PlayerPed.h:123`) is commented out and `VALIDATE_SIZE` itself
+    is a no-op unless `CHECK_STRUCT_SIZES` is defined (it isn't by
+    default), so nothing at compile time warns you when a new field moves
+    this number. This shipped as a real bug during the PS2-parity lock-on
+    port: three new `CPlayerPed` instance fields
+    (`m_nLockOnCooldown`/`m_bLostLockOnTarget`/`m_vecLastLockOnPos`, commit
+    `9db270c`) grew `sizeof(CPlayerPed)`, and loading a save written by the
+    pre-change binary hung at "loading game, please wait" on real hardware
+    — the desynced blob boundary shifted every subsequent read, corrupting
+    the player's model name and very plausibly driving it into the
+    `CTxdStore::LoadTxd` infinite-retry hang (landmine #8). Fixed (commit
+    `46e3483`) by making the three fields `static` instead of instance
+    fields: `CPlayerPed` only ever has exactly one live instance per
+    session (confirmed by auditing every `new CPlayerPed`/placement-new
+    site — construction happens once via `COMMAND_CREATE_PLAYER`
+    `SetupPlayerPed` or save-load placement-new in `CPools::LoadPedPool`;
+    death/arrest respawn reuses the same pointer via
+    `RestorePlayerStuffDuringResurrection`, never reconstructs it), so
+    `static` storage is behaviorally identical here and adds zero bytes to
+    `sizeof(CPlayerPed)`. Before adding any new field to `CPed`/`CPlayerPed`
+    (or any other type that ends up inside a raw-blob save on 3DS), check
+    whether the type being extended has a single-instance guarantee that
+    makes `static` storage safe — if not, the field needs explicit
+    save-format versioning, not a plain member add. See
+    `git log --grep="save compatibility"`.
+18. **`#ifdef FREE_CAM` is not a `_3DS`-only guard — `FREE_CAM` is defined
     unconditionally for every build, including non-`_3DS` — shared by all
     three trees, caught during the PS2-on-foot-camera-parity port's final
     review.** `stories/src/core/config.h:478` has a bare
