@@ -60,7 +60,7 @@ revisions without editing the script.
 ```python
 import sys; sys.path.insert(0, 'scripts')
 import elf_tools as E
-E.load('/home/max/lcs_3ds/sre/SLES_541.35')   # $WORKSPACE_ROOT/sre
+import os; E.load(os.path.expandvars('$WORKSPACE_ROOT/sre/SLES_541.35'))
 E.gp                          # linker $gp, e.g. 0x3d70f0
 E.dis(0x118380, 60)           # disassemble 60 insns at a VA (needs capstone)
 E.words(0x3cf9c8, 4)          # read raw data words (jump tables, const tables)
@@ -161,8 +161,8 @@ function, use Ghidra with the Emotion Engine extension — either through the
 REA MCP server (`tools.rea.*`, `reverse-engineer-anything` skill) or Ghidra
 headless directly.
 
-**Persistent workspace: `$WORKSPACE_ROOT/sre/`** (`/home/max/lcs_3ds/sre`,
-outside the repo — it holds copyrighted game binaries, never copy it in):
+**Persistent workspace: `$WORKSPACE_ROOT/sre/`** (outside
+the repo — it holds copyrighted game binaries, never copy it in):
 
 | Path | What |
 |---|---|
@@ -191,7 +191,7 @@ outside the repo — it holds copyrighted game binaries, never copy it in):
 **Via REA (preferred in-session):**
 
 ```js
-await tools.rea.open_binary({ path: "/home/max/lcs_3ds/sre/SLES_541.35", provider_id: "ghidra" });
+await tools.rea.open_binary({ path: "<$WORKSPACE_ROOT>/sre/SLES_541.35", provider_id: "ghidra" });
 const r = await tools.rea.procedure_pseudo_code({ procedure: "0x1ba618" });
 r.normalized_result   // pseudocode string; cite r.evidence_id
 // ... tools.rea.procedure_assembly, xrefs, batch_decompile, etc.
@@ -206,7 +206,7 @@ min); it does not use `sre/ghidra_proj`. CLI equivalent:
 
 ```sh
 /home/max/opt/ghidra_12.1.4_PUBLIC/support/analyzeHeadless \
-  /home/max/lcs_3ds/sre/ghidra_proj lcs -process SLES_541.35 -noanalysis -readOnly \
+  "$WORKSPACE_ROOT/sre/ghidra_proj" lcs -process SLES_541.35 -noanalysis -readOnly \
   -scriptPath "$PWD/scripts" -postScript Decomp.java 0x1ba618 0x34ce68
 ```
 
