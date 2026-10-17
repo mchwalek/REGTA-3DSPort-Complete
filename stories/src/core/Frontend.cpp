@@ -3897,6 +3897,7 @@ CMenuManager::AdditionalOptionInput(bool &goBack)
 					m_fMapCenterY += m_nMousePosY - m_nMouseOldPosY;
 					m_fMapCenterX = Clamp(m_fMapCenterX, SCREEN_WIDTH/2 - MAP_PAN_LIMIT_X(m_fMapSize), MAP_PAN_LIMIT_X(m_fMapSize) + SCREEN_WIDTH/2);
 					m_fMapCenterY = Clamp(m_fMapCenterY, SCREEN_HEIGHT/2 - MAP_PAN_LIMIT_Y(m_fMapSize), MAP_PAN_LIMIT_Y(m_fMapSize) + SCREEN_HEIGHT/2);
+				}
 				justResetPointer = false;
 
 			} else
