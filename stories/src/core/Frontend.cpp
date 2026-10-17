@@ -3789,8 +3789,8 @@ CMenuManager::Process(void)
 			break; \
 		\
 		m_fMapSize *= z2; \
-		m_fMapCenterX = Clamp(m_fMapCenterX, SCREEN_WIDTH/2 - (m_fMapSize - MENU_X(MAP_MIN_SIZE)), m_fMapSize - MENU_X(MAP_MIN_SIZE) + SCREEN_WIDTH/2); \
-		m_fMapCenterY = Clamp(m_fMapCenterY, SCREEN_HEIGHT/2 - (m_fMapSize - MENU_Y(MAP_MIN_SIZE)), m_fMapSize - MENU_Y(MAP_MIN_SIZE) + SCREEN_HEIGHT/2); \
+		m_fMapCenterX = Clamp(m_fMapCenterX, SCREEN_WIDTH/2 - MAP_PAN_LIMIT_X(m_fMapSize), MAP_PAN_LIMIT_X(m_fMapSize) + SCREEN_WIDTH/2); \
+		m_fMapCenterY = Clamp(m_fMapCenterY, SCREEN_HEIGHT/2 - MAP_PAN_LIMIT_Y(m_fMapSize), MAP_PAN_LIMIT_Y(m_fMapSize) + SCREEN_HEIGHT/2); \
 	} while(0)
 
 #endif
@@ -3895,9 +3895,8 @@ CMenuManager::AdditionalOptionInput(bool &goBack)
 				if (!justResetPointer) {
 					m_fMapCenterX += m_nMousePosX - m_nMouseOldPosX;
 					m_fMapCenterY += m_nMousePosY - m_nMouseOldPosY;
-					m_fMapCenterX = Clamp(m_fMapCenterX, SCREEN_WIDTH/2 - (m_fMapSize - MENU_X(MAP_MIN_SIZE)), m_fMapSize - MENU_X(MAP_MIN_SIZE) + SCREEN_WIDTH/2);
-					m_fMapCenterY = Clamp(m_fMapCenterY, SCREEN_HEIGHT/2 - (m_fMapSize - MENU_Y(MAP_MIN_SIZE)), m_fMapSize - MENU_Y(MAP_MIN_SIZE) + SCREEN_HEIGHT/2);
-				}
+					m_fMapCenterX = Clamp(m_fMapCenterX, SCREEN_WIDTH/2 - MAP_PAN_LIMIT_X(m_fMapSize), MAP_PAN_LIMIT_X(m_fMapSize) + SCREEN_WIDTH/2);
+					m_fMapCenterY = Clamp(m_fMapCenterY, SCREEN_HEIGHT/2 - MAP_PAN_LIMIT_Y(m_fMapSize), MAP_PAN_LIMIT_Y(m_fMapSize) + SCREEN_HEIGHT/2);
 				justResetPointer = false;
 
 			} else
@@ -3910,7 +3909,7 @@ CMenuManager::AdditionalOptionInput(bool &goBack)
 				if (CPad::GetPad(0)->GetLeftMouse() && m_nMousePosY < m_nMouseOldPosY || CPad::GetPad(0)->GetUp() ||
 					CPad::GetPad(0)->GetDPadUp() || CPad::GetPad(0)->GetAnalogueUpDown() < 0) {
 					if (CTimer::GetTimeInMillisecondsPauseMode() - lastMapTick > 10) {
-						if ((m_fMapSize - MENU_Y(MAP_MIN_SIZE)) + SCREEN_HEIGHT/2 > m_fMapCenterY)
+						if (MAP_PAN_LIMIT_Y(m_fMapSize) + SCREEN_HEIGHT/2 > m_fMapCenterY)
 							m_fMapCenterY += MENU_Y(15.f);
 						m_bShowMouse = false;
 					}				
@@ -3919,7 +3918,7 @@ CMenuManager::AdditionalOptionInput(bool &goBack)
 				if (CPad::GetPad(0)->GetLeftMouse() && m_nMousePosY > m_nMouseOldPosY || CPad::GetPad(0)->GetDown() ||
 					CPad::GetPad(0)->GetDPadDown() || CPad::GetPad(0)->GetAnalogueUpDown() > 0) {
 					if (CTimer::GetTimeInMillisecondsPauseMode() - lastMapTick > 10) {
-						if (SCREEN_HEIGHT/2 - (m_fMapSize - MENU_Y(MAP_MIN_SIZE)) < m_fMapCenterY)
+						if (SCREEN_HEIGHT/2 - MAP_PAN_LIMIT_Y(m_fMapSize) < m_fMapCenterY)
 							m_fMapCenterY -= MENU_Y(15.f);
 						m_bShowMouse = false;
 					}				
@@ -3928,7 +3927,7 @@ CMenuManager::AdditionalOptionInput(bool &goBack)
 				if (CPad::GetPad(0)->GetLeftMouse() && m_nMousePosX < m_nMouseOldPosX || CPad::GetPad(0)->GetLeft() ||
 					CPad::GetPad(0)->GetDPadLeft() || CPad::GetPad(0)->GetAnalogueLeftRight() < 0) {
 					if (CTimer::GetTimeInMillisecondsPauseMode() - lastMapTick > 10) {
-						if (m_fMapSize > MENU_X(MAP_SIZE_TO_ALLOW_X_MOVE) && m_fMapSize - MENU_X(MAP_MIN_SIZE) + SCREEN_WIDTH/2 > m_fMapCenterX)
+						if (CAN_PAN_X_AT_CURRENT_ZOOM && MAP_PAN_LIMIT_X(m_fMapSize) + SCREEN_WIDTH/2 > m_fMapCenterX)
 							m_fMapCenterX += MENU_X(15.f);
 						m_bShowMouse = false;
 					}				
@@ -3947,7 +3946,7 @@ CMenuManager::AdditionalOptionInput(bool &goBack)
 				if (CPad::GetPad(0)->GetLeftMouse() && m_nMousePosX > m_nMouseOldPosX || CPad::GetPad(0)->GetRight() ||
 					CPad::GetPad(0)->GetDPadRight() || CPad::GetPad(0)->GetAnalogueLeftRight() > 0) {
 					if (CTimer::GetTimeInMillisecondsPauseMode() - lastMapTick > 10) {
-						if (m_fMapSize > MENU_X(MAP_SIZE_TO_ALLOW_X_MOVE) && SCREEN_WIDTH/2 - (m_fMapSize - MENU_X(MAP_MIN_SIZE)) < m_fMapCenterX)
+						if (CAN_PAN_X_AT_CURRENT_ZOOM && SCREEN_WIDTH/2 - MAP_PAN_LIMIT_X(m_fMapSize) < m_fMapCenterX)
 							m_fMapCenterX -= MENU_X(15.f);
 						m_bShowMouse = false;
 					}				
