@@ -6976,7 +6976,8 @@ CPed::KillCharOnFootMelee(CVector &ourPos, CVector &targetPos, CVector &distWith
 			return CANT_ATTACK;
 		}
 
-		if (canReachVictim || !victimPlayer) {
+		// PS2 (VA 0x31e51c) has no reachability check here; the non-fist branch above never sets canReachVictim
+		if (canReachVictim || !victimPlayer || !isUnarmedOrBrassKnuckle) {
 			SetMoveState(PEDMOVE_STILL);
 			SetAttack(m_pedInObjective);
 			m_fRotationDest = CGeneral::GetRadianAngleBetweenPoints(
