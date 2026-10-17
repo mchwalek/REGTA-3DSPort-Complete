@@ -4813,13 +4813,19 @@ PS2FollowPedSpeedStep(float target, float prevSpeed, float dt)
 
 // Auto-rotate-behind-ped step, proportional to the remaining angle:
 // min(1, 0.1*dt*|pedSpeed|) * delta, capped at +-0.02*dt, off at >=170deg.
+// While the force-behind latch is held: speed-independent, cap doubled, no cutoff.
 float
-PS2FollowPedAutoRotateStep(float betaDelta, float pedSpeed, float dt)
+PS2FollowPedAutoRotateStep(float betaDelta, float pedSpeed, float dt, bool latched)
 {
-	if(Abs(betaDelta) >= DEGTORAD(170.0f))
+	if(!latched && Abs(betaDelta) >= DEGTORAD(170.0f))
 		return 0.0f;
 	float cap = 0.02f * dt;
-	float step = Min(1.0f, 0.1f * dt * Abs(pedSpeed)) * betaDelta;
+	float k = Min(1.0f, 0.1f * dt * Abs(pedSpeed));
+	if(latched){
+		k = Min(1.0f, 0.1f * dt);
+		cap *= 2.0f;
+	}
+	float step = k * betaDelta;
 	if(step > cap)
 		step = cap;
 	else if(step < -cap)
@@ -4827,8 +4833,23 @@ PS2FollowPedAutoRotateStep(float betaDelta, float pedSpeed, float dt)
 	return step;
 }
 
+// Force-behind pitch levelling (PS2 0x282efc): eases the string pitch toward
+// level at min(1, 0.1*dt), capped at +-0.16*dt.
+float
+PS2FollowPedLevelPitch(float pitch, float dt)
+{
+	float cap = 0.16f * dt;
+	float step = Min(1.0f, 0.1f * dt) * -pitch;
+	if(step > cap)
+		step = cap;
+	else if(step < -cap)
+		step = -cap;
+	return pitch + step;
+}
+
 #ifdef _3DS
 // PS2 keeps this per-camera state in gp-relative statics; one on-foot cam.
+static bool ps2FollowPedBehindLatch;
 static CVector ps2FollowPedVirtFar, ps2FollowPedVirtNear;
 static float ps2FollowPedPrevMaxDist;
 static float ps2FollowPedWhiskerAccum;
@@ -4861,7 +4882,9 @@ CCam::Process_FollowPed_Rotation(const CVector &CameraTarget, float TargetOrient
 	float pedSpeed = ((CPed*)CamTargetEntity)->GetMoveSpeed().Magnitude2D();
 	float stickX = -(float)CPad::GetPad(0)->LookAroundLeftRight();
 	float stickY = (float)CPad::GetPad(0)->LookAroundUpDown();
-	bool stickActive = stickX != 0.0f || stickY != 0.0f;
+	bool forceBehind = CPad::GetPad(0)->ForceCameraBehindPlayer();
+	// PS2 counts the force-behind button as stick input (suppresses whiskers).
+	bool stickActive = stickX != 0.0f || stickY != 0.0f || forceBehind;
 
 	// Step 2a: whisker wall-steer. Five rays fanned across the view from just
 	// behind the pivot to last frame's Source; partial hits nudge the yaw away
@@ -4919,6 +4942,7 @@ CCam::Process_FollowPed_Rotation(const CVector &CameraTarget, float TargetOrient
 		Distance = 1000.0f;
 		ps2FollowPedWhiskerAccum = 0.0f;
 		ps2FollowPedCollisionCountdown = 0;
+		ps2FollowPedBehindLatch = false;
 		CVector flat(-Cos(Beta), -Sin(Beta), 0.0f);
 		ps2FollowPedVirtFar = TargetCoors - farDist*flat;
 		ps2FollowPedVirtNear = TargetCoors - maxDist*flat;
@@ -4942,7 +4966,12 @@ CCam::Process_FollowPed_Rotation(const CVector &CameraTarget, float TargetOrient
 	float betaDelta = behindBeta - stringBeta;
 	while(betaDelta >= PI) betaDelta -= 2.0f*PI;
 	while(betaDelta < -PI) betaDelta += 2.0f*PI;
-	float betaGoal = stringBeta + PS2FollowPedAutoRotateStep(betaDelta, pedSpeed, dt) - Beta;
+	// Force-behind latch (PS2 gp-0x34): set while held, released once he moves or the camera is behind.
+	if(forceBehind)
+		ps2FollowPedBehindLatch = true;
+	else if(ps2FollowPedBehindLatch && (SQR(pedSpeed) > 0.001f || Abs(betaDelta) < 0.01f))
+		ps2FollowPedBehindLatch = false;
+	float betaGoal = stringBeta + PS2FollowPedAutoRotateStep(betaDelta, pedSpeed, dt, ps2FollowPedBehindLatch) - Beta;
 	while(betaGoal >= PI) betaGoal -= 2.0f*PI;
 	while(betaGoal < -PI) betaGoal += 2.0f*PI;
 	BetaSpeed = PS2FollowPedSpeedStep(betaGoal/Max(dt, 1.0f) + PS2FollowPedStickTarget(stickX, 1.0f/1120.0f, FOV), BetaSpeed, dt);
@@ -4952,7 +4981,10 @@ CCam::Process_FollowPed_Rotation(const CVector &CameraTarget, float TargetOrient
 
 	// Step 7: pitch eases toward the string's pitch; the stick steers the
 	// virtual sources, so it reaches Alpha through next frame's string.
-	float targetPitch = Asin(Clamp(strFront.z, -1.0f, 1.0f)) - lookDown;
+	float targetPitch = Asin(Clamp(strFront.z, -1.0f, 1.0f));
+	if(ps2FollowPedBehindLatch && ((CPed*)CamTargetEntity)->bIsStanding)
+		targetPitch = PS2FollowPedLevelPitch(targetPitch, dt);
+	targetPitch -= lookDown;
 	if(targetPitch > DEGTORAD(45.0f))
 		targetPitch = DEGTORAD(45.0f);
 	else if(targetPitch < -DEGTORAD(85.0f))

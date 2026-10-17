@@ -149,25 +149,44 @@ int main(){
         driver = r"""
 int main(){
 	// Stopped ped: no auto-rotate.
-	assert(Abs(PS2FollowPedAutoRotateStep(1.0f, 0.0f, 1.0f)) < 0.0001f);
+	assert(Abs(PS2FollowPedAutoRotateStep(1.0f, 0.0f, 1.0f, false)) < 0.0001f);
 	// Already behind: no auto-rotate.
-	assert(Abs(PS2FollowPedAutoRotateStep(0.0f, 5.0f, 1.0f)) < 0.0001f);
+	assert(Abs(PS2FollowPedAutoRotateStep(0.0f, 5.0f, 1.0f, false)) < 0.0001f);
 	// Fast-moving ped, big delta: capped at 0.02*dt.
-	float step = PS2FollowPedAutoRotateStep(1.0f, 10.0f, 1.0f);
+	float step = PS2FollowPedAutoRotateStep(1.0f, 10.0f, 1.0f, false);
 	assert(Abs(step - 0.02f) < 0.0001f);
 	// Sign follows betaDelta.
-	float negStep = PS2FollowPedAutoRotateStep(-1.0f, 10.0f, 1.0f);
+	float negStep = PS2FollowPedAutoRotateStep(-1.0f, 10.0f, 1.0f, false);
 	assert(Abs(negStep + 0.02f) < 0.0001f);
 	// Small delta: proportional, so it settles instead of overshooting.
-	assert(Abs(PS2FollowPedAutoRotateStep(0.01f, 10.0f, 1.0f) - 0.01f) < 0.0001f);
-	assert(Abs(PS2FollowPedAutoRotateStep(0.01f, 2.0f, 1.0f) - 0.002f) < 0.0001f);
+	assert(Abs(PS2FollowPedAutoRotateStep(0.01f, 10.0f, 1.0f, false) - 0.01f) < 0.0001f);
+	assert(Abs(PS2FollowPedAutoRotateStep(0.01f, 2.0f, 1.0f, false) - 0.002f) < 0.0001f);
 	// Ped walking at the camera (>=170deg): no auto-rotate.
-	assert(PS2FollowPedAutoRotateStep(DEGTORAD(171.0f), 10.0f, 1.0f) == 0.0f);
+	assert(PS2FollowPedAutoRotateStep(DEGTORAD(171.0f), 10.0f, 1.0f, false) == 0.0f);
+	// Force-behind latch: ignores ped speed, doubles the cap, no 170deg cutoff.
+	assert(Abs(PS2FollowPedAutoRotateStep(1.0f, 0.0f, 1.0f, true) - 0.04f) < 0.0001f);
+	assert(Abs(PS2FollowPedAutoRotateStep(0.2f, 0.0f, 1.0f, true) - 0.02f) < 0.0001f);
+	assert(Abs(PS2FollowPedAutoRotateStep(DEGTORAD(171.0f), 0.0f, 1.0f, true) - 0.04f) < 0.0001f);
 	printf("ok\n");
 	return 0;
 }
 """
         out = self._run("float\nPS2FollowPedAutoRotateStep(", driver)
+        self.assertEqual(out.strip(), "ok")
+
+    def test_level_pitch_eases_toward_level(self):
+        driver = r"""
+int main(){
+	assert(Abs(PS2FollowPedLevelPitch(0.5f, 1.0f) - 0.45f) < 0.0001f);
+	assert(Abs(PS2FollowPedLevelPitch(-1.0f, 1.0f) + 0.9f) < 0.0001f);
+	// Capped at 0.16*dt.
+	assert(Abs(PS2FollowPedLevelPitch(10.0f, 1.0f) - 9.84f) < 0.0001f);
+	assert(PS2FollowPedLevelPitch(0.0f, 1.0f) == 0.0f);
+	printf("ok\n");
+	return 0;
+}
+"""
+        out = self._run("float\nPS2FollowPedLevelPitch(", driver)
         self.assertEqual(out.strip(), "ok")
 
 
