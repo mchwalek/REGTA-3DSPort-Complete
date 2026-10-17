@@ -739,6 +739,26 @@ victim selection → strike detection) for the same `CANAIM`/`CANAIM_WITHARM`/
 weapon-fire-type pattern, since PS2 routinely uses exactly these flags as a
 gun/melee discriminator in functions that look gun-only at a glance.
 
+**A fourth regression, on the AI side: "police don't melee the player."**
+The same port's AI half (`CPed::KillCharOnFootMelee`, commit `4c7c4f4`)
+added a PS2-faithful approach branch for non-fist melee weapons (seek the
+victim's position, keep `max(0.4*range, 0.8)` away, skip
+`FindMeleeAttackPoint`) — but the function's later attack gate was
+`if (canReachVictim || !victimPlayer)`, and `canReachVictim` was only ever
+set by the `FindMeleeAttackPoint` path the new branch skips. Result: every
+non-fist melee AI (1-star nightstick cops, bat/knife gang members) ran up to
+the player and stood ~2m away forever, never calling `SetAttack` — so cops
+also never knocked the player down, and never reached the get-up-window
+arrest. PS2's function (VA `0x31e0b0-0x31e860`; approach `0x31e1a4`, arrest
+`0x31e348`, attack gate `0x31e51c-0x31e60c`) has **no reachability condition
+at the gate at all**. Fix: `|| !isUnarmedOrBrassKnuckle` on the gate
+(`stories/src/peds/PedAI.cpp`, test
+`scripts/tests/test_ai_melee_attack_gate.py`). **Lesson:** when porting a
+PS2 branch that *skips* a call, grep the rest of the function for every
+local that call used to set (`canReachVictim` here) — the spec only said
+"PS2 doesn't call it here," never what PS2 uses instead downstream. See
+`git log --grep="non-fist melee"`.
+
 ## Case study: lock-on target selection ("autoaim too sensitive, snaps to far peds") — six small deltas, no single smoking gun
 
 A user report of "autoaim snaps to something off-screen" / "locks too far
