@@ -131,6 +131,19 @@ const CRGBA SCROLLBAR_COLOR = LABEL_COLOR;
 #endif
 #define MAP_SIZE_TO_ALLOW_X_MOVE 297.f
 
+#ifdef _3DS
+// Fixed centre crosshair: let any map point pan under screen centre, in
+// either axis, at any zoom -- matches the 320x220 atlas half-extent used
+// by PrintMap/DrawLCSMenuMap3DS.
+#define MAP_PAN_LIMIT_X(s) ((s) * (320.0f / 220.0f))
+#define MAP_PAN_LIMIT_Y(s) (s)
+#define CAN_PAN_X_AT_CURRENT_ZOOM true
+#else
+#define MAP_PAN_LIMIT_X(s) ((s) - MENU_X(MAP_MIN_SIZE))
+#define MAP_PAN_LIMIT_Y(s) ((s) - MENU_Y(MAP_MIN_SIZE))
+#define CAN_PAN_X_AT_CURRENT_ZOOM (m_fMapSize > MENU_X(MAP_SIZE_TO_ALLOW_X_MOVE))
+#endif
+
 #define MAX_VISIBLE_LIST_ROW 30
 #define SCROLLBAR_MAX_HEIGHT 263.0f // not in end result
 #define SCROLLABLE_PAGES
