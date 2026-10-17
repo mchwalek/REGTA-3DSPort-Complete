@@ -846,3 +846,46 @@ gate/cooldown around all of the above) independently, because PS2 GTA
 engines routinely spread a dozen small, independently-motivated tweaks
 across that whole pipeline rather than concentrating tuning in one
 function.
+
+## Case study: a single unique string disambiguates a one-line fix — and still surfaces two missed calls
+
+Not every disassembly pass needs a jump table, a struct walk, or multiple
+candidate functions. "The weapon-pickup swap prompt never shows up on 3DS"
+resolved almost entirely from source first (`stories/src/control/Pickups.cpp`'s
+`CPickup::Update` was asking `TheText.Get()` for VC-only GXT keys
+`PU_CF1`/`PU_CF3`/`PU_CF4` that don't exist in LCS's compiled GXT — see
+`AGENTS.md` landmine #19 for the full mechanism) — the disassembly pass was
+only needed to confirm the one-line fix (`TheText.Get("PU_CF")`, no
+per-mode switch) was actually what PS2 does, not a guess.
+
+Because `PU_CF` is a 5-character ASCII literal that happens to be unique in
+the whole ~3MB ELF, this was the simplest possible disambiguation case: a
+plain byte search for `"PU_CF\0"` in the extracted `SLES_541.35` found
+exactly one hit, and `find_addr_refs`-style tracing from that VA found
+exactly one `lui`/`addiu` pair referencing it, inside exactly one function
+(`CPickup::Update`, VA `0x1c7758`). No candidate-function ambiguity, no
+struct-offset cross-checking needed — when a string constant is long enough
+to be unique, confirming "is this the right call site" is a one-step search,
+not a multi-step RE process like the case studies above.
+
+That simplicity is exactly why it was worth doing anyway: reading the ~60
+instructions around the single call site (disassembled in MIPS64 mode for
+the R5900 `ld`/`sd` on the pickup's 64-bit flag word) turned up two
+`CHud::SetHelpMessage(nil, ...)` calls — clearing the prompt immediately on
+a collect-button press and immediately on stepping off the pickup — that
+the source-only read of `Pickups.cpp` had no way to predict, because reLCS's
+version of this function never had equivalent calls to begin with. A
+source-only fix (just swap the GXT key) would have been *correct but
+incomplete*: it would have fixed the missing text without fixing the
+now-separately-noticeable "prompt lingers via its fade timeout instead of
+disappearing instantly" behavior.
+
+**Lesson:** even when a source-level bug is fully explained without the
+ELF (wrong/missing key, wrong flag, wrong constant), a quick disassembly
+pass of the PS2 equivalent — cheap here because the call site was found by
+a unique-string search, not a multi-step RE process — can still reveal
+adjacent behavior the port dropped silently, especially around anything
+that shows/hides UI state (prompts, HUD messages, markers): those tend to
+have a paired "clear" call on both the success and abandon paths, and a
+port that only reimplements the "show" half rarely leaves a source-visible
+trace of the missing "hide" half.
