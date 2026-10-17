@@ -413,6 +413,26 @@ not mistake for a failed transfer.
     building with `MASTER` undefined would print `"<KEY> missing"` on
     screen and catch this instantly, but no build configuration here does
     that. See `git log --grep="weapon pickup swap prompt"`.
+20. **On 3DS the in-game D-pad and Select are shared with port hotkeys —
+    stories only (`CPad::AffectFrom3DS`, `stories/src/core/Pad.cpp`).**
+    While a player ped exists and no menu is open, the performance/stereo
+    hotkeys (`rw::c3d::handle3DSPerformanceDPad`) fire only on Select+D-pad,
+    the D-pad otherwise reaches the game (walking in CURMODE 0/2), and
+    `PCTempJoyState.Select` is a **one-frame press on Select release** if no
+    D-pad was pressed during the hold — never a held state. New game code
+    must read Select with `*JustDown`-style edges (e.g.
+    `CycleCameraModeUpJustDown`), not as a held button; a held-Select check
+    sees at most one frame. Moving hotkeys back onto the bare D-pad silently
+    kills D-pad walking (which is how it broke before, commit `f2c4b845`).
+    See `git log --grep="Select+D-pad"`.
+21. **reLCS's `_3DS` on-foot camera (`CCam::Process_FollowPed_Rotation`)
+    replaces `Process_FollowPed` entirely, so every input the old function
+    read must be re-ported by hand.** `ForceCameraBehindPlayer()` (L in
+    CURMODE 0/1) was silently dead after the switch until PS2 `0x281f50`'s
+    force-behind latch was ported. Before adding a `_3DS` camera-mode
+    replacement, grep the replaced function for every `CPad` query and port
+    or consciously drop each one. PS2 reference for the follow cam:
+    `docs/superpowers/specs/2026-10-17-ps2-follow-cam-parity-fixes-design.md`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 
