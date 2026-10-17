@@ -1575,6 +1575,8 @@ CCamera::CamControl(void)
 			WellBufferMe(CloseInPedHeightTarget, &Cams[ActiveCam].m_fCloseInPedHeightOffset, &Cams[ActiveCam].m_fCloseInPedHeightOffsetSpeed, 0.1f, 0.025f, false);
 
 			// Check if entering fight cam
+			// PS2 CamControl never requests MODE_FIGHT_CAM: melee stays in the follow cam
+#ifndef _3DS
 			if(!m_bFirstPersonBeingUsed){
 				if(FindPlayerPed()->GetPedState() == PED_FIGHT && !m_bUseMouse3rdPerson)
 					ReqMode = CCam::MODE_FIGHT_CAM;
@@ -1582,6 +1584,7 @@ CCamera::CamControl(void)
 				   FindPlayerPed()->GetPedState() == PED_ATTACK && !m_bUseMouse3rdPerson)
 					ReqMode = CCam::MODE_FIGHT_CAM;
 			}
+#endif
 
 			// Garage cam
 			CAttributeZone *stairsZone = nil;
