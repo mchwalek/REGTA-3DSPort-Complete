@@ -383,6 +383,36 @@ not mistake for a failed transfer.
     already-`#ifdef FREE_CAM`-wrapped function needs its own explicit
     `#ifdef _3DS` (or equivalent), never assumed from the outer guard. See
     `git log --grep="gate PS2 on-foot camera"`.
+19. **A missing/wrong GXT text key fails silently under `-DMASTER`, returning
+    an empty string instead of a diagnostic — shared by all three trees'
+    `CKeyArray::Search`, only actually tripped so far by reLCS's weapon-
+    pickup swap prompt.** `stories/src/text/Text.cpp`'s `CKeyArray::Search`
+    (~lines 441-449):
+    ```cpp
+    #ifdef MASTER
+    	sprintf(errstr, "");
+    #else
+    	sprintf(errstr, "%s missing", key);
+    #endif
+    ```
+    The 3DS build always defines `MASTER` (`stories/build/GNUmakefile:18`),
+    so `TheText.Get("SOME_KEY")` on a key absent from the compiled GXT
+    silently returns `""` — whatever consumes it (`CHud::SetHelpMessage`,
+    etc.) renders nothing, with no console warning, no crash, nothing to
+    grep for at runtime. This shipped as a real bug: `CPickup::Update`
+    (`stories/src/control/Pickups.cpp`) was ported from Vice City and called
+    `TheText.Get("PU_CF1")`/`"PU_CF3"`/`"PU_CF4"` — VC-only keys that don't
+    exist in LCS's GXT (LCS has only `PU_CF`, which already carries a
+    `~k~ ~PUCF~` token that resolves the right button per control mode) — so
+    the weapon-pickup swap prompt never appeared. The swap itself goes
+    through an unrelated code path and still worked, which is why this read
+    as "missing a prompt" rather than "broken," and went unreported for a
+    long time. Any new/ported `TheText.Get(...)` call must be checked
+    against the actual compiled GXT key list (`AMERICAN.GXT`/`ENGLISH.GXT`,
+    or `repo/sdstage/relcs/TEXT/*.GXT`) before assuming it will render —
+    building with `MASTER` undefined would print `"<KEY> missing"` on
+    screen and catch this instantly, but no build configuration here does
+    that. See `git log --grep="weapon pickup swap prompt"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 

@@ -389,25 +389,15 @@ CPickup::Update(CPlayerPed *player, CVehicle *vehicle, int playerId)
 								}
 							}
 							if (!m_bWasControlMessageShown) {
-								switch (CPad::GetPad(0)->Mode)
-								{
-								case 0:
-								case 1:
-									CHud::SetHelpMessage(TheText.Get("PU_CF1"), false);
-									break;
-								case 2:
-									CHud::SetHelpMessage(TheText.Get("PU_CF3"), false);
-									break;
-								case 3:
-									CHud::SetHelpMessage(TheText.Get("PU_CF4"), false);
-									break;
-								default:
-									break;
-								}
+								CHud::SetHelpMessage(TheText.Get("PU_CF"), false);
 								m_bWasControlMessageShown = true;
 							}
 							if (CollectPickupBuffer == 0)
 								isPickupTouched = false;
+							else if (m_bWasControlMessageShown) {
+								CHud::SetHelpMessage(nil, false);
+								m_bWasControlMessageShown = false;
+							}
 							if (CTimer::GetTimeInMilliseconds() - FindPlayerPed()->m_nPadDownPressedInMilliseconds < 1500)
 								isPickupTouched = false;
 						}
@@ -415,8 +405,11 @@ CPickup::Update(CPlayerPed *player, CVehicle *vehicle, int playerId)
 						isPickupTouched = false;
 				}
 			}
-		} else
+		} else {
+			if (m_bWasControlMessageShown)
+				CHud::SetHelpMessage(nil, false);
 			m_bWasControlMessageShown = false;
+		}
 
 		// if we didn't then we've got nothing to do
 		if (isPickupTouched && CanBePickedUp(player, playerId)) {
