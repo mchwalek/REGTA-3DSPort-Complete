@@ -526,7 +526,8 @@ CCamera::Process(void)
 	static bool previousStick3DS = false;
 	const bool stick3DS = comfort3DS && (Abs(CPad::GetPad(0)->LookAroundLeftRight())>0 ||
 		Abs(CPad::GetPad(0)->LookAroundUpDown())>0);
-	if(comfort3DS && previousStick3DS && !stick3DS)
+	// PS2's follow cam decays its stick speed (0.8^dt) itself; zeroing it here would hitch the string-yaw drive.
+	if(comfort3DS && previousStick3DS && !stick3DS && Cams[ActiveCam].Mode != CCam::MODE_FOLLOWPED)
 		Cams[ActiveCam].BetaSpeed = Cams[ActiveCam].AlphaSpeed = 0.f;
 	previousStick3DS = stick3DS;
 	const float orbitBeta3DS = Cams[ActiveCam].Beta;
@@ -1523,12 +1524,22 @@ CCamera::CamControl(void)
 			}
 
 			// Zoom value
+#ifdef _3DS
+			// PS2 LCS values: on-foot string length 2.0 / 4.5 / 5.5 with the follow cam's 2.0 base
+			if(PedZoomIndicator == CAM_ZOOM_1)
+				m_fPedZoomValue = 0.0f;
+			else if(PedZoomIndicator == CAM_ZOOM_2)
+				m_fPedZoomValue = 2.5f;
+			else if(PedZoomIndicator == CAM_ZOOM_3)
+				m_fPedZoomValue = 3.5f;
+#else
 			if(PedZoomIndicator == CAM_ZOOM_1)
 				m_fPedZoomValue = 0.25f;
 			else if(PedZoomIndicator == CAM_ZOOM_2)
 				m_fPedZoomValue = 1.5f;
 			else if(PedZoomIndicator == CAM_ZOOM_3)
 				m_fPedZoomValue = 2.9f;
+#endif
 
 			// Smooth zoom value - ugly code
 			if(m_bUseScriptZoomValuePed){
