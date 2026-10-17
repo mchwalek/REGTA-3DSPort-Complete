@@ -982,3 +982,44 @@ that shows/hides UI state (prompts, HUD messages, markers): those tend to
 have a paired "clear" call on both the success and abandon paths, and a
 port that only reimplements the "show" half rarely leaves a source-visible
 trace of the missing "hide" half.
+
+## Case study: PS2 follow-cam parity round 2 (yaw drift, Select zoom, L force-behind)
+
+After `Process_FollowPed_Rotation` was ported from PS2 `MODE_FOLLOWPED`
+(`0x281f50`), on-device testing reported yaw not holding while running,
+Select not changing distance while standing, and L no longer forcing the
+camera behind Toni. Full pseudocode of `0x281f50` (REA) settled all three;
+details in `docs/superpowers/specs/2026-10-17-ps2-follow-cam-parity-fixes-design.md`.
+
+- **PS2 is a cam-on-a-string with two LCS-only *virtual* sources** (CCam
+  `0x220` far = `pivot - max(maxDist,4)*dir`, `0x230` near =
+  `pivot - dist*dir`, both at `virtualPitch = Alpha-ish + lookDown`). Yaw
+  each frame is driven toward the **string yaw** of the far source
+  (`BetaSpeed` target = `(stringYaw + step - Beta)/max(dt,1)`), and the
+  auto-rotate step is **proportional** (`min(1, 0.1*dt*|speed|) * Δ`,
+  capped `±0.02*dt`). The first port used a constant-rate slew on Beta with
+  no string term, which never settles — the "yaw drift". Note the real
+  `Source` uses pitch `Alpha` only (camera looks at the pivot); `lookDown`
+  only goes into the virtual sources — easy to conflate.
+- **Select zoom**: string distance uses `floor = (maxDist > prevMaxDist) ?
+  maxDist : 2.0`, so growing zoom pushes the camera out even when the ped is
+  stationary. PS2 `m_fPedZoomValue` is `0.0/2.5/3.5` (reLCS had VC's
+  `0.25/1.5/2.9`). PS2 `TheCamera` base is `0x43bdf0` (`+0x1cc` smooth zoom,
+  `+0x1e4` PedZoomIndicator); `elf_tools refs` finds nothing for those
+  fields because accesses go through the base pointer.
+- **Wall whiskers**: 5 LOS rays (spacing 0.17, start `pivot-0.3*Front`)
+  steer Beta by `(i-2)*0.03` per blocked ray while moving, decaying `0.95`;
+  the main pull-in LOS only runs when all 5 are blocked, the stick (or
+  force-behind) is active, or a 2-frame post-hit countdown is running.
+- **Force-behind latch** (`gp-0x34`): `FUN_00172150` = ForceCameraBehindPlayer
+  (returns false if `GetLookBehindForPed` (`FUN_00171470`) && ped state
+  PED_ATTACK/PED_FIGHT; `0x34c` enum matches reLCS). Latched: k = `min(1,
+  0.1*dt)` (speed ignored), cap `×2` (`gp-0x18`=2.0), no 170° gate, and when
+  `bIsStanding` (`0x194` bit0) pitch levels toward 0 with cap `0.16*dt`.
+  Clears when moving or `|Δ|<0.01`. EE `0x46020028`-style words are
+  `max.s`/`min.s` (MMI-ish COP1 ops capstone can't decode).
+
+**Lesson:** a mode-function replacement drops every input the old function
+read (here `ForceCameraBehindPlayer`) — grep the replaced function's `CPad`
+calls. And separately-found 3DS port code can mask parity issues: the D-pad
+was dead in-game because port hotkeys zeroed it, not because of camera code.

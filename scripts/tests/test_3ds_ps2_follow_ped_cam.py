@@ -21,6 +21,9 @@ STUB_PRELUDE = r"""
 
 static inline float Abs(float x) { return x < 0.0f ? -x : x; }
 static inline float Pow(float base, float exp) { return powf(base, exp); }
+template<class T> static inline T Min(T a, T b) { return a < b ? a : b; }
+template<class T> static inline T Max(T a, T b) { return a > b ? a : b; }
+#define DEGTORAD(x) ((x) * 3.14159265358979323846f / 180.0f)
 
 """
 
@@ -68,12 +71,19 @@ int main(){
         out = self._run("float\nPS2FollowPedLookDown(", driver)
         self.assertEqual(out.strip(), "ok")
 
-    def test_string_dist_clamps_to_zoom_range(self):
+    def test_string_dist_follows_zoom(self):
         driver = r"""
 int main(){
-	assert(Abs(PS2FollowPedStringDist(1.0f, 0.25f) - 2.0f) < 0.0001f);
-	assert(Abs(PS2FollowPedStringDist(100.0f, 0.25f) - 2.25f) < 0.0001f);
-	assert(Abs(PS2FollowPedStringDist(2.1f, 0.25f) - 2.1f) < 0.0001f);
+	// Zoom growing (Select zoom-out) pushes out even with a short string.
+	assert(Abs(PS2FollowPedStringDist(2.25f, 2.5f, 2.25f) - 4.5f) < 0.0001f);
+	// Zoom shrinking pulls straight in.
+	assert(Abs(PS2FollowPedStringDist(4.5f, 0.0f, 4.5f) - 2.0f) < 0.0001f);
+	// Steady zoom: string length kept within [2, maxDist].
+	assert(Abs(PS2FollowPedStringDist(3.0f, 2.5f, 4.5f) - 3.0f) < 0.0001f);
+	assert(Abs(PS2FollowPedStringDist(1.0f, 2.5f, 4.5f) - 2.0f) < 0.0001f);
+	assert(Abs(PS2FollowPedStringDist(9.0f, 2.5f, 4.5f) - 4.5f) < 0.0001f);
+	// maxDist == 2: always 2.
+	assert(Abs(PS2FollowPedStringDist(1.0f, 0.0f, 2.0f) - 2.0f) < 0.0001f);
 	printf("ok\n");
 	return 0;
 }
@@ -100,46 +110,83 @@ int main(){
         out = self._run("float\nPS2FollowPedPitchStep(", driver)
         self.assertEqual(out.strip(), "ok")
 
-    def test_stick_speed_is_quadratic_and_signed(self):
+    def test_stick_target_is_quadratic_and_signed(self):
         driver = r"""
 int main(){
 	float gain = 1.0f/1120.0f;
-	float posSpeed = PS2FollowPedStickSpeed(64.0f, gain, 70.0f, 0.0f, 1.0f);
-	float negSpeed = PS2FollowPedStickSpeed(-64.0f, gain, 70.0f, 0.0f, 1.0f);
-	assert(posSpeed > 0.0f);
-	assert(negSpeed < 0.0f);
-	assert(Abs(posSpeed + negSpeed) < 0.0001f);
-	// Zero axis -> zero speed.
-	float zero = PS2FollowPedStickSpeed(0.0f, gain, 70.0f, 0.0f, 1.0f);
-	assert(Abs(zero) < 0.0001f);
-	// Clamped to +-0.1.
-	float huge = PS2FollowPedStickSpeed(128.0f, gain, 70.0f, 0.0f, 1.0f);
-	assert(huge <= 0.1f);
+	float pos = PS2FollowPedStickTarget(64.0f, gain, 70.0f);
+	float neg = PS2FollowPedStickTarget(-64.0f, gain, 70.0f);
+	assert(Abs(pos - 0.007f*0.007f*64.0f*64.0f*gain*70.0f) < 0.00001f);
+	assert(Abs(pos + neg) < 0.00001f);
+	// Doubling the deflection quadruples the target.
+	assert(Abs(PS2FollowPedStickTarget(128.0f, gain, 70.0f) - 4.0f*pos) < 0.00001f);
+	assert(PS2FollowPedStickTarget(0.0f, gain, 70.0f) == 0.0f);
 	printf("ok\n");
 	return 0;
 }
 """
-        out = self._run("float\nPS2FollowPedStickSpeed(", driver)
+        out = self._run("float\nPS2FollowPedStickTarget(", driver)
+        self.assertEqual(out.strip(), "ok")
+
+    def test_speed_step_smooths_clamps_and_snaps(self):
+        driver = r"""
+int main(){
+	// Target clamped to 0.1, then blended at (1-0.8^dt).
+	assert(Abs(PS2FollowPedSpeedStep(1.0f, 0.0f, 1.0f) - 0.02f) < 0.0001f);
+	assert(Abs(PS2FollowPedSpeedStep(-1.0f, 0.0f, 1.0f) + 0.02f) < 0.0001f);
+	// No target: previous speed decays by 0.8^dt instead of stopping dead.
+	assert(Abs(PS2FollowPedSpeedStep(0.0f, 0.05f, 1.0f) - 0.04f) < 0.0001f);
+	// Tiny speed snaps to zero.
+	assert(PS2FollowPedSpeedStep(0.0f, 0.0001f, 1.0f) == 0.0f);
+	printf("ok\n");
+	return 0;
+}
+"""
+        out = self._run("float\nPS2FollowPedSpeedStep(", driver)
         self.assertEqual(out.strip(), "ok")
 
     def test_auto_rotate_step_caps_and_thresholds(self):
         driver = r"""
 int main(){
 	// Stopped ped: no auto-rotate.
-	assert(Abs(PS2FollowPedAutoRotateStep(1.0f, 0.0f, 1.0f)) < 0.0001f);
+	assert(Abs(PS2FollowPedAutoRotateStep(1.0f, 0.0f, 1.0f, false)) < 0.0001f);
 	// Already behind: no auto-rotate.
-	assert(Abs(PS2FollowPedAutoRotateStep(0.0f, 5.0f, 1.0f)) < 0.0001f);
+	assert(Abs(PS2FollowPedAutoRotateStep(0.0f, 5.0f, 1.0f, false)) < 0.0001f);
 	// Fast-moving ped, big delta: capped at 0.02*dt.
-	float step = PS2FollowPedAutoRotateStep(1.0f, 10.0f, 1.0f);
+	float step = PS2FollowPedAutoRotateStep(1.0f, 10.0f, 1.0f, false);
 	assert(Abs(step - 0.02f) < 0.0001f);
 	// Sign follows betaDelta.
-	float negStep = PS2FollowPedAutoRotateStep(-1.0f, 10.0f, 1.0f);
-	assert(negStep < 0.0f);
+	float negStep = PS2FollowPedAutoRotateStep(-1.0f, 10.0f, 1.0f, false);
+	assert(Abs(negStep + 0.02f) < 0.0001f);
+	// Small delta: proportional, so it settles instead of overshooting.
+	assert(Abs(PS2FollowPedAutoRotateStep(0.01f, 10.0f, 1.0f, false) - 0.01f) < 0.0001f);
+	assert(Abs(PS2FollowPedAutoRotateStep(0.01f, 2.0f, 1.0f, false) - 0.002f) < 0.0001f);
+	// Ped walking at the camera (>=170deg): no auto-rotate.
+	assert(PS2FollowPedAutoRotateStep(DEGTORAD(171.0f), 10.0f, 1.0f, false) == 0.0f);
+	// Force-behind latch: ignores ped speed, doubles the cap, no 170deg cutoff.
+	assert(Abs(PS2FollowPedAutoRotateStep(1.0f, 0.0f, 1.0f, true) - 0.04f) < 0.0001f);
+	assert(Abs(PS2FollowPedAutoRotateStep(0.2f, 0.0f, 1.0f, true) - 0.02f) < 0.0001f);
+	assert(Abs(PS2FollowPedAutoRotateStep(DEGTORAD(171.0f), 0.0f, 1.0f, true) - 0.04f) < 0.0001f);
 	printf("ok\n");
 	return 0;
 }
 """
         out = self._run("float\nPS2FollowPedAutoRotateStep(", driver)
+        self.assertEqual(out.strip(), "ok")
+
+    def test_level_pitch_eases_toward_level(self):
+        driver = r"""
+int main(){
+	assert(Abs(PS2FollowPedLevelPitch(0.5f, 1.0f) - 0.45f) < 0.0001f);
+	assert(Abs(PS2FollowPedLevelPitch(-1.0f, 1.0f) + 0.9f) < 0.0001f);
+	// Capped at 0.16*dt.
+	assert(Abs(PS2FollowPedLevelPitch(10.0f, 1.0f) - 9.84f) < 0.0001f);
+	assert(PS2FollowPedLevelPitch(0.0f, 1.0f) == 0.0f);
+	printf("ok\n");
+	return 0;
+}
+"""
+        out = self._run("float\nPS2FollowPedLevelPitch(", driver)
         self.assertEqual(out.strip(), "ok")
 
 

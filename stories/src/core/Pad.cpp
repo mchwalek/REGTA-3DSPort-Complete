@@ -2211,14 +2211,24 @@ CPad::AffectFrom3DS()
 	const bool stereoControls = profileControls && rw::c3d::stereoControlsActive();
 	static bool profileWasAvailable = false;
 	static bool previousStereo = false;
+	// In-game the profile hotkeys are Select+D-pad so the D-pad stays free for walking;
+	// Select alone reaches the game as a one-frame press on release.
+	static bool selectChorded = false;
+	const bool selectHotkeys = profileControls && (held & KEY_SELECT);
+	const u32 hotkeyDown = selectHotkeys ? down : 0;
+	const bool selectTap = (up & KEY_SELECT) && !selectChorded;
+	if(!(held & KEY_SELECT))
+		selectChorded = false;
+	else if(down & (KEY_DUP | KEY_DDOWN | KEY_DLEFT | KEY_DRIGHT))
+		selectChorded = true;
 	if(profileControls){
 		const bool old2D = rw::c3d::performanceMode2DEnabled();
 		const bool old3D = rw::c3d::performanceMode3DEnabled();
 		const bool oldDepth = rw::c3d::stereoExtendedDepthEnabled();
-		rw::c3d::handle3DSPerformanceDPad(down);
+		rw::c3d::handle3DSPerformanceDPad(hotkeyDown);
 		const bool switchedDisplay = profileWasAvailable && previousStereo != stereoControls;
-		if(switchedDisplay || (down & (KEY_DLEFT | KEY_DRIGHT)) ||
-		   (stereoControls && (down & (KEY_DUP | KEY_DDOWN)))) {
+		if(switchedDisplay || (hotkeyDown & (KEY_DLEFT | KEY_DRIGHT)) ||
+		   (stereoControls && (hotkeyDown & (KEY_DUP | KEY_DDOWN)))) {
 			char setting[80];
 			snprintf(setting, sizeof(setting), "%s %s%s%s",
 				stereoControls ? "Stereo" : "Flat",
@@ -2242,15 +2252,15 @@ CPad::AffectFrom3DS()
 	PCTempJoyState.Circle = (held & KEY_A) ? 255 : 0;
 	PCTempJoyState.Square = (held & KEY_Y) ? 255 : 0;
 	PCTempJoyState.Triangle = (held & KEY_X) ? 255 : 0;
-	PCTempJoyState.DPadDown = (!profileControls && (held & KEY_DDOWN)) ? 255 : 0;
-	PCTempJoyState.DPadLeft = (!profileControls && (held & KEY_DLEFT)) ? 255 : 0;
-	PCTempJoyState.DPadRight = (!profileControls && (held & KEY_DRIGHT)) ? 255 : 0;
-	PCTempJoyState.DPadUp = (!profileControls && (held & KEY_DUP)) ? 255 : 0;
+	PCTempJoyState.DPadDown = (!selectHotkeys && (held & KEY_DDOWN)) ? 255 : 0;
+	PCTempJoyState.DPadLeft = (!selectHotkeys && (held & KEY_DLEFT)) ? 255 : 0;
+	PCTempJoyState.DPadRight = (!selectHotkeys && (held & KEY_DRIGHT)) ? 255 : 0;
+	PCTempJoyState.DPadUp = (!selectHotkeys && (held & KEY_DUP)) ? 255 : 0;
 	PCTempJoyState.LeftShoulder1 = (held & KEY_L) ? 255 : 0;
 	PCTempJoyState.LeftShoulder2 = (held & KEY_ZL) ? 255 : 0;
 	PCTempJoyState.RightShoulder1 = (held & KEY_R) ? 255 : 0;
 	PCTempJoyState.RightShoulder2 = (held & KEY_ZR) ? 255 : 0;
-	PCTempJoyState.Select = (held & KEY_SELECT) ? 255 : 0;
+	PCTempJoyState.Select = (profileControls ? selectTap : (held & KEY_SELECT)) ? 255 : 0;
 	PCTempJoyState.Start = (held & KEY_START) ? 255 : 0;
 	PCTempJoyState.LeftShock = (held & KEY_TOUCH && g3DSTouchOverlayArmed &&
 		g3DSTouchActiveZone == TOUCH_ZONE_L3) ? 255 : 0;
@@ -3926,6 +3936,13 @@ bool CPad::ForceCameraBehindPlayer(void)
 {
 	if ( ArePlayerControlsDisabled() )
 		return false;
+
+#ifdef _3DS
+	// PS2 0x172150: no force-behind while looking behind mid-attack/fight
+	CPlayerPed *ped = FindPlayerPed();
+	if (ped && GetLookBehindForPed() && (ped->m_nPedState == PED_ATTACK || ped->m_nPedState == PED_FIGHT))
+		return false;
+#endif
 
 	switch (CURMODE)
 	{

@@ -4758,17 +4758,17 @@ PS2FollowPedLookDown(float zoomZExtra)
 	return 0.15f + zoomZExtra;
 }
 
-// Cam-on-a-string ground distance, clamped to PS2's [2.0, 2.0+zoomSmooth].
+// Cam-on-a-string length from last frame's near virtual source. When the
+// zoom grows (Select) the floor rises with it, so the camera pushes out even
+// while the ped stands still (PS2 0x2824b4).
 float
-PS2FollowPedStringDist(float dist, float zoomSmooth)
+PS2FollowPedStringDist(float strDist, float zoomSmooth, float prevMaxDist)
 {
-	float minDist = 2.0f;
 	float maxDist = 2.0f + zoomSmooth;
-	if(dist < minDist)
-		return minDist;
-	if(dist > maxDist)
-		return maxDist;
-	return dist;
+	float floor = (maxDist > prevMaxDist) ? maxDist : 2.0f;
+	if(strDist < maxDist && maxDist > 2.0f)
+		return Max(strDist, floor);
+	return maxDist;
 }
 
 // One frame's worth of exponential pitch easing toward targetPitch, capped
@@ -4787,41 +4787,74 @@ PS2FollowPedPitchStep(float targetPitch, float alpha, float dt)
 	return alpha + step;
 }
 
-// Smoothed C-stick angular speed: quadratic response (sens^2 * |axis| *
-// axis * gain * FOV, PS2 sens=0.007) exponentially blended into prevSpeed
-// at the same 0.8^dt rate as the pitch easing, clamped to +-0.1 and zeroed
-// below 1e-4 (PS2 dead-stick snap-to-zero).
+// C-stick angular speed target: quadratic response (sens^2 * |axis| * axis
+// * gain * FOV, PS2 sens=0.007).
 float
-PS2FollowPedStickSpeed(float axis, float gain, float fov, float prevSpeed, float dt)
+PS2FollowPedStickTarget(float axis, float gain, float fov)
 {
-	const float sens = 0.007f;
-	float target = sens*sens * Abs(axis) * axis * gain * fov;
+	return 0.007f*0.007f * Abs(axis) * axis * gain * fov;
+}
+
+// Target angular speed clamped to +-0.1, exponentially blended into
+// prevSpeed at 0.8^dt and zeroed below 1e-4 (PS2 dead-stick snap-to-zero).
+float
+PS2FollowPedSpeedStep(float target, float prevSpeed, float dt)
+{
+	if(target > 0.1f)
+		target = 0.1f;
+	else if(target < -0.1f)
+		target = -0.1f;
 	float base = Pow(0.8f, dt);
 	float speed = base*prevSpeed + (1.0f - base)*target;
-	if(speed > 0.1f)
-		speed = 0.1f;
-	else if(speed < -0.1f)
-		speed = -0.1f;
 	if(Abs(speed) < 0.0001f)
 		speed = 0.0f;
 	return speed;
 }
 
-// Speed-proportional auto-rotate-behind-ped step: rate 0.1*dt*|pedSpeed|,
-// capped at +-0.02*dt, disabled below the PS2 "basically stopped" or
-// "basically already behind" thresholds.
+// Auto-rotate-behind-ped step, proportional to the remaining angle:
+// min(1, 0.1*dt*|pedSpeed|) * delta, capped at +-0.02*dt, off at >=170deg.
+// While the force-behind latch is held: speed-independent, cap doubled, no cutoff.
 float
-PS2FollowPedAutoRotateStep(float betaDelta, float pedSpeed, float dt)
+PS2FollowPedAutoRotateStep(float betaDelta, float pedSpeed, float dt, bool latched)
 {
-	if(pedSpeed*pedSpeed <= 0.001f || Abs(betaDelta) < 0.01f)
+	if(!latched && Abs(betaDelta) >= DEGTORAD(170.0f))
 		return 0.0f;
-	float sign = (betaDelta < 0.0f) ? -1.0f : 1.0f;
 	float cap = 0.02f * dt;
-	float step = 0.1f * dt * Abs(pedSpeed);
+	float k = Min(1.0f, 0.1f * dt * Abs(pedSpeed));
+	if(latched){
+		k = Min(1.0f, 0.1f * dt);
+		cap *= 2.0f;
+	}
+	float step = k * betaDelta;
 	if(step > cap)
 		step = cap;
-	return step * sign;
+	else if(step < -cap)
+		step = -cap;
+	return step;
 }
+
+// Force-behind pitch levelling (PS2 0x282efc): eases the string pitch toward
+// level at min(1, 0.1*dt), capped at +-0.16*dt.
+float
+PS2FollowPedLevelPitch(float pitch, float dt)
+{
+	float cap = 0.16f * dt;
+	float step = Min(1.0f, 0.1f * dt) * -pitch;
+	if(step > cap)
+		step = cap;
+	else if(step < -cap)
+		step = -cap;
+	return pitch + step;
+}
+
+#ifdef _3DS
+// PS2 keeps this per-camera state in gp-relative statics; one on-foot cam.
+static bool ps2FollowPedBehindLatch;
+static CVector ps2FollowPedVirtFar, ps2FollowPedVirtNear;
+static float ps2FollowPedPrevMaxDist;
+static float ps2FollowPedWhiskerAccum;
+static int ps2FollowPedCollisionCountdown;
+#endif
 
 #ifdef FREE_CAM
 void
@@ -4846,6 +4879,51 @@ CCam::Process_FollowPed_Rotation(const CVector &CameraTarget, float TargetOrient
 	else
 		zoomZExtra = m_fTargetZoomTwoZExtra;
 	float lookDown = PS2FollowPedLookDown(zoomZExtra);
+	float pedSpeed = ((CPed*)CamTargetEntity)->GetMoveSpeed().Magnitude2D();
+	float stickX = -(float)CPad::GetPad(0)->LookAroundLeftRight();
+	float stickY = (float)CPad::GetPad(0)->LookAroundUpDown();
+	bool forceBehind = CPad::GetPad(0)->ForceCameraBehindPlayer();
+	// PS2 counts the force-behind button as stick input (suppresses whiskers).
+	bool stickActive = stickX != 0.0f || stickY != 0.0f || forceBehind;
+
+	// Step 2a: whisker wall-steer. Five rays fanned across the view from just
+	// behind the pivot to last frame's Source; partial hits nudge the yaw away
+	// from the wall, only a full block lets the LOS pull-in (step 10) run.
+	bool allBlocked = true;
+	if(ps2FollowPedCollisionCountdown > 0)
+		ps2FollowPedCollisionCountdown--;
+	else if(!stickActive){
+		CVector right = CrossProduct(Up, Front);
+		right.Normalise();
+		right *= 0.17f;
+		CVector start = TargetCoors - 0.3f*Front;
+		float nearClip = RwCameraGetNearClipPlane(Scene.camera);
+		int count = 0;
+		CWorld::pIgnoreEntity = CamTargetEntity;
+		for(int i = 0; i < 5; i++){
+			CEntity *whiskerEntity = nil;
+			CColPoint whiskerPoint;
+			if(CWorld::ProcessLineOfSight(start + (float)(i-2)*right, Source, whiskerPoint, whiskerEntity, true, true, true, true, false, false, true) &&
+			   (Source - whiskerPoint.point).Magnitude() > nearClip){
+				count++;
+				if(pedSpeed > 0.0f)
+					ps2FollowPedWhiskerAccum += (i-2)*0.03f;
+			}
+		}
+		CWorld::pIgnoreEntity = nil;
+		allBlocked = count == 5;
+	}
+	if(!allBlocked){
+		Beta += ps2FollowPedWhiskerAccum;
+		ps2FollowPedWhiskerAccum *= 0.95f;
+	}else
+		ps2FollowPedWhiskerAccum = 0.0f;
+
+	// Step 2b: distances.
+	float maxDist = 2.0f + TheCamera.m_fPedZoomValueSmooth;
+	float farDist = Max(maxDist, 4.0f);
+	float prevMaxDist = ps2FollowPedPrevMaxDist;
+	ps2FollowPedPrevMaxDist = maxDist;
 
 	// Step 3: FOV.
 	if(ResetStatics)
@@ -4861,79 +4939,82 @@ CCam::Process_FollowPed_Rotation(const CVector &CameraTarget, float TargetOrient
 		while(Beta >= PI) Beta -= 2.0f*PI;
 		while(Beta < -PI) Beta += 2.0f*PI;
 		BetaSpeed = AlphaSpeed = 0.0f;
-		Alpha = -lookDown;
 		Distance = 1000.0f;
-		Source = TargetCoors - CVector(-Cos(Beta)*Cos(Alpha+lookDown), -Sin(Beta)*Cos(Alpha+lookDown), Sin(Alpha+lookDown)) * (2.0f + TheCamera.m_fPedZoomValueSmooth);
+		ps2FollowPedWhiskerAccum = 0.0f;
+		ps2FollowPedCollisionCountdown = 0;
+		ps2FollowPedBehindLatch = false;
+		CVector flat(-Cos(Beta), -Sin(Beta), 0.0f);
+		ps2FollowPedVirtFar = TargetCoors - farDist*flat;
+		ps2FollowPedVirtNear = TargetCoors - maxDist*flat;
+		Alpha = -lookDown;
+		Front = CVector(-Cos(Beta)*Cos(Alpha), -Sin(Beta)*Cos(Alpha), Sin(Alpha));
+		Source = TargetCoors - Front*maxDist;
 		ResetStatics = false;
 	}
 
-	// Step 5: string distance (how far the ped has actually moved from last
-	// frame's rendered Source, clamped to PS2's [2.0, 2.0+zoomSmooth]).
-	float rawDist = (TargetCoors - Source).Magnitude();
-	float CamDist = PS2FollowPedStringDist(rawDist, TheCamera.m_fPedZoomValueSmooth);
+	// Step 5: string. Direction from the far virtual source, length from the
+	// near one; both trail behind the pivot like a camera on a string.
+	CVector strFront = TargetCoors - ps2FollowPedVirtFar;
+	strFront.Normalise();
+	float CamDist = PS2FollowPedStringDist((TargetCoors - ps2FollowPedVirtNear).Magnitude(), TheCamera.m_fPedZoomValueSmooth, prevMaxDist);
 
-	// Step 6: speed-proportional auto-rotate back behind the ped.
-	float pedSpeed = ((CPed*)CamTargetEntity)->GetMoveSpeed().Magnitude2D();
+	// Step 6: yaw follows the string, nudged behind the ped in proportion to
+	// the remaining angle and his speed, smoothed through BetaSpeed with the
+	// stick.
+	float stringBeta = CGeneral::GetATanOfXY(ps2FollowPedVirtFar.x - TargetCoors.x, ps2FollowPedVirtFar.y - TargetCoors.y);
 	float behindBeta = TargetOrientation + PI;
-	while(behindBeta >= PI) behindBeta -= 2.0f*PI;
-	while(behindBeta < -PI) behindBeta += 2.0f*PI;
-	float betaDelta = behindBeta - Beta;
+	float betaDelta = behindBeta - stringBeta;
 	while(betaDelta >= PI) betaDelta -= 2.0f*PI;
 	while(betaDelta < -PI) betaDelta += 2.0f*PI;
-	if(Abs(betaDelta) < DEGTORAD(170.0f)){
-		Beta += PS2FollowPedAutoRotateStep(betaDelta, pedSpeed, dt);
-		while(Beta >= PI) Beta -= 2.0f*PI;
-		while(Beta < -PI) Beta += 2.0f*PI;
-	}
+	// Force-behind latch (PS2 gp-0x34): set while held, released once he moves or the camera is behind.
+	if(forceBehind)
+		ps2FollowPedBehindLatch = true;
+	else if(ps2FollowPedBehindLatch && (SQR(pedSpeed) > 0.001f || Abs(betaDelta) < 0.01f))
+		ps2FollowPedBehindLatch = false;
+	float betaGoal = stringBeta + PS2FollowPedAutoRotateStep(betaDelta, pedSpeed, dt, ps2FollowPedBehindLatch) - Beta;
+	while(betaGoal >= PI) betaGoal -= 2.0f*PI;
+	while(betaGoal < -PI) betaGoal += 2.0f*PI;
+	BetaSpeed = PS2FollowPedSpeedStep(betaGoal/Max(dt, 1.0f) + PS2FollowPedStickTarget(stickX, 1.0f/1120.0f, FOV), BetaSpeed, dt);
+	Beta += BetaSpeed * dt;
+	while(Beta >= PI) Beta -= 2.0f*PI;
+	while(Beta < -PI) Beta += 2.0f*PI;
 
-	// Step 7: sticky geometric pitch, re-derived from last frame's actual
-	// (possibly collision-adjusted) Source so wall/height snaps bleed back
-	// into Alpha smoothly instead of being invisible to it.
-	CVector lastDir = TargetCoors - Source;
-	float lastLen = lastDir.Magnitude();
-	float targetPitch = ((lastLen > 0.0001f) ? Asin(Clamp(lastDir.z/lastLen, -1.0f, 1.0f)) : Alpha) - lookDown;
+	// Step 7: pitch eases toward the string's pitch; the stick steers the
+	// virtual sources, so it reaches Alpha through next frame's string.
+	float targetPitch = Asin(Clamp(strFront.z, -1.0f, 1.0f));
+	if(ps2FollowPedBehindLatch && ((CPed*)CamTargetEntity)->bIsStanding)
+		targetPitch = PS2FollowPedLevelPitch(targetPitch, dt);
+	targetPitch -= lookDown;
 	if(targetPitch > DEGTORAD(45.0f))
 		targetPitch = DEGTORAD(45.0f);
 	else if(targetPitch < -DEGTORAD(85.0f))
 		targetPitch = -DEGTORAD(85.0f);
+	AlphaSpeed = PS2FollowPedSpeedStep(PS2FollowPedStickTarget(stickY, 0.6f/1120.0f, FOV), AlphaSpeed, dt);
+	float virtualPitch = targetPitch + AlphaSpeed*dt + lookDown;
 	Alpha = PS2FollowPedPitchStep(targetPitch, Alpha, dt);
-	if(Alpha > DEGTORAD(45.0f))
+	if(Alpha > DEGTORAD(45.0f)){
 		Alpha = DEGTORAD(45.0f);
-	else if(Alpha < -DEGTORAD(85.0f))
+		AlphaSpeed = 0.0f;
+	}else if(Alpha < -DEGTORAD(85.0f)){
 		Alpha = -DEGTORAD(85.0f);
+		AlphaSpeed = 0.0f;
+	}
 
-	// Step 8: C-stick yaw/pitch (raw axis outside free aim, see Pad.cpp diff).
-	float stickX = -(float)CPad::GetPad(0)->LookAroundLeftRight();
-	float stickY = (float)CPad::GetPad(0)->LookAroundUpDown();
-	BetaSpeed = PS2FollowPedStickSpeed(stickX, 1.0f/1120.0f, FOV, BetaSpeed, dt);
-	AlphaSpeed = PS2FollowPedStickSpeed(stickY, 0.6f/1120.0f, FOV, AlphaSpeed, dt);
-	Beta += BetaSpeed * dt;
-	while(Beta >= PI) Beta -= 2.0f*PI;
-	while(Beta < -PI) Beta += 2.0f*PI;
-	Alpha += AlphaSpeed * dt;
-	if(Alpha > DEGTORAD(45.0f))
-		Alpha = DEGTORAD(45.0f);
-	else if(Alpha < -DEGTORAD(85.0f))
-		Alpha = -DEGTORAD(85.0f);
-
-	// Step 9: pose. Front is the "clean" pitch (no look-down) that other
-	// code reads; Source is placed using Alpha+lookDown so the pivot sits
-	// above/below screen centre per PS2's zoom table.
+	// Step 9: pose. Camera sits above the pivot (Alpha < 0) and looks at it;
+	// lookDown only shapes the virtual sources.
 	Front = CVector(-Cos(Beta)*Cos(Alpha), -Sin(Beta)*Cos(Alpha), Sin(Alpha));
-	float sourcePitch = Alpha + lookDown;
-	if(sourcePitch > HALFPI)
-		sourcePitch = HALFPI;
-	else if(sourcePitch < -HALFPI)
-		sourcePitch = -HALFPI;
-	CVector SourceDir(-Cos(Beta)*Cos(sourcePitch), -Sin(Beta)*Cos(sourcePitch), Sin(sourcePitch));
-	Source = TargetCoors - SourceDir * CamDist;
+	Source = TargetCoors - Front*CamDist;
+	CVector virtDir(-Cos(Beta)*Cos(virtualPitch), -Sin(Beta)*Cos(virtualPitch), Sin(virtualPitch));
+	ps2FollowPedVirtFar = TargetCoors - farDist*virtDir;
+	ps2FollowPedVirtNear = TargetCoors - CamDist*virtDir;
 	m_cvecTargetCoorsForFudgeInter = TargetCoors;
 
-	// Step 10: LOS-only wall pull-in, no height change, no sphere loop.
+	// Step 10: LOS-only wall pull-in, only when every whisker was blocked.
 	CEntity *entity = nil;
 	CColPoint colPoint;
 	CWorld::pIgnoreEntity = CamTargetEntity;
-	if(CWorld::ProcessLineOfSight(TargetCoors, Source, colPoint, entity, true, true, true, true, false, false, true)){
+	if(allBlocked && CWorld::ProcessLineOfSight(TargetCoors, Source, colPoint, entity, true, true, true, true, false, false, true)){
+		ps2FollowPedCollisionCountdown = 2;
 		float HitDist = (TargetCoors - colPoint.point).Magnitude();
 		float PullIn = CamDist - HitDist;
 		if(entity->IsPed() && PullIn > 0.2125f){
