@@ -471,7 +471,11 @@ exact commands and known-good reference hashes.
 When a reLCS behavior/constant is questionable and no existing fork has
 fixed it, the original PS2 disc is the tiebreaker — see the
 `ps2-lcs-decompilation` skill for ISO extraction, boot-ELF (MIPS/EE)
-disassembly, and `main.scm` disassembly tooling.
+disassembly, `main.scm` disassembly tooling, and Ghidra pseudocode (REA MCP
+`tools.rea.*` or headless). The extracted boot ELF and an analysed Ghidra
+project live in `$WORKSPACE_ROOT/sre/` (outside the repo — copyrighted, never
+commit); stock REA rejects the R5900 ELF until the skill's
+`scripts/patch_rea_r5900.py` is applied.
 
 When a build has crashed on-device and left a `crash_dump_*.dmp` on the SD
 card, see the `decoding-3ds-crash-dumps` skill for the Luma3DS dump format,
