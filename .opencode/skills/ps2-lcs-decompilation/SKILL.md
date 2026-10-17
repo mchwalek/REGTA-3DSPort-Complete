@@ -170,7 +170,7 @@ the repo — it holds copyrighted game binaries, never copy it in):
 | `sre/ghidra_proj/lcs.gpr` | Ghidra project with `SLES_541.35` already imported **and auto-analysed** (~2 min to redo) as `r5900:LE:32:default` |
 
 **Machine setup (already done on this box):**
-- Ghidra 12.1.4 at `/home/max/opt/ghidra_12.1.4_PUBLIC` (Java 21).
+- Ghidra 12.1.4 at `$GHIDRA_INSTALL_DIR` (exported in `~/.bashrc`; Java 21).
 - `ghidra-emotionengine-reloaded` extension installed into
   `<ghidra>/Ghidra/Extensions/` (copied from the `<ghidra>/Extensions/Ghidra/`
   archive dir). Language ID **`r5900:LE:32:default`**. Stock Ghidra MIPS
@@ -205,7 +205,7 @@ min); it does not use `sre/ghidra_proj`. CLI equivalent:
 **Via Ghidra headless (reuses the saved analysis, no REA needed):**
 
 ```sh
-/home/max/opt/ghidra_12.1.4_PUBLIC/support/analyzeHeadless \
+"$GHIDRA_INSTALL_DIR/support/analyzeHeadless" \
   "$WORKSPACE_ROOT/sre/ghidra_proj" lcs -process SLES_541.35 -noanalysis -readOnly \
   -scriptPath "$PWD/scripts" -postScript Decomp.java 0x1ba618 0x34ce68
 ```
