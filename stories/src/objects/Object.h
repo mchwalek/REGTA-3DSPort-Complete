@@ -104,7 +104,7 @@ public:
 	bool SetupLighting(void);
 	void RemoveLighting(bool reset);
 
-	void ObjectDamage(float amount);
+	void ObjectDamage(float amount, CColPoint *colpoint = nil);
 	void RefModelInfo(int32 modelId);
 	void Init(void);
 	bool CanBeDeleted(void);

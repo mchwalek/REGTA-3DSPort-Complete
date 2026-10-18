@@ -1023,3 +1023,27 @@ details in `docs/superpowers/specs/2026-10-17-ps2-follow-cam-parity-fixes-design
 read (here `ForceCameraBehindPlayer`) — grep the replaced function's `CPad`
 calls. And separately-found 3DS port code can mask parity issues: the D-pad
 was dead in-game because port hotkeys zeroed it, not because of camera code.
+
+## Case study: traffic lights stop cars dead — finding a compiled data table with no strings
+
+Report: cars bounce off traffic lights on 3DS, smash through them on PS2.
+The staged `DATA/OBJECT.DAT` (`trafficlight1`: 500kg, uproot 1200, effect 3)
+is GTA III's file from the asset converter; the PS2 disc has no text copy.
+PS2's table is compiled into `/CHK/PS2/GAME.DTZ` and the decompressed blob has
+**no model-name strings** (hashed), so it was found by searching for the float
+pattern of a known row (`600.0, 4000.0, 0.99` for `lamppost1`) — rows are
+0x20 bytes near file offset `0x3d4890`, in III's row order, with buoyancy
+already precomputed (`100/percentSubmerged * GRAVITY * mass`) and the three
+int columns packed into bytes. Every relevant row matched III, which moved
+the search from data to code.
+
+PS2 `CObject::ObjectDamage` was located by `lui 0x4316` (150.0f, the damage
+gate) at `0x221e84` → function `0x221e08`. It takes `(amount, this, colpoint)`
+— one more argument than reLCS. A `jal 0x221e08` scan showed 13 callers, only
+one (`0x2c0038`, ApplyCollision's static-object branch) passing a non-nil
+colpoint. Effect 3 on PS2 does the full smash-completely teardown and spawns
+`gpModelIndices` +2/+4/+6/+8 (`TLIGHT_POST/WALK/BOX1/BOX2`) as temp objects
+at fixed local offsets, pushed by `amount * normal * 0.02`. **Lesson:** an
+extra argument at the PS2 entry point that reLCS's signature lacks is a strong
+hint a whole behavior was dropped; scan the callers to see which actually
+pass it. Fix: `git log --grep="smash traffic lights"`.
