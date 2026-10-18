@@ -2572,7 +2572,8 @@ CPed::PedAnimAlignCB(CAnimBlendAssociation *animAssoc, void *arg)
 					return;
 				}
 			}
-			if (veh->IsOpenTopCar() && !veh->pDriver && ped->m_objective == OBJECTIVE_ENTER_CAR_AS_DRIVER) {
+			// PS2 0x30eca8 also checks CarHasRoof(): IsOpenTopCar() alone is true for every Stinger
+			if (veh->IsOpenTopCar() && !veh->CarHasRoof() && !veh->pDriver && ped->m_objective == OBJECTIVE_ENTER_CAR_AS_DRIVER) {
 				ped->m_pVehicleAnim = CAnimManager::AddAnimation(ped->GetClump(), ASSOCGRP_STD, ANIM_STD_CAR_JUMP_IN_LO_LHS);
 				ped->m_pVehicleAnim->SetFinishCallback(PedAnimGetInCB, ped);
 				return;
