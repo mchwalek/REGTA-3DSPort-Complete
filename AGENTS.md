@@ -457,6 +457,12 @@ not mistake for a failed transfer.
     cars dead because reLCS's effect-3 case only set `bRenderDamaged` and
     kept collision; PS2 removes the light and spawns `tlight_post/walk/box1/
     box2` as temp objects. See `git log --grep="smash traffic lights"`.
+24. **Raw `GetCrossJustDown()` is physical B on stories, not A.** Any
+    skip/accept read must go through `CPad::GetSkipCutscene()`/`GuiSelect()`
+    (`stories/src/core/Pad.h`). Scripted `MESSAGE_WAIT` skips, flyby
+    cutscenes, and credits all read raw Cross and skipped on B ("Go Go
+    Faggio" intro was the report). See `git log --grep="skip cutscenes"` and
+    the `gta-3ds-input-mapping` skill.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 
@@ -491,6 +497,10 @@ through two opcode seams: `CRunningScript::GetPadState` (legacy
 - New `#ifdef _3DS` blocks belong in the platform-specific seam, not
   scattered as one-off checks — follow the existing pattern of grouping
   3DS behavior at the top or bottom of a function.
+- Open PRs against `origin` (the user's fork, `mchwalek/REGTA-3DSPort-Complete`),
+  never `upstream` (`Epic0522/REGTA-3DSPort-Complete`, the original repo):
+  `gh pr create --repo mchwalek/REGTA-3DSPort-Complete --base main`. Without
+  `--repo`, `gh` may default to the upstream parent.
 - When a change affects behavior in only one of the three trees, say so
   explicitly in the commit message — the trees are not kept in sync by
   default (see config.h divergence above).
