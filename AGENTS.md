@@ -433,6 +433,19 @@ not mistake for a failed transfer.
     replacement, grep the replaced function for every `CPad` query and port
     or consciously drop each one. PS2 reference for the follow cam:
     `docs/superpowers/specs/2026-10-17-ps2-follow-cam-parity-fixes-design.md`.
+22. **`DATA/OBJECT.DAT` on the SD card is GTA III's file, not PS2 LCS's — but
+    its rows match PS2's compiled table, so object-physics differences are
+    code bugs, not data bugs.** The PS2 disc has no text `object.dat`; the
+    table is compiled into `/CHK/PS2/GAME.DTZ` (decompressed: 0x20-byte rows
+    near file offset `0x3d4890`, model names hashed, same row order as III:
+    mass, turnMass, airRes, elasticity, precomputed buoyancy, uproot,
+    damage multiplier, then bytes effect/response/camAvoid). Before "fixing" a
+    feel-wrong object by editing `OBJECT.DAT`, compare against that table and
+    then against PS2 `CObject::ObjectDamage` (`SLES_541.35` `0x221e08`, takes
+    a `CColPoint *` reLCS used to drop). Real case: traffic lights stopped
+    cars dead because reLCS's effect-3 case only set `bRenderDamaged` and
+    kept collision; PS2 removes the light and spawns `tlight_post/walk/box1/
+    box2` as temp objects. See `git log --grep="smash traffic lights"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 
