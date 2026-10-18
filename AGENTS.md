@@ -497,6 +497,10 @@ through two opcode seams: `CRunningScript::GetPadState` (legacy
 - New `#ifdef _3DS` blocks belong in the platform-specific seam, not
   scattered as one-off checks — follow the existing pattern of grouping
   3DS behavior at the top or bottom of a function.
+- Open PRs against `origin` (the user's fork, `mchwalek/REGTA-3DSPort-Complete`),
+  never `upstream` (`Epic0522/REGTA-3DSPort-Complete`, the original repo):
+  `gh pr create --repo mchwalek/REGTA-3DSPort-Complete --base main`. Without
+  `--repo`, `gh` may default to the upstream parent.
 - When a change affects behavior in only one of the three trees, say so
   explicitly in the commit message — the trees are not kept in sync by
   default (see config.h divergence above).
