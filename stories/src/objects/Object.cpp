@@ -16,6 +16,8 @@
 #include "Timecycle.h"
 #include "Stats.h"
 #include "SpecialFX.h"
+#include "ColPoint.h"
+#include "Streaming.h"
 
 #define BEACHBALL_MAX_SCORE 250
 // the proportion of the ball speed compared to the player speed when it hits the player
@@ -360,7 +362,7 @@ CObject::RemoveLighting(bool reset)
 }
 
 void
-CObject::ObjectDamage(float amount)
+CObject::ObjectDamage(float amount, CColPoint *colpoint)
 {
 	if (!m_nCollisionDamageEffect || !bUsesCollision)
 		return;
@@ -392,6 +394,16 @@ CObject::ObjectDamage(float amount)
 				if (bRenderDamaged) {
 					break;
 				}
+				// PS2 (SLES_541.35 0x221e08) removes the whole light and spawns its four pieces as flying temp objects
+				bIsVisible = false;
+				bUsesCollision = false;
+				if (!GetIsStatic()) {
+					RemoveFromMovingList();
+				}
+				SetIsStatic(true);
+				bExplosionProof = true;
+				SetMoveSpeed(0.0f, 0.0f, 0.0f);
+				SetTurnSpeed(0.0f, 0.0f, 0.0f);
 				bRenderDamaged = true;
 				CVector min = 0.85f * GetColModel()->boundingBox.min;
 				CVector max = 0.85f * GetColModel()->boundingBox.max;
@@ -415,6 +427,43 @@ CObject::ObjectDamage(float amount)
 					color.green *= fColorFactor;
 					int32 nRotationSpeed = CGeneral::GetRandomNumberInRange(-0.40f, 0.40f);
 					CParticle::AddParticle(PARTICLE_CAR_DEBRIS, pos, vecDir, nil, fSize, color, nRotationSpeed, 0, currentFrame, 0);
+				}
+				static const CVector pieceOffsets[4] = {
+					CVector(2.957f, 0.285f, 0.341f),
+					CVector(2.856f, 0.982f, -0.361f),
+					CVector(-3.7f, -0.255f, 2.868f),
+					CVector(-3.7f, 0.605f, 2.868f)
+				};
+				const int16 pieceModels[4] = { MI_TLIGHT_POST, MI_TLIGHT_WALK, MI_TLIGHT_BOX1, MI_TLIGHT_BOX2 };
+				for (int32 i = 0; i < 4; i++) {
+					if (pieceModels[i] < 0)
+						continue;
+					// pieces are not guaranteed resident on 3DS; spawning an unloaded model would have no RW object
+					if (!CStreaming::HasModelLoaded(pieceModels[i])) {
+						CStreaming::RequestModel(pieceModels[i], 0);
+						continue;
+					}
+					CObject *piece = new CObject(pieceModels[i], true);
+					if (!piece)
+						continue;
+					piece->SetMatrix(GetMatrix());
+					piece->SetPosition(GetMatrix() * pieceOffsets[i]);
+					piece->ObjectCreatedBy = TEMP_OBJECT;
+					piece->m_fMass = 100.0f;
+					piece->m_fTurnMass = 100.0f;
+					piece->m_fAirResistance = 0.97f;
+					piece->m_fElasticity = 0.01f;
+					piece->m_fBuoyancy = piece->m_fMass * GRAVITY / 0.75f;
+					piece->SetIsStatic(false);
+					piece->bIsPickup = false;
+					nNoTempObjects++;
+					piece->m_nEndOfLifeTime = CTimer::GetTimeInMilliseconds() + 20000;
+					if (colpoint) {
+						CVector force = amount * colpoint->normal * 0.02f;
+						piece->ApplyMoveForce(force);
+						piece->ApplyTurnForce(force, colpoint->point - piece->GetPosition());
+					}
+					CWorld::Add(piece);
 				}
 				PlayOneShotScriptObject(SCRIPT_SOUND_METAL_COLLISION, min);
 				break;

@@ -798,7 +798,7 @@ CPhysical::ApplyCollision(CPhysical *B, CColPoint &colpoint, float &impulseA, fl
 					impulseB = impulseA;
 
 					if(Bobj->m_nCollisionDamageEffect && impulseA > 20.0f){
-						Bobj->ObjectDamage(impulseA);
+						Bobj->ObjectDamage(impulseA, &colpoint);
 						if(!B->bUsesCollision){
 							if(!A->bInfiniteMass){
 								A->ApplyMoveForce(colpoint.normal*0.2f*impulseA);
