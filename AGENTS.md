@@ -433,7 +433,18 @@ not mistake for a failed transfer.
     replacement, grep the replaced function for every `CPad` query and port
     or consciously drop each one. PS2 reference for the follow cam:
     `docs/superpowers/specs/2026-10-17-ps2-follow-cam-parity-fixes-design.md`.
-22. **`DATA/OBJECT.DAT` on the SD card is GTA III's file, not PS2 LCS's — but
+22. **`CAutomobile::IsOpenTopCar()` alone does not mean "roofless right now" —
+    stories (and miami/VC) call sites must pair it with `CarHasRoof()` where
+    PS2 does.** It returns true for every `MI_STINGER` and for a Stallion with
+    both `m_aExtras` set (including "no extra chosen", `-1,-1`). PS2's
+    enter-car code (`CPed::PedAnimAlignCB`, `SLES_541.35` `0x30eca8`) plays
+    the jump-in anim only if `IsOpenTopCar() && !CarHasRoof()`; `CarHasRoof()`
+    is true unless the handling has `HANDLING_HAS_NO_ROOF` *and* both extras
+    are set (roof = component 0 = `extra1`). reLCS inherited VC's version
+    without the guard, so Toni jumped over the door of roofed Stingers. Before
+    adding/porting an `IsOpenTopCar()` check, look up the PS2 caller (it's a
+    vtable call, `lw rX,0x10c(rY)` + `jalr`). See `git log --grep="roofed Stinger"`.
+23. **`DATA/OBJECT.DAT` on the SD card is GTA III's file, not PS2 LCS's — but
     its rows match PS2's compiled table, so object-physics differences are
     code bugs, not data bugs.** The PS2 disc has no text `object.dat`; the
     table is compiled into `/CHK/PS2/GAME.DTZ` (decompressed: 0x20-byte rows
