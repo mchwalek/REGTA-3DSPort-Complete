@@ -53,6 +53,16 @@ int32 sniperPirateCheck = 0x00797743; // 'Cwy\0' ???
 static bool
 Find3rdPersonCamTargetVectorFromCachedVectors(float dist, CVector pos, CVector& source, CVector& target, CVector camSource, CVector camFront, CVector camUp)
 {
+#ifdef _3DS
+	if (CPad::GetPad(0)->Is3DSFreeAimActive()) {
+		// PS2 fires at the free-aim dummy entity (SetAttack(m_pPointGunAt), SLES_541.35 0x34b100): gun -> aim point
+		source = pos;
+		target = Get3DSFreeAimPoint() - pos;
+		target.Normalise();
+		target = dist * target + source;
+		return true;
+	}
+#endif
 	if (CPad::GetPad(0)->GetLookBehindForPed()) {
 		source = pos;
 		target = dist * FindPlayerPed()->GetForward() + source;

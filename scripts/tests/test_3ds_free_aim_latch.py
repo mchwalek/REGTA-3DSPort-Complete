@@ -14,6 +14,8 @@ against a minimal C++ stub, and asserts the latch's enter/exit state machine:
      L press-edge and GetTarget() true
   8. the entry frame is flagged via Is3DSFreeAimEnteredThisFrame(), and only
      that frame; unlatching snaps the camera behind the player
+  9. the PS2 weapon gate (Can3DSFreeAim) refuses entry and ends free aim
+     when it fails; entry seeds the aim point via Begin3DSFreeAim
 """
 import subprocess
 import tempfile
@@ -93,13 +95,18 @@ struct TheCameraStub {
 static TheCameraStub TheCamera;
 
 struct CVehicle {};
-struct CPed {};
+struct CPlayerPed {};
 
 static CVehicle *g_vehicle = nullptr;
-static CPed *g_ped = (CPed *)1;
+static CPlayerPed *g_ped = (CPlayerPed *)1;
 
 static CVehicle *FindPlayerVehicle() { return g_vehicle; }
-static CPed *FindPlayerPed() { return g_ped; }
+static CPlayerPed *FindPlayerPed() { return g_ped; }
+
+static bool g_canEnter = true, g_canStay = true;
+static int g_beginCalls = 0;
+static bool Can3DSFreeAim(CPlayerPed *, bool entering) { return entering ? g_canEnter : g_canStay; }
+static void Begin3DSFreeAim(CPlayerPed *) { ++g_beginCalls; }
 
 struct ButtonState {
 	bool LeftShoulder1 = false;
@@ -180,7 +187,7 @@ int main() {
 	g_ped = nullptr;
 	pad.Update3DSFreeAim();
 	assert(!pad.Is3DSFreeAimActive());
-	g_ped = (CPed *)1;
+	g_ped = (CPlayerPed *)1;
 
 	/* Scenario 6: bFreeCam save/restore -- if bFreeCam was already true
 	 * before latching (e.g. user's Free Cam option), it must still read
@@ -209,6 +216,21 @@ int main() {
 	assert(!pad.Is3DSFreeAimActive());
 	assert(!CCamera::m_bUseMouse3rdPerson);
 	assert(!CCamera::bFreeCam);
+
+	/* Scenario 9: weapon gate. */
+	pad.Mode = 0;
+	g_canEnter = false;
+	pad.Update3DSFreeAim();
+	assert(!pad.Is3DSFreeAimActive());
+	g_canEnter = true;
+	int begins = g_beginCalls;
+	pad.Update3DSFreeAim();
+	assert(pad.Is3DSFreeAimActive());
+	assert(g_beginCalls == begins + 1);
+	g_canStay = false;
+	pad.Update3DSFreeAim();
+	assert(!pad.Is3DSFreeAimActive());
+	g_canStay = true;
 
 	printf("ok\n");
 	return 0;

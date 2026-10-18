@@ -2305,7 +2305,7 @@ CPad::Update3DSFreeAim()
 	b3DSFreeAimEnteredThisFrame = false;
 	if ( b3DSFreeAimActive )
 	{
-		if ( !GetTarget() || FindPlayerVehicle() || !FindPlayerPed() )
+		if ( !GetTarget() || FindPlayerVehicle() || !FindPlayerPed() || !Can3DSFreeAim(FindPlayerPed(), false) )
 		{
 			CCamera::m_bUseMouse3rdPerson = false;
 			CCamera::bFreeCam = b3DSFreeAimSavedFreeCam;
@@ -2319,8 +2319,9 @@ CPad::Update3DSFreeAim()
 		}
 	}
 	else if ( CURMODE != 3 && GetTarget() && !FindPlayerVehicle() && FindPlayerPed() &&
-	          NewState.LeftShoulder1 && !OldState.LeftShoulder1 )
+	          NewState.LeftShoulder1 && !OldState.LeftShoulder1 && Can3DSFreeAim(FindPlayerPed(), true) )
 	{
+		Begin3DSFreeAim(FindPlayerPed());
 		b3DSFreeAimSavedFreeCam = CCamera::bFreeCam;
 		CCamera::m_bUseMouse3rdPerson = true;
 		CCamera::bFreeCam = true;

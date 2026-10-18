@@ -641,6 +641,13 @@ VALIDATE_SIZE(CCamera, 0xE9D8);
 
 extern CCamera TheCamera;
 
+#ifdef _3DS
+class CPlayerPed;
+bool Can3DSFreeAim(CPlayerPed *ped, bool entering);
+void Begin3DSFreeAim(CPlayerPed *ped);
+CVector Get3DSFreeAimPoint();
+#endif
+
 void CamShakeNoPos(CCamera*, float);
 void MakeAngleLessThan180(float &Angle);
 void WellBufferMe(float Target, float *CurrentValue, float *CurrentSpeed, float MaxSpeed, float Acceleration, bool IsAngle);
