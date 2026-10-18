@@ -1371,6 +1371,9 @@ static CVector s3DSFreeAimPoint;
 static float s3DSFreeAimPrevYawRel = 0.0f;
 static bool s3DSFreeAimSnap = false;
 static float s3DSFreeAimPivotBlend = 1.0f;
+static uint32 s3DSFreeAimTransStart = 0;
+static CVector s3DSFreeAimTransSource;
+static CVector s3DSFreeAimTransLookAt;
 
 /* PS2's free-aim gate (SLES_541.35 CPlayerPed::ProcessPlayerWeapon, VA
  * 0x34b100): only aimable non-melee weapons, the selected weapon actually in
@@ -1595,6 +1598,8 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 				Alpha = Asin(Clamp(Front.z, -1.0f, 1.0f));
 				TheCamera.m_bCamDirectlyBehind = false;
 				TheCamera.m_bCamDirectlyInFront = false;
+				s3DSFreeAimTransSource = Source;
+				s3DSFreeAimTransLookAt = Source + Front*(TargetCoors - Source).Magnitude();
 			}
 			Update3DSFreeAimPoint(s3DSFreeAimPoint, s3DSFreeAimPrevYawRel, aimPed->GetPosition(), aimPed->GetForward(),
 			                      TargetCoors, range, LookLeftRight, LookUpDown, CTimer::GetTimeStep());
@@ -1637,6 +1642,13 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 			dir.Normalise();
 			float goalAlpha = Asin(Clamp(dir.z, -1.0f, 1.0f));
 			float goalBeta = CGeneral::GetATanOfXY(-dir.x, -dir.y);
+			/* PS2 CamControl (SLES_541.35 0x288798) enters the free-aim
+			 * camera from the follow cam with a 400ms interpolated
+			 * transition when the aim yaw is within 30 degrees of the
+			 * current camera yaw, a jump cut otherwise. The camera
+			 * itself snaps to the goal (ResetStatics, 0x280ee8). */
+			if(s3DSFreeAimSnap && Abs(CGeneral::LimitRadianAngle(goalBeta - Beta)) <= DEGTORAD(30.0f))
+				s3DSFreeAimTransStart = CTimer::GetTimeInMilliseconds();
 			const float step = s3DSFreeAimSnap ? 1000.0f : 0.1f * CTimer::GetTimeStep();
 			s3DSFreeAimSnap = false;
 			Alpha += Clamp(goalAlpha - Alpha, -step, step);
@@ -1748,6 +1760,27 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 
 	TheCamera.m_bCamDirectlyInFront = false;
 	TheCamera.m_bCamDirectlyBehind = false;
+
+#ifdef _3DS
+	if(CPad::GetPad(0)->Is3DSFreeAimActive() && s3DSFreeAimTransStart != 0){
+		/* CCamera::Process's transition blend: cosine-eased Source and
+		 * look-at point from the old camera over 400ms. */
+		uint32 elapsed = CTimer::GetTimeInMilliseconds() - s3DSFreeAimTransStart;
+		if(elapsed >= 400)
+			s3DSFreeAimTransStart = 0;
+		else{
+			float inter = 0.5f - 0.5f*Cos(PI*elapsed/400.0f);
+			CVector lookAt = s3DSFreeAimTransLookAt + (TargetCoors - s3DSFreeAimTransLookAt)*inter;
+			Source = s3DSFreeAimTransSource + (Source - s3DSFreeAimTransSource)*inter;
+			CVector dir = lookAt - Source;
+			if(dir.Magnitude() > 0.01f){
+				dir.Normalise();
+				Front = dir;
+			}
+		}
+	}else
+		s3DSFreeAimTransStart = 0;
+#endif
 
 	GetVectorsReadyForRW();
 
