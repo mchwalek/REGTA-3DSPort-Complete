@@ -74,7 +74,7 @@ CCredits::Render(void)
 		return;
 
 	CPad::UpdatePads();
-	if (CPad::GetPad(0)->GetCrossJustDown()) {
+	if (CPad::GetPad(0)->GetSkipCutscene()) {
 		bCreditsGoing = false;
 		return;
 	}

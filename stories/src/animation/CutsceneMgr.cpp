@@ -296,7 +296,7 @@ CCutsceneMgr::LoadAnimationUncompressed(char const* name)
 bool
 CCutsceneMgr::IsCutsceneSkipButtonBeingPressed()
 {
-	return (CPad::GetPad(0)->GetCrossJustDown()
+	return (CPad::GetPad(0)->GetSkipCutscene()
 		|| CPad::GetPad(0)->GetLeftMouseJustDown()
 		|| CPad::GetPad(0)->GetEnterJustDown()
 		|| CPad::GetPad(0)->GetCharJustDown(' '));

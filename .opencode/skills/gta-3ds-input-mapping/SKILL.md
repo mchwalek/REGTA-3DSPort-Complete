@@ -35,7 +35,15 @@ semantic seams below.
    `GuiSelect()`, `GuiBack()`, `GetSkipCutscene()`, plus `GuiLeft/Right/Up/Down`.
    Exposed to the LCS script VM at `control/Script8.cpp` as
    `COMMAND_GET_PAD_BUTTON_STATE` cases 42 (GuiSelect), 43 (GuiBack), 44
-   (GetSkipCutscene).
+   (GetSkipCutscene). `GetSkipCutscene()` is also the C++-side skip button
+   for every skip path: scripted `MESSAGE_WAIT ... 1` waits
+   (`CRunningScript::Process`, `control/Script.cpp` — e.g. the "Go Go Faggio"
+   intro, which polls no pad opcode at all), flyby cutscenes
+   (`CCutsceneMgr::IsCutsceneSkipButtonBeingPressed`), and the credits
+   (`CCredits::Render`). These used raw `GetCrossJustDown()` (= physical B on
+   stories) until `git log --grep="skip cutscenes"`; never read a raw face
+   button for a skip/accept action — go through the `Gui*`/`GetSkipCutscene`
+   seam.
 
 2. **`core/Frontend.cpp`** — a macro block (~line 168) defines
    `GetBackJustUp`/`GetBackJustDown` (and, after the menu remap, also

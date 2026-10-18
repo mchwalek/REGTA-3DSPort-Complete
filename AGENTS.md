@@ -457,6 +457,12 @@ not mistake for a failed transfer.
     cars dead because reLCS's effect-3 case only set `bRenderDamaged` and
     kept collision; PS2 removes the light and spawns `tlight_post/walk/box1/
     box2` as temp objects. See `git log --grep="smash traffic lights"`.
+24. **Raw `GetCrossJustDown()` is physical B on stories, not A.** Any
+    skip/accept read must go through `CPad::GetSkipCutscene()`/`GuiSelect()`
+    (`stories/src/core/Pad.h`). Scripted `MESSAGE_WAIT` skips, flyby
+    cutscenes, and credits all read raw Cross and skipped on B ("Go Go
+    Faggio" intro was the report). See `git log --grep="skip cutscenes"` and
+    the `gta-3ds-input-mapping` skill.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 

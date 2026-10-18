@@ -1175,7 +1175,7 @@ void CRunningScript::Process()
 	}
 	if (!m_bSkipWakeTime)
 		return;
-	if (!CPad::GetPad(0)->GetCrossJustDown())
+	if (!CPad::GetPad(0)->GetSkipCutscene())
 		return;
 	m_nWakeTime = 0;
 	for (int i = 0; i < NUMBIGMESSAGES; i++){
