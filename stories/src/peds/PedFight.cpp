@@ -2598,8 +2598,7 @@ CPed::InflictDamage(CEntity *damagedBy, eWeaponType method, float damage, ePedPi
 		if (!player->m_bCanBeDamaged)
 			return false;
 
-		if (damagedBy && damagedBy->IsPed() && ((CPed*)damagedBy)->m_nPedType == PEDTYPE_GANG7)
-			return false;
+		// PS2 0x1c2088: VC's "GANG7 can't hurt the player" check is compiled out in LCS.
 
 		if ((method == WEAPONTYPE_FLAMETHROWER || method == WEAPONTYPE_MOLOTOV) && CWorld::Players[CWorld::PlayerInFocus].m_bFireproof)
 			return false;

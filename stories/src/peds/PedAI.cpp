@@ -2205,7 +2205,7 @@ CPed::ReactToPointGun(CEntity *entWithGun)
 		return;
 
 	if (m_nWaitState == WAITSTATE_PLAYANIM_HANDSUP || m_nWaitState == WAITSTATE_PLAYANIM_HANDSCOWER ||
-		(GetPosition() - pedWithGun->GetPosition()).MagnitudeSqr2D() > 225.0f || (m_nPedType == PEDTYPE_GANG7 && pedWithGun == FindPlayerPed()))
+		(GetPosition() - pedWithGun->GetPosition()).MagnitudeSqr2D() > 225.0f) // PS2 0x30e398: no GANG7 exception
 		return;
 
 	if (m_leader) {
@@ -2286,12 +2286,8 @@ CPed::ReactToAttack(CEntity *attacker)
 		return;
 	}
 	
-	if (m_nPedType == PEDTYPE_GANG7 && attacker->IsPed() && ((CPed*)attacker)->IsPlayer()) {
-		if (m_nPedState != PED_FALL) {
-			SetFall(15000, (AnimationId)(ANIM_STD_KO_FRONT + CGeneral::GetRandomNumberInRange(0, 5)), 0);
-		}
-
-	} else if (m_nPedState == PED_DRIVING && InVehicle()
+	// PS2 0x30e8b0: VC's GANG7 (Vercetti) knockout is compiled out; GANG7 is a hostile gang in LCS.
+	if (m_nPedState == PED_DRIVING && InVehicle()
 		&& (m_pMyVehicle->pDriver == this || m_pMyVehicle->pDriver && m_pMyVehicle->pDriver->m_nPedState == PED_DRIVING && m_pMyVehicle->pDriver->m_objective != OBJECTIVE_LEAVE_CAR_AND_DIE)) {
 
 		if (m_pMyVehicle->VehicleCreatedBy == RANDOM_VEHICLE
@@ -5521,8 +5517,7 @@ CPed::RegisterThreatWithGangPeds(CEntity *attacker)
 {
 	CPed *attackerPed = nil;
 	if ((CharCreatedBy == MISSION_CHAR && bIsPlayerFriend && (attacker == FindPlayerPed() || attacker == FindPlayerVehicle()))
-		|| (attacker && m_leader == attacker)
-		|| (m_nPedType == PEDTYPE_GANG7 && attacker == FindPlayerPed()))
+		|| (attacker && m_leader == attacker)) // PS2 0x3183a0: no GANG7 exception
 		return;
 
 	if (attacker) {
