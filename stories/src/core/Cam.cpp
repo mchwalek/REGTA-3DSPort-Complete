@@ -1369,6 +1369,70 @@ float fMouseAvoidGeomReturnRate = 0.92f;
  * out recovery once released. */
 static CVector s3DSFreeAimPoint;
 static float s3DSFreeAimPrevYawRel = 0.0f;
+static bool s3DSFreeAimSnap = false;
+static float s3DSFreeAimPivotBlend = 1.0f;
+static uint32 s3DSFreeAimTransStart = 0;
+static CVector s3DSFreeAimTransSource;
+static CVector s3DSFreeAimTransLookAt;
+
+/* PS2's free-aim gate (SLES_541.35 CPlayerPed::ProcessPlayerWeapon, VA
+ * 0x34b100): only aimable non-melee weapons, the selected weapon actually in
+ * hand, not sprinting, not a first-person weapon, and (on entry only) not a
+ * MODE_FIXED camera. Leaving any of these ends free aim via ClearWeaponTarget. */
+bool
+Can3DSFreeAim(CPlayerPed *ped, bool entering)
+{
+	CWeaponInfo *info = CWeaponInfo::GetWeaponInfo(ped->GetWeapon()->m_eWeaponType);
+	if(info->m_eWeaponFire == WEAPON_FIRE_MELEE || !info->IsFlagSet(WEAPONFLAG_CANAIM))
+		return false;
+	if(ped->m_nSelectedWepSlot != ped->m_currentWeapon || ped->m_nMoveState == PEDMOVE_SPRINT)
+		return false;
+	if(TheCamera.Using1stPersonWeaponMode())
+		return false;
+	return !entering || TheCamera.Cams[TheCamera.ActiveCam].Mode != CCam::MODE_FIXED;
+}
+
+/* PS2's initial free-aim point (SLES_541.35 fn 0x34eee8), called from the
+ * latch before ProcessPlayerWeapon drops the lock-on target. With no target
+ * the point sits range ahead of the ped and the camera cuts straight to it
+ * (PS2 enters MODE_SYPHON with ResetStatics: a 1000.0f step). Coming from a
+ * lock-on, PS2 keeps the camera mode and aims 15m toward the old target (or
+ * the ped's forward swung 105 degrees toward its side when it is outside the
+ * 110-degree cone), so the camera barely moves. */
+void
+Begin3DSFreeAim(CPlayerPed *ped)
+{
+	CVector pedPos = ped->GetPosition();
+	CVector forward = ped->GetForward();
+	CEntity *target = ped->m_pPointGunAt;
+	s3DSFreeAimPrevYawRel = 0.0f;
+	s3DSFreeAimSnap = target == nil;
+	s3DSFreeAimPivotBlend = target ? 0.0f : 1.0f;
+	if(target == nil){
+		s3DSFreeAimPoint = pedPos + forward*CWeaponInfo::GetWeaponInfo(ped->GetWeapon()->m_eWeaponType)->m_fRange;
+		return;
+	}
+	CVector dir = target->GetPosition() - pedPos;
+	if(dir.Magnitude() < 0.01f){
+		s3DSFreeAimPoint = pedPos + forward*15.0f;
+		return;
+	}
+	dir.Normalise();
+	if(DotProduct(forward, dir) >= Cos(DEGTORAD(110.0f))){
+		s3DSFreeAimPoint = pedPos + dir*15.0f;
+		return;
+	}
+	float angle = DotProduct(ped->GetRight(), dir) >= 0.0f ? -DEGTORAD(105.0f) : DEGTORAD(105.0f);
+	float c = Cos(angle), s = Sin(angle);
+	s3DSFreeAimPoint = pedPos + CVector(forward.x*c - forward.y*s, forward.x*s + forward.y*c, 0.0f)*15.0f;
+	s3DSFreeAimPoint.z = target->GetPosition().z;
+}
+
+CVector
+Get3DSFreeAimPoint()
+{
+	return s3DSFreeAimPoint;
+}
 
 /* Pure vertical/yaw aim-point update, PS2 LCS's per-frame free-aim point
  * update (SLES_541.35 fn VA 0x34a680), dt-scaled: PS2 runs this once per
@@ -1469,7 +1533,12 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 		 * otherwise sit inside of. */
 		CVector pedPos = CamTargetEntity->GetPosition();
 		CVector pivotBase = pedPos + CVector(0.0f, 0.0f, 0.6f);
-		TargetCoors = pivotBase + CamTargetEntity->GetRight()*0.55f;
+		/* PS2's lock-on camera already uses this pivot, so lock-on -> free
+		 * aim has no pivot jump there. reLCS's lock-on camera is VC's
+		 * ped-centred Process_Syphon, so slide the offset in instead of
+		 * jumping 0.55m sideways (rate is a port choice, ~0.2s). */
+		s3DSFreeAimPivotBlend = Min(1.0f, s3DSFreeAimPivotBlend + 0.1f*CTimer::GetTimeStep());
+		TargetCoors = pivotBase + CamTargetEntity->GetRight()*(0.55f*s3DSFreeAimPivotBlend);
 		CColPoint pivotColPoint;
 		CEntity *pivotEntity = nil;
 		CWorld::pIgnoreEntity = CamTargetEntity;
@@ -1511,13 +1580,7 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 #ifdef _3DS
 		if(CPad::GetPad(0)->Is3DSFreeAimActive()){
 			CPed *aimPed = (CPed*)CamTargetEntity;
-			/* The melee lock-on fix (docs/superpowers/specs/2026-10-12-melee-lock-on-design.md)
-			 * made WEAPON.DAT's melee m_fRange PS2-exact (10.0f/4.0f), which
-			 * is correct for lock-on but would place this free-aim point
-			 * 10m ahead of the ped for melee weapons; keep the free-aim
-			 * point placement close-range for melee, matching its
-			 * pre-override reach. */
-			float range = aimPed->GetWeapon()->IsTypeMelee() ? 2.4f : CWeaponInfo::GetWeaponInfo(aimPed->GetWeapon()->m_eWeaponType)->m_fRange;
+			float range = CWeaponInfo::GetWeaponInfo(aimPed->GetWeapon()->m_eWeaponType)->m_fRange;
 			if(CPad::GetPad(0)->Is3DSFreeAimEnteredThisFrame()){
 				/* PS2 zeroes the equivalent angular speeds on a fresh
 				 * camera init rather than inheriting momentum from
@@ -1535,10 +1598,8 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 				Alpha = Asin(Clamp(Front.z, -1.0f, 1.0f));
 				TheCamera.m_bCamDirectlyBehind = false;
 				TheCamera.m_bCamDirectlyInFront = false;
-				/* PS2 places a fresh free-aim point along the ped's
-				 * forward (SLES_541.35 fn 0x34eee8). */
-				s3DSFreeAimPoint = aimPed->GetPosition() + aimPed->GetForward()*range;
-				s3DSFreeAimPrevYawRel = 0.0f;
+				s3DSFreeAimTransSource = Source;
+				s3DSFreeAimTransLookAt = Source + Front*(TargetCoors - Source).Magnitude();
 			}
 			Update3DSFreeAimPoint(s3DSFreeAimPoint, s3DSFreeAimPrevYawRel, aimPed->GetPosition(), aimPed->GetForward(),
 			                      TargetCoors, range, LookLeftRight, LookUpDown, CTimer::GetTimeStep());
@@ -1581,7 +1642,15 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 			dir.Normalise();
 			float goalAlpha = Asin(Clamp(dir.z, -1.0f, 1.0f));
 			float goalBeta = CGeneral::GetATanOfXY(-dir.x, -dir.y);
-			const float step = 0.1f * CTimer::GetTimeStep();
+			/* PS2 CamControl (SLES_541.35 0x288798) enters the free-aim
+			 * camera from the follow cam with a 400ms interpolated
+			 * transition when the aim yaw is within 30 degrees of the
+			 * current camera yaw, a jump cut otherwise. The camera
+			 * itself snaps to the goal (ResetStatics, 0x280ee8). */
+			if(s3DSFreeAimSnap && Abs(CGeneral::LimitRadianAngle(goalBeta - Beta)) <= DEGTORAD(30.0f))
+				s3DSFreeAimTransStart = CTimer::GetTimeInMilliseconds();
+			const float step = s3DSFreeAimSnap ? 1000.0f : 0.1f * CTimer::GetTimeStep();
+			s3DSFreeAimSnap = false;
 			Alpha += Clamp(goalAlpha - Alpha, -step, step);
 			float relBeta = CGeneral::LimitRadianAngle(goalBeta - Beta);
 			Beta = CGeneral::LimitRadianAngle(Beta + Clamp(relBeta, -step, step));
@@ -1691,6 +1760,27 @@ CCam::Process_FollowPedWithMouse(const CVector &CameraTarget, float TargetOrient
 
 	TheCamera.m_bCamDirectlyInFront = false;
 	TheCamera.m_bCamDirectlyBehind = false;
+
+#ifdef _3DS
+	if(CPad::GetPad(0)->Is3DSFreeAimActive() && s3DSFreeAimTransStart != 0){
+		/* CCamera::Process's transition blend: cosine-eased Source and
+		 * look-at point from the old camera over 400ms. */
+		uint32 elapsed = CTimer::GetTimeInMilliseconds() - s3DSFreeAimTransStart;
+		if(elapsed >= 400)
+			s3DSFreeAimTransStart = 0;
+		else{
+			float inter = 0.5f - 0.5f*Cos(PI*elapsed/400.0f);
+			CVector lookAt = s3DSFreeAimTransLookAt + (TargetCoors - s3DSFreeAimTransLookAt)*inter;
+			Source = s3DSFreeAimTransSource + (Source - s3DSFreeAimTransSource)*inter;
+			CVector dir = lookAt - Source;
+			if(dir.Magnitude() > 0.01f){
+				dir.Normalise();
+				Front = dir;
+			}
+		}
+	}else
+		s3DSFreeAimTransStart = 0;
+#endif
 
 	GetVectorsReadyForRW();
 

@@ -539,18 +539,23 @@ disassembly around the free-aim/lock-on on-foot camera function (roughly VA
   on the camera's Beta directly but on the free-aim target point (a dummy aim
   entity PS2 attaches to `m_pPointGunAt`, VA `0x34a680`), with the same
   hysteresis pattern as the pitch clamp. The ped's desired heading
-  (`m_fRotationDest`) is re-aimed at that point every frame while a lock-on
-  target exists, but is left untouched during plain free aim — the body
-  stays fixed and only the torso IK/camera track the stick, matching a
-  screenshot showing Toni's arm raised without his hips turning.
-- **A fresh camera entry (no pre-existing lock-on) eases in rather than
-  snapping**, at a flat rate independent of distance-to-target:
-  `step = 0.1 * dt` rad/frame (VA `0x2816a0-0x2817bc`), clamping the
-  per-frame Beta/Alpha step toward the goal. The alternative "instant"
-  1000.0f step only fires when the camera's `ResetStatics` flag is set —
-  i.e. on a genuine camera-*mode* change (exiting a vehicle, etc.), never
-  merely from toggling free aim on/off. This is why PS2's camera visibly
-  turns to face the aim direction over several frames instead of cutting.
+  (`m_fRotationDest`) is re-aimed at that point every frame **only for
+  weapons without `CANAIM_WITHARM`** (`0x34b100` tail, plus
+  `RotatePlayerToTrackTarget` `0x34ce68`'s ±25° clamp); for arm-aiming
+  pistols (Colt/Tec9/Ingram) the body stays fixed and only the arm IK/camera
+  track the stick. Toni is rooted in free aim for *every* weapon
+  (`MovementDisabledBecauseOfTargeting` `0x34cf48` returns true whenever the
+  free-aim flag `ped+0xcbc` is set) — an earlier reading of only its
+  `m_pPointGunAt && !CANAIM_WITHARM` half wrongly concluded pistols can walk.
+- **Camera steps toward the goal at `0.1 * dt` rad/frame** (VA
+  `0x2816a0-0x2817bc`), or `1000.0f` (instant) on the `ResetStatics` frame.
+  Lock-on → free aim keeps `MODE_SYPHON`, so no reset and almost no motion
+  (the aim point starts toward the old target, see below). A fresh entry
+  (Target held, nothing locked) switches `MODE_FOLLOWPED` → `MODE_SYPHON`:
+  PS2 `CamControl` (`0x288798`) jump-cuts if the yaw to the aim point differs
+  from the camera's by > 30° (`0x3d6eec`), otherwise runs a 400 ms
+  `StartTransition` (`0x2935e0`, gp+0x10c = 400) that cosine-blends Source
+  and look-at — the visible easing on PCSX2.
 - **A lock-on target's camera additionally carries a fixed ±20° yaw / ∓3°
   pitch "over the shoulder" offset** (VA `0x28107c`/`0x281098`, smoothed in),
   explicitly skipped whenever the free-aim flag is set (VA
@@ -620,6 +625,54 @@ self-collision for the general rule — before adding any new LOS ray near the
 player ped, grep for how sibling LOS calls in the *same* function guard
 against this, even when the new call is a faithful transcription of PS2
 disassembly.
+
+## Case study: PS2 free aim is lock-on with a dummy target (entry, gating, firing, aim pose)
+
+PS2 doesn't have a separate free-aim system. Free aim reuses lock-on with a
+fake target: an entity at `ped+0xcc0`, flagged by `ped+0xcbc`. All of this is
+in `CPlayerPed::ProcessPlayerWeapon` (`0x34b100`), which
+`CPlayerPed::ProcessControl` (`0x347210`) calls. The aim-point update
+`0x34a680` only runs while the ped is in `PED_AIM_GUN`/`PED_ATTACK`.
+
+- **Button**: `0x1727a0` reads a pad field reLCS's `CControllerState`
+  lacks (`NewState+0x2e`, L3). It returns false in PS2 control mode 2.
+- **Entry gate**: Target held, `selected == current` weapon, not sprinting
+  with a gun, `!Using1stPersonWeaponMode`, `CANAIM`, fire type not melee,
+  cam mode not `MODE_FIXED`, lock-on cooldown 0. There is no melee free aim.
+  **Exit**: Target released (top of `0x34b100`), or any `ClearWeaponTarget`
+  (`0x34c880`, which zeroes the flag): sprint, weapon switch, 1st-person
+  mode. `DoesTargetHaveToBeBroken` (`0x34db60`) never breaks the dummy.
+- **Initial point** (`0x34eee8`): with no lock-on target it is bone node 6
+  + `forward*m_fRange`. With a target: 15 m toward the old target if it is
+  inside the ±110° cone, otherwise `forward*15` rotated ±105° toward the
+  target's side, at the target's Z. Entry snaps the ped heading only if the
+  point is ≥110° off.
+- **Entry calls** `SetWeaponLockOnTarget(dummy); SetPointGunAt(dummy)`:
+  every free-aimable gun goes into `PED_AIM_GUN` (the ready-to-shoot pose),
+  not just `CANAIM_WITHARM` ones. Coming from lock-on, `SetPointGunAt`
+  returns early (already `AIM_GUN`), so the pose carries over. After that,
+  `SetNewPlayerWeaponMode(MODE_SYPHON)` plus `UpdateAimingCoors(dummyPos)`
+  run every frame, target cycling is disabled, and fire is
+  `SetAttack(m_pPointGunAt)`: shots go toward the aim point, not along the
+  camera ray.
+- **Keeping the pose**: `CPed::Attack` (`0x1bc498`) end re-calls
+  `SetPointGunAt(m_pPointGunAt)`. `ClearAttack` (`0x1bb868`) re-enters it
+  through `m_pLookTarget` (the dummy). `FinishedReloadCB` (`0x1bc020`, not
+  FinishedAttackCB, which is `0x1bbb30`) re-enters it when the flag is set.
+  `SetPointGunAt` (`0x1ba610`) also fades `ANIM_STD_RUNFAST/RUNSTOP1/2`
+  (ids 2,5,6, table `0x3b3e80`, blendDelta -15, `ASSOC_DELETEFADEDOUT`) for
+  guns without `CANAIM_WITHARM`. reLCS doesn't do this.
+- Ped flags bit 34 (`0x400000000` at `ped+0x190`) is `bIsAttacking`, not a
+  free-aim flag.
+
+reLCS models free aim differently: a `CVector` aim point
+(`s3DSFreeAimPoint` in `Cam.cpp`) plus the PC mouse-cam paths
+(`m_bUseMouse3rdPerson`/`bFreeCam`). That is why each of these PS2 facts
+had to be re-ported by hand: `Can3DSFreeAim`/`Begin3DSFreeAim`/
+`Get3DSFreeAimPoint` (`Cam.cpp`), the latch in `Pad.cpp`
+`Update3DSFreeAim`, and the `aimPose` and lock-on→free-aim branches in
+`PlayerPed.cpp` `ProcessPlayerWeapon`. See
+`git log --grep="free-aim entry"` / `--grep="aim pose"`.
 
 ## Case study: disambiguating PS2 camera-mode functions via the dispatch jump table, not plausibility
 

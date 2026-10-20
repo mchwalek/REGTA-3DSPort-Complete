@@ -1509,9 +1509,16 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
 		m_nSelectedWepSlot == m_currentWeapon && m_nMoveState != PEDMOVE_SPRINT) {
 
 #define CAN_AIM_WITH_ARM (weaponInfo->IsFlagSet(WEAPONFLAG_CANAIM_WITHARM) && !bIsDucking && !bCrouchWhenShooting)
+#ifdef _3DS
+		/* PS2 free aim puts every aimable gun into PED_AIM_GUN via
+		 * SetPointGunAt(dummy) (SLES_541.35 0x34b100), not only arm-aimed ones. */
+		const bool aimPose = CAN_AIM_WITH_ARM || padUsed->Is3DSFreeAimActive();
+#else
+		const bool aimPose = CAN_AIM_WITH_ARM;
+#endif
 		// Weapons except throwable and melee ones
 		if (weaponInfo->m_nWeaponSlot > 2) {
-			if ((padUsed->GetTarget() && CAN_AIM_WITH_ARM) || padUsed->GetWeapon()) {
+			if ((padUsed->GetTarget() && aimPose) || padUsed->GetWeapon()) {
 				float limitedCam = CGeneral::LimitRadianAngle(-TheCamera.Orientation);
 
 				m_cachedCamSource = TheCamera.Cams[TheCamera.ActiveCam].Source;
@@ -1519,7 +1526,7 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
 				m_cachedCamUp = TheCamera.Cams[TheCamera.ActiveCam].Up;
 				
 				// On this one we can rotate arm.
-				if (CAN_AIM_WITH_ARM) {
+				if (aimPose) {
 					pointedGun = 2;
 					m_bFreeAimActive = true;
 					SetLookFlag(limitedCam, true, true);
@@ -1534,7 +1541,9 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
 					 * aiming -- only the torso IK (SetAimFlag above) and the
 					 * camera track the stick; the yaw cone is enforced by the
 					 * camera instead (see Cam.cpp's free-aim block). */
-				} else {
+				}
+				// PS2 turns the body toward the aim point for guns not aimed with the arm (0x34b100, 0x34ce68).
+				if (!CAN_AIM_WITH_ARM) {
 					m_fRotationDest = limitedCam;
 					changedHeadingRate = 2;
 					m_headingRate = 12.5f;
@@ -1609,6 +1618,16 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
 				|| CCamera::m_bUseMouse3rdPerson
 #endif		
 			) {
+#ifdef _3DS
+				/* PS2 swaps the lock-on target for the free-aim dummy and stays in
+				 * PED_AIM_GUN; ClearPointGunAt here would drop the aim pose. */
+				if (padUsed->Is3DSFreeAimActive() && m_nPedType == PEDTYPE_PLAYER1) {
+					SetWeaponLockOnTarget(nil);
+					TheCamera.ClearPlayerWeaponMode();
+					CWeaponEffects::ClearCrossHair();
+					return;
+				}
+#endif
 				ClearWeaponTarget();
 				return;
 			}
