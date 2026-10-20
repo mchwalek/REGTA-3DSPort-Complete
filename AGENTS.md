@@ -473,6 +473,18 @@ not mistake for a failed transfer.
     `ClearWeaponTarget()` on free-aim entry drops `PED_AIM_GUN`, and Toni
     loses his aim pose. See the `ps2-lcs-decompilation` skill ("free aim is
     lock-on with a dummy target") and `git log --grep="aim pose"`.
+26. **reLCS ped/fight code is still largely Vice City's, and PS2 LCS compiled
+    out several VC hardcodes as a compare against `-1`.** `PEDTYPE_GANG7` is
+    VC's friendly Vercetti gang; in LCS it's a hostile gang (`gang13`/`gang14`).
+    PS2 replaced every `m_nPedType == PEDTYPE_GANG7` player exception with
+    `== -1` (never true): `ReactToAttack` `0x30e8b0`, `ReactToPointGun`
+    `0x30e398`, `RegisterThreatWithGangPeds` `0x3183a0`, `InflictDamage`
+    `0x1c2088`. reLCS kept them live until commit `121d215`. When a stories
+    behavior special-cases a VC gang or model, look for the same `-1` pattern
+    on PS2 before trusting it. Peds running away from the player is usually
+    PS2-correct: `fear > 100 - attacker temper`, and `PEDSTATS.DAT` and the
+    IDE stat types match PS2 exactly. See the `ps2-lcs-decompilation` skill
+    ("melee fight-system parity") and `git log --grep="GANG7"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 

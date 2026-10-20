@@ -1100,3 +1100,50 @@ at fixed local offsets, pushed by `amount * normal * 0.02`. **Lesson:** an
 extra argument at the PS2 entry point that reLCS's signature lacks is a strong
 hint a whole behavior was dropped; scan the callers to see which actually
 pass it. Fix: `git log --grep="smash traffic lights"`.
+
+## Case study: melee fight-system parity — diff the whole cluster, not one function
+
+Report: "not confident melee works like PS2". Earlier melee fixes had each
+patched one function; this pass decompiled every `PedFight.cpp` function's PS2
+twin and diffed them side by side. Map (`SLES_541.35`): `Fight` `0x1beb80`,
+next-move starter `0x1be938` (reLCS inlined it; now `StartNextFightMove`),
+`StartFightAttack` `0x1bdbd8`, `StartFightDefend` `0x1bdf98` (takes the
+attacker as an extra arg), `ChooseAttackPlayer` `0x1bf498`, `ChooseAttackAI`
+`0x1bf170`, `EndFight` `0x1bff50`, `PlayHitSound` `0x1c00b8` (sound table
+`0x3b4080`, 17×10 uint16, row = `m_curFightMove` directly), `FightStrike`
+`0x1c0310`, `FightHitPed` `0x1c09e0`, `FinishFightMoveCB` `0x1c14c8`,
+`ReactToAttack` `0x30e828`. Callers were found with `tools.rea.xrefs
+({address})` on an already-known VA (e.g. the two callers of `0x1bf498`).
+
+What differed was mostly **VC logic that LCS had rewritten**: strike is one
+frame at `startFireTime + 0.05` (not a start..end window); combos chain via
+the normal chooser once past `endFireTime` with pressure buffered (VC's
+one-shot `nPlayerInComboMove` chain doesn't exist); AI unarmed moves are a
+weighted `rand & 0xf` pick (no ped-stat flags); hit reactions are
+direction-only, with `ANIM_FIGHT_HIT_A1..B3` matching the attacker's combo;
+fight strikes damage cars (`TestSphereAgainstWorld` → `VehicleDamage` +
+`OccupantsReactToDamage`); shoppers (MI 47, 59-61) never fight; `PlayHitSound`
+(disabled in reLCS) also does the player's on-hit shout. `GAME.DTZ`'s compiled
+fight-move table (file offset `0x3a3cec`) and weapon table matched the staged
+`FISTFITE.DAT`/`WEAPON.DAT`, so none of this was data. See
+`git log --grep="match PS2 LCS melee"`.
+
+**Pitfall — the decompiler hid two branch targets.** Ghidra's pseudocode of
+`ReactToAttack` showed the stripper wait-state branch as "ClearWaitState and
+return"; the asm (`0x30eb68`) branches into the shared `KILL_CHAR_ON_FOOT` +
+20 s timer block, so reLCS was already right. Check asm before reporting a
+"PS2 skips this" delta.
+
+**VC hardcodes compiled out as `== -1`.** PS2 LCS kept every VC
+`m_nPedType == PEDTYPE_GANG7` (Vercetti, player-friendly) test but compares
+against `-1`, which never matches: `lw v1,0x560(sX); li v0,-1; bne…` at
+`0x30e8b0`, `0x30e398`, `0x3183a0`, `0x1c2088`. In LCS GANG7 is a hostile
+gang, so reLCS's live checks made those peds harmless. A raw-word scan for
+`lw *,0x560(*)` next to `addiu *,zero,-1` found all four sites. See
+`git log --grep="GANG7"`.
+
+**Ped "runs away instead of fighting" is usually PS2-correct.** Flee vs fight
+is `victim.fear > 100 - attacker.temper` (player temper 50). `PEDSTATS.DAT`
+and every model's ped/stat type in `DEFAULT.IDE` match PS2's compiled tables
+(CPedModelInfo stride 0x44 in `GAME.DTZ`), and most common civilians have
+fear 56-100. Check the data against PS2 before "fixing" AI aggression.
