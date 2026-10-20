@@ -463,6 +463,16 @@ not mistake for a failed transfer.
     cutscenes, and credits all read raw Cross and skipped on B ("Go Go
     Faggio" intro was the report). See `git log --grep="skip cutscenes"` and
     the `gta-3ds-input-mapping` skill.
+25. **During reLCS's 3DS free aim, `m_pPointGunAt` is nil. On PS2 it points
+    at a dummy aim entity.** PS2 free aim is lock-on with a fake target
+    (`SLES_541.35` `0x34b100`), so anything that keys off `m_pPointGunAt`
+    (aim pose, firing direction, body tracking, re-entering the pose after
+    an attack or reload) works there automatically. reLCS uses a `CVector`
+    aim point instead (`Get3DSFreeAimPoint()`, `Cam.cpp`), so each of those
+    has to be ported by hand under `Is3DSFreeAimActive()`. Also,
+    `ClearWeaponTarget()` on free-aim entry drops `PED_AIM_GUN`, and Toni
+    loses his aim pose. See the `ps2-lcs-decompilation` skill ("free aim is
+    lock-on with a dummy target") and `git log --grep="aim pose"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 
