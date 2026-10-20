@@ -14,8 +14,8 @@ decision table:
   - B1/B2 within comboFollowOnTime (and comboFollowOnTime > 0): switch back
     to the matching A move
   - B1/B2 otherwise: advance to the next B move
-  - a combo move with no live anim association (comboInProgress == False)
-    always restarts, even if currentMove is A1/A2/B1/B2
+  - a combo move with no live anim association keeps chaining as if past
+    comboFollowOnTime (PS2 SLES_541.35 0x1bfb30)
 """
 import subprocess
 import tempfile
@@ -80,10 +80,12 @@ int main() {
 	assert(ChooseUnarmedComboMove(FIGHTMOVE_IDLE, false, 0.0f, 0.0f, true) == FIGHTMOVE_COMBO_A1);
 	assert(ChooseUnarmedComboMove(FIGHTMOVE_IDLE, false, 0.0f, 0.0f, false) == FIGHTMOVE_COMBO_A2);
 
-	/* A combo move with no live association always restarts, regardless of
-	 * which move it was -- comboInProgress gates everything. */
-	assert(ChooseUnarmedComboMove(FIGHTMOVE_COMBO_A1, false, 0.0f, 0.5f, true) == FIGHTMOVE_COMBO_A1);
-	assert(ChooseUnarmedComboMove(FIGHTMOVE_COMBO_B2, false, 1.0f, 0.5f, false) == FIGHTMOVE_COMBO_A2);
+	/* PS2 0x1bfb30: a combo move whose association is already gone keeps
+	 * chaining as if it were past fo (A -> B, B -> next B). */
+	assert(ChooseUnarmedComboMove(FIGHTMOVE_COMBO_A1, false, 0.0f, 0.5f, true) == FIGHTMOVE_COMBO_B1);
+	assert(ChooseUnarmedComboMove(FIGHTMOVE_COMBO_A2, false, 0.0f, 0.0f, true) == FIGHTMOVE_COMBO_A3);
+	assert(ChooseUnarmedComboMove(FIGHTMOVE_COMBO_B1, false, 0.1f, 0.5f, true) == FIGHTMOVE_COMBO_B2);
+	assert(ChooseUnarmedComboMove(FIGHTMOVE_COMBO_B2, false, 1.0f, 0.5f, false) == FIGHTMOVE_COMBO_B3);
 
 	/* A1 continuing (t <= fo): advance to A2. */
 	assert(ChooseUnarmedComboMove(FIGHTMOVE_COMBO_A1, true, 0.4f, 0.5f, true) == FIGHTMOVE_COMBO_A2);
@@ -95,9 +97,8 @@ int main() {
 	assert(ChooseUnarmedComboMove(FIGHTMOVE_COMBO_A2, true, 0.4f, 0.5f, true) == FIGHTMOVE_COMBO_A3);
 	/* A2 past fo, fo > 0: switch to B2. */
 	assert(ChooseUnarmedComboMove(FIGHTMOVE_COMBO_A2, true, 0.6f, 0.5f, true) == FIGHTMOVE_COMBO_B2);
-	/* A1 past fo but fo <= 0 (move has no follow-on window at all):
-	 * restarts instead of switching to B (no combo signal to act on). */
-	assert(ChooseUnarmedComboMove(FIGHTMOVE_COMBO_A1, true, 0.6f, 0.0f, true) == FIGHTMOVE_COMBO_A1);
+	/* A1 past fo but fo <= 0: PS2 advances to the next A move. */
+	assert(ChooseUnarmedComboMove(FIGHTMOVE_COMBO_A1, true, 0.6f, 0.0f, true) == FIGHTMOVE_COMBO_A2);
 
 	/* B1 within fo, fo > 0: switch back to A1. */
 	assert(ChooseUnarmedComboMove(FIGHTMOVE_COMBO_B1, true, 0.4f, 0.5f, true) == FIGHTMOVE_COMBO_A1);
