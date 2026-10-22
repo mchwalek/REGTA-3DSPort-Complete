@@ -6825,6 +6825,8 @@ CPed::KillCharOnFootMelee(CVector &ourPos, CVector &targetPos, CVector &distWith
 
 	// Already calculated at the start
 	// float distWithTargetSc = distWithTarget.Magnitude();
+	// PS2 0x31e0cc: the gate distance starts at 0 and only the branches below set the real one.
+	float dist = 0.0f;
 	float maxDistToKeep = 0.3f;
 	float wepRange = wepInfo->m_fRange / 2.f;
 
@@ -6833,6 +6835,7 @@ CPed::KillCharOnFootMelee(CVector &ourPos, CVector &targetPos, CVector &distWith
 
 	if (m_pedInObjective->EnteringCar() && wepRange > 2.f) {
 		m_vecSeekPos = m_pedInObjective->GetPosition();
+		dist = distWithTargetSc;
 		wepRange = 1.0f;
 		maxDistToKeep = 0.5f;
 
@@ -6842,16 +6845,18 @@ CPed::KillCharOnFootMelee(CVector &ourPos, CVector &targetPos, CVector &distWith
 		// distance, regardless of current distance to the victim; PS2
 		// never calls FindMeleeAttackPoint for these weapon types.
 		m_vecSeekPos = m_pedInObjective->GetPosition();
+		dist = distWithTargetSc;
 		maxDistToKeep = Max(0.4f * wepRange, 0.8f);
 
 	} else if (distWithTargetSc > 5.f || !victimPlayer || victimPlayer->m_bNoPosForMeleeAttack) {
 		m_vecSeekPos = m_pedInObjective->GetPosition();
+		dist = distWithTargetSc;
 		maxDistToKeep = Max(0.8f, 0.9f * wepRange);
 		wepRange *= 1.1f;
 	}
-	// PS2 0x31e268: fists close on the player directly (maxDistToKeep 0.3). VC's hexagon attack
-	// points (FindMeleeAttackPoint) sit wepRange away, which is ~5m with LCS's unarmed range,
-	// so peds walked out to them and back forever.
+	// PS2 0x31e268: fists within 5m of the player keep dist 0, so they attack (and the fight
+	// code shuffles them in) instead of seeking. VC's hexagon attack points (FindMeleeAttackPoint)
+	// sat wepRange (~5m) away, and seeking to 0.3m is unreachable through ped collision.
 
 	if (m_pedInObjective->bInVehicle && m_pedInObjective->m_nPedState != PED_DRAG_FROM_CAR) {
 		CVehicle *vehOfTarget = m_pedInObjective->m_pMyVehicle;
@@ -6907,7 +6912,7 @@ CPed::KillCharOnFootMelee(CVector &ourPos, CVector &targetPos, CVector &distWith
 			}
 		}
 
-		if (distWithTargetSc < maxArrestDist) {
+		if (dist < maxArrestDist) {
 			if (m_pedInObjective->m_getUpTimer > CTimer::GetTimeInMilliseconds()
 				|| m_pedInObjective->m_nPedState == PED_DRAG_FROM_CAR) {
 
@@ -6917,7 +6922,7 @@ CPed::KillCharOnFootMelee(CVector &ourPos, CVector &targetPos, CVector &distWith
 		}
 	}
 
-	if (distWithTargetSc > maxDistToKeep && !bKindaStayInSamePlace && m_nPedState != PED_ATTACK &&
+	if (dist > maxDistToKeep && !bKindaStayInSamePlace && m_nPedState != PED_ATTACK &&
 		(m_nPedState != PED_FIGHT || m_curFightMove == FIGHTMOVE_IDLE) && !killPlayerInNoPoliceZone) {
 
 		if (bUsePedNodeSeek) {
@@ -6937,7 +6942,7 @@ CPed::KillCharOnFootMelee(CVector &ourPos, CVector &targetPos, CVector &distWith
 	}
 
 	if (m_attackTimer < CTimer::GetTimeInMilliseconds()
-		&& distWithTargetSc < wepRange && m_pedInObjective->m_nPedState != PED_GETUP && m_pedInObjective->m_nPedState != PED_DRAG_FROM_CAR) {
+		&& dist < wepRange && m_pedInObjective->m_nPedState != PED_GETUP && m_pedInObjective->m_nPedState != PED_DRAG_FROM_CAR) {
 
 		if (bIsDucking) {
 			CAnimBlendAssociation* duckAnim = RpAnimBlendClumpGetAssociation(GetClump(), ANIM_STD_DUCK_DOWN);
