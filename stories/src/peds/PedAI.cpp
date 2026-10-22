@@ -2205,7 +2205,7 @@ CPed::ReactToPointGun(CEntity *entWithGun)
 		return;
 
 	if (m_nWaitState == WAITSTATE_PLAYANIM_HANDSUP || m_nWaitState == WAITSTATE_PLAYANIM_HANDSCOWER ||
-		(GetPosition() - pedWithGun->GetPosition()).MagnitudeSqr2D() > 225.0f || (m_nPedType == PEDTYPE_GANG7 && pedWithGun == FindPlayerPed()))
+		(GetPosition() - pedWithGun->GetPosition()).MagnitudeSqr2D() > 225.0f) // PS2 0x30e398: no GANG7 exception
 		return;
 
 	if (m_leader) {
@@ -2286,12 +2286,8 @@ CPed::ReactToAttack(CEntity *attacker)
 		return;
 	}
 	
-	if (m_nPedType == PEDTYPE_GANG7 && attacker->IsPed() && ((CPed*)attacker)->IsPlayer()) {
-		if (m_nPedState != PED_FALL) {
-			SetFall(15000, (AnimationId)(ANIM_STD_KO_FRONT + CGeneral::GetRandomNumberInRange(0, 5)), 0);
-		}
-
-	} else if (m_nPedState == PED_DRIVING && InVehicle()
+	// PS2 0x30e8b0: VC's GANG7 (Vercetti) knockout is compiled out; GANG7 is a hostile gang in LCS.
+	if (m_nPedState == PED_DRIVING && InVehicle()
 		&& (m_pMyVehicle->pDriver == this || m_pMyVehicle->pDriver && m_pMyVehicle->pDriver->m_nPedState == PED_DRIVING && m_pMyVehicle->pDriver->m_objective != OBJECTIVE_LEAVE_CAR_AND_DIE)) {
 
 		if (m_pMyVehicle->VehicleCreatedBy == RANDOM_VEHICLE
@@ -5521,8 +5517,7 @@ CPed::RegisterThreatWithGangPeds(CEntity *attacker)
 {
 	CPed *attackerPed = nil;
 	if ((CharCreatedBy == MISSION_CHAR && bIsPlayerFriend && (attacker == FindPlayerPed() || attacker == FindPlayerVehicle()))
-		|| (attacker && m_leader == attacker)
-		|| (m_nPedType == PEDTYPE_GANG7 && attacker == FindPlayerPed()))
+		|| (attacker && m_leader == attacker)) // PS2 0x3183a0: no GANG7 exception
 		return;
 
 	if (attacker) {
@@ -6826,23 +6821,21 @@ CPed::KillCharOnFootMelee(CVector &ourPos, CVector &targetPos, CVector &distWith
 		bScriptObjectiveCompleted = true;
 		return ATTACK_IN_PROGRESS;
 	}
-	bool canReachVictim = false;
-	uint32 endOfAttack = 0;
 	CWeaponInfo *wepInfo = CWeaponInfo::GetWeaponInfo(GetWeapon()->m_eWeaponType);
 
 	// Already calculated at the start
 	// float distWithTargetSc = distWithTarget.Magnitude();
+	// PS2 0x31e0cc: the gate distance starts at 0 and only the branches below set the real one.
+	float dist = 0.0f;
 	float maxDistToKeep = 0.3f;
 	float wepRange = wepInfo->m_fRange / 2.f;
 
 	eWeaponType meleeWeapon = GetWeapon()->m_eWeaponType;
 	bool isUnarmedOrBrassKnuckle = meleeWeapon == WEAPONTYPE_UNARMED || meleeWeapon == WEAPONTYPE_BRASSKNUCKLE;
 
-	if (meleeWeapon == WEAPONTYPE_UNARMED && !IsPlayer() && !(m_pedStats->m_flags & STAT_CAN_KICK))
-		wepRange -= 0.3f;
-
 	if (m_pedInObjective->EnteringCar() && wepRange > 2.f) {
 		m_vecSeekPos = m_pedInObjective->GetPosition();
+		dist = distWithTargetSc;
 		wepRange = 1.0f;
 		maxDistToKeep = 0.5f;
 
@@ -6852,26 +6845,18 @@ CPed::KillCharOnFootMelee(CVector &ourPos, CVector &targetPos, CVector &distWith
 		// distance, regardless of current distance to the victim; PS2
 		// never calls FindMeleeAttackPoint for these weapon types.
 		m_vecSeekPos = m_pedInObjective->GetPosition();
+		dist = distWithTargetSc;
 		maxDistToKeep = Max(0.4f * wepRange, 0.8f);
 
-	} else if (distWithTargetSc <= 5.f && victimPlayer && !victimPlayer->m_bNoPosForMeleeAttack) {
-		int8 attackDir = victimPlayer->FindMeleeAttackPoint(this, distWithTarget, endOfAttack);
-		if (attackDir == -1) {
-			m_vecSeekPos = victimPlayer->GetPosition();
-			maxDistToKeep = 4.0f;
-		} else {
-			victimPlayer->GetMeleeAttackCoords(m_vecSeekPos, attackDir, wepRange);
-			distWithTargetSc = (m_vecSeekPos - GetPosition()).Magnitude();
-			canReachVictim = true;
-		}
-
-	} else {
+	} else if (distWithTargetSc > 5.f || !victimPlayer || victimPlayer->m_bNoPosForMeleeAttack) {
 		m_vecSeekPos = m_pedInObjective->GetPosition();
+		dist = distWithTargetSc;
 		maxDistToKeep = Max(0.8f, 0.9f * wepRange);
 		wepRange *= 1.1f;
-		if (victimPlayer && victimPlayer->m_bNoPosForMeleeAttack)
-			victimPlayer = nil;
 	}
+	// PS2 0x31e268: fists within 5m of the player keep dist 0, so they attack (and the fight
+	// code shuffles them in) instead of seeking. VC's hexagon attack points (FindMeleeAttackPoint)
+	// sat wepRange (~5m) away, and seeking to 0.3m is unreachable through ped collision.
 
 	if (m_pedInObjective->bInVehicle && m_pedInObjective->m_nPedState != PED_DRAG_FROM_CAR) {
 		CVehicle *vehOfTarget = m_pedInObjective->m_pMyVehicle;
@@ -6927,7 +6912,7 @@ CPed::KillCharOnFootMelee(CVector &ourPos, CVector &targetPos, CVector &distWith
 			}
 		}
 
-		if (distWithTargetSc < maxArrestDist) {
+		if (dist < maxArrestDist) {
 			if (m_pedInObjective->m_getUpTimer > CTimer::GetTimeInMilliseconds()
 				|| m_pedInObjective->m_nPedState == PED_DRAG_FROM_CAR) {
 
@@ -6937,10 +6922,10 @@ CPed::KillCharOnFootMelee(CVector &ourPos, CVector &targetPos, CVector &distWith
 		}
 	}
 
-	if (distWithTargetSc > maxDistToKeep && !bKindaStayInSamePlace && m_nPedState != PED_ATTACK &&
+	if (dist > maxDistToKeep && !bKindaStayInSamePlace && m_nPedState != PED_ATTACK &&
 		(m_nPedState != PED_FIGHT || m_curFightMove == FIGHTMOVE_IDLE) && !killPlayerInNoPoliceZone) {
 
-		if (bUsePedNodeSeek && !canReachVictim) {
+		if (bUsePedNodeSeek) {
 			CVector bestCoords(0.0f, 0.0f, 0.0f);
 
 			if (!m_pNextPathNode)
@@ -6951,16 +6936,13 @@ CPed::KillCharOnFootMelee(CVector &ourPos, CVector &targetPos, CVector &distWith
 
 			SetSeek(m_vecSeekPos, m_distanceToCountSeekDone);
 		} else {
-			if (canReachVictim)
-				SetSeek(m_vecSeekPos, maxDistToKeep);
-			else
-				SetSeek(m_pedInObjective, maxDistToKeep);
+			SetSeek(m_pedInObjective, maxDistToKeep);
 		}
 		return ATTACK_IN_PROGRESS;
 	}
 
 	if (m_attackTimer < CTimer::GetTimeInMilliseconds()
-		&& distWithTargetSc < wepRange && m_pedInObjective->m_nPedState != PED_GETUP && m_pedInObjective->m_nPedState != PED_DRAG_FROM_CAR) {
+		&& dist < wepRange && m_pedInObjective->m_nPedState != PED_GETUP && m_pedInObjective->m_nPedState != PED_DRAG_FROM_CAR) {
 
 		if (bIsDucking) {
 			CAnimBlendAssociation* duckAnim = RpAnimBlendClumpGetAssociation(GetClump(), ANIM_STD_DUCK_DOWN);
@@ -6977,24 +6959,15 @@ CPed::KillCharOnFootMelee(CVector &ourPos, CVector &targetPos, CVector &distWith
 			return CANT_ATTACK;
 		}
 
-		// PS2 (VA 0x31e51c) has no reachability check here; the non-fist branch above never sets canReachVictim
-		if (canReachVictim || !victimPlayer || !isUnarmedOrBrassKnuckle) {
-			SetMoveState(PEDMOVE_STILL);
-			SetAttack(m_pedInObjective);
-			m_fRotationDest = CGeneral::GetRadianAngleBetweenPoints(
-				m_pedInObjective->GetPosition().x, m_pedInObjective->GetPosition().y,
-				GetPosition().x, GetPosition().y);
-			SetShootTimer(CGeneral::GetRandomNumberInRange(0.f, 500.f));
-
-			int time;
-			if (endOfAttack <= CTimer::GetTimeInMilliseconds())
-				time = CGeneral::GetRandomNumberInRange(100.0f, 1500.0f);
-			else
-				time = endOfAttack - CTimer::GetTimeInMilliseconds() + CGeneral::GetRandomNumberInRange(400.0f, 1500.0f);
-
-			SetAttackTimer(time);
-			bObstacleShowedUpDuringKillObjective = false;
-		}
+		// PS2 (VA 0x31e51c) has no reachability check here
+		SetMoveState(PEDMOVE_STILL);
+		SetAttack(m_pedInObjective);
+		m_fRotationDest = CGeneral::GetRadianAngleBetweenPoints(
+			m_pedInObjective->GetPosition().x, m_pedInObjective->GetPosition().y,
+			GetPosition().x, GetPosition().y);
+		SetShootTimer(CGeneral::GetRandomNumberInRange(0.f, 500.f));
+		SetAttackTimer(CGeneral::GetRandomNumberInRange(100.0f, 1500.0f));
+		bObstacleShowedUpDuringKillObjective = false;
 		return ATTACK_IN_PROGRESS;
 	} else {
 		if (!m_pedInObjective->m_pCurrentPhysSurface && m_pCurrentPhysSurface && b158_8) {

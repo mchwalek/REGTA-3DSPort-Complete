@@ -882,13 +882,14 @@ public:
 	void SetEvasiveDive(CPhysical*, uint8);
 	void SetAttack(CEntity*);
 	void StartFightAttack(uint8);
+	void StartNextFightMove(bool);
 	void SetWaitState(eWaitState, void*, bool repeat = false);
 	bool FightStrike(CVector&, bool);
 	void FightHitPed(CPed*, CVector&, CVector&, int16);
 	int32 ChooseAttackPlayer(uint8, bool);
 	int32 ChooseAttackAI(uint8, bool);
 	int GetLocalDirection(const CVector2D &);
-	void StartFightDefend(uint8, uint8, uint8);
+	void StartFightDefend(uint8, uint8, uint8, CPed *attacker = nil);
 	void PlayHitSound(CPed*);
 	void SetFall(int, AnimationId, uint8);
 	void SetFlee(CEntity*, int);
