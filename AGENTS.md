@@ -506,6 +506,21 @@ not mistake for a failed transfer.
     just because PS2's follow cam has none. See
     `git log --grep="camera jump after releasing"` and `--grep="near plane
     out of walls"`.
+28. **3DS vehicle paint (`3dsmatfx.cpp`) and skinned peds (`3dsskin.cpp`)
+    are drawn unlit, so game code that changes RW lights doesn't reach them.
+    This is shared librw code, so it affects all three trees.** Their TEV
+    constant is the raw material colour. A
+    lighting trick like `WorldReplaceNormalLightsWithScorched` (0.1 ambient,
+    no directional, for `bRenderScorched`) did nothing there, so wrecks kept
+    their paint and burning peds their colours. The fix passes the state
+    through `rw::c3d::EntityRenderStyle` (`scorched`, set in
+    `CameraOcclusion3DS::RenderScope`, which wraps every `CEntity::Render`).
+    The unlit paths then apply the ambient through `getEntityMaterialColor`.
+    PS2 also zeroes env-map intensity for scorched entities (`SLES_541.35`
+    `0x2e870c`, the global set by `SetupLighting` `0x2c9f30`). For any new
+    per-entity lighting effect, carry it through `EntityRenderStyle` the same
+    way, and don't expect it to come from the light state. Alpha-list atomics
+    (glass) render outside that scope. See `git log --grep="scorched wrecks"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 
