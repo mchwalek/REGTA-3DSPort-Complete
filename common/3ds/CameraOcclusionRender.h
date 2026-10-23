@@ -9,21 +9,23 @@ struct RenderScope {
 	bool changed;
 	RenderScope(CEntity *entity) : previous(rw::c3d::getEntityRenderStyle()), zwrite(0), changed(false)
 	{
-		const float alpha = Alpha(entity);
-		if(alpha >= 1.f) return;
 		auto style = previous;
-		if(style.opacity > alpha) style.opacity = alpha;
+		// Unlit 3DS paths ignore the scorched lighting set by SetupLighting.
+		style.scorched = entity->bRenderScorched;
+		const float alpha = Alpha(entity);
+		if(alpha < 1.f) {
+			if(style.opacity > alpha) style.opacity = alpha;
+			zwrite = rw::GetRenderState(rw::ZWRITEENABLE);
+			rw::SetRenderState(rw::ZWRITEENABLE, 0);
+			changed = true;
+		}
 		rw::c3d::setEntityRenderStyle(style);
-		zwrite = rw::GetRenderState(rw::ZWRITEENABLE);
-		rw::SetRenderState(rw::ZWRITEENABLE, 0);
-		changed = true;
 	}
 	~RenderScope()
 	{
-		if(changed) {
-			rw::c3d::setEntityRenderStyle(previous);
+		rw::c3d::setEntityRenderStyle(previous);
+		if(changed)
 			rw::SetRenderState(rw::ZWRITEENABLE, zwrite);
-		}
 	}
 };
 } // namespace CameraOcclusion3DS
