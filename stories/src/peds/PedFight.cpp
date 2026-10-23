@@ -823,15 +823,6 @@ CPed::Attack(void)
 		return;
 	}
 
-	if (meleeAttackStarted && IsPlayer()) {
-		if (((CPlayerPed*)this)->m_bHaveTargetSelected || ((CPlayerPed*)this)->m_fMoveSpeed < 0.5f) {
-			weaponAnimAssoc->SetRun();
-		} else {
-			if (weaponAnimAssoc->currentTime > animLoopStart && weaponAnimAssoc->currentTime - weaponAnimAssoc->timeStep <= animLoopStart)
-				weaponAnimAssoc->flags &= ~ASSOC_RUNNING;
-		}
-	}
-
 	float animStart = animLoopStart * 0.4f;
 	weaponAnimTime = weaponAnimAssoc->currentTime;
 	if (weaponAnimTime > animStart && weaponAnimTime - weaponAnimAssoc->timeStep <= animStart) {
