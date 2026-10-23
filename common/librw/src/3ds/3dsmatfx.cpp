@@ -235,7 +235,7 @@ matfxTextureRender(InstanceDataHeader *header, InstanceData *inst, uint32 flags,
 	 * skinned peds on 3DS.  Sample the base texture directly so lighting can't
 	 * turn individual triangles into dark facets. */
 	matfxTextureShader->use();
-	C3D_SetTexEnvColor(0, packTevMaterialColor(m->color));
+	C3D_SetTexEnvColor(0, packTevMaterialColor(getEntityMaterialColor(atomic, m->color)));
 	protectVehicleTexture(texture);
 	RGBA vertexColor = m->color;
 	vertexColor.alpha = 0xFF;
@@ -345,7 +345,8 @@ matfxEnvRender(InstanceDataHeader *header, InstanceData *inst, uint32 flags,
 		return;
 	}
 
-	if(getEntityRenderStyle().reflection <= 0.f || getEntityRenderStyle().opacity < 1.f || env->coefficient == 0.0f
+	// PS2 zeroes the env-map intensity for scorched entities.
+	if(getEntityRenderStyle().reflection <= 0.f || getEntityRenderStyle().opacity < 1.f || getEntityRenderStyle().scorched || env->coefficient == 0.0f
 #ifndef RESTORIES_3DS_BUILD
 	   || env->tex == nil
 #endif

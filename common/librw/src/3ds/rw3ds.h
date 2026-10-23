@@ -327,6 +327,7 @@ struct EntityRenderStyle {
 	bool untexturedBlackDecal;
 	bool worldBuilding;
 	bool worldSkyline;
+	bool scorched;
 };
 EntityRenderStyle getEntityRenderStyle(void);
 void setEntityRenderStyle(EntityRenderStyle style);
@@ -389,6 +390,8 @@ void defaultUninstanceCB(Geometry *geo, InstanceDataHeader *header);
 void defaultRenderCB(Atomic *atomic, InstanceDataHeader *header);
 int32 lightingCB(Atomic *atomic);
 RGBAf getAtomicAmbientLight(Atomic *atomic);
+// Material colour for unlit paths, darkened by the ambient light when scorched.
+RGBA getEntityMaterialColor(Atomic *atomic, const RGBA &color);
 
 void drawInst_simple(InstanceDataHeader *header, InstanceData *inst, ProfileDrawClass drawClass);
 // Emulate PS2 GS alpha test FB_ONLY case: failed alpha writes to frame- but not to depth buffer
