@@ -910,8 +910,9 @@ CCamera::Process(void)
 	static CameraPreset3DS::OpacityEnvelope presetOpacity3DS;
 	static CameraPreset3DS::VehicleOpacity visibleOpacity3DS;
 	if(!safePresetEligible3DS || m_bJustInitalised){previousSpecialView3DS=false;fadePreset3DS=false;presetOpacity3DS.Reset();visibleOpacity3DS.Reset();}
+	const bool specialView3DS=previousSpecialView3DS || hood3DS || cinema3DS;
 	if(presetTransition3DS.valid && presetKey3DS!=presetTransition3DS.key)
-		fadePreset3DS=fadePreset3DS || previousSpecialView3DS || hood3DS || cinema3DS;
+		fadePreset3DS=fadePreset3DS || specialView3DS;
 	previousSpecialView3DS=hood3DS || cinema3DS;
 	const bool cyclePreset3DS=CPad::GetPad(0)->CycleCameraModeUpJustDown() || CPad::GetPad(0)->CycleCameraModeDownJustDown();
 	const bool topDown3DS=mode3DS==CCam::MODE_TOPDOWN || mode3DS==CCam::MODE_TOP_DOWN_PED || mode3DS==CCam::MODE_GTACLASSIC;
@@ -925,6 +926,13 @@ CCamera::Process(void)
 		presetTransition3DS.displayed=priorPresetPose3DS;
 		presetTransition3DS.displayedAnchor=presetAnchor3DS;presetTransition3DS.tracked=!hood3DS && !cinema3DS;
 	}
+	// PS2 jump-cuts every car view change into/out of bumper or cinematic (CamControl
+	// 0x288798, TakeControl 0x294aa0, RestoreWithJumpCut 0x292d98); only zoom 1-3 ease.
+	const bool snapPreset3DS=safePresetEligible3DS && vehicleView3DS && !exitPreset3DS && specialView3DS &&
+		presetTransition3DS.valid && presetKey3DS!=presetTransition3DS.key;
+	if(snapPreset3DS){presetTransition3DS.Reset();presetDistance3DS.active=false;}
+	// No blend runs from here, so the car's visibility must not fade either.
+	const bool snapOpacity3DS=!presetTransition3DS.valid;
 	CameraPreset3DS::Pose presetPose3DS = {CamSource,CamFront,CamUp,FOV,RwCameraGetNearClipPlane(Scene.camera)};
 	if(topDown3DS && !cinema3DS)CameraPreset3DS::CanonicalTopDown(presetPose3DS);
 	const bool wasPresetActive3DS=presetTransition3DS.active;
@@ -953,7 +961,7 @@ CCamera::Process(void)
 	if(topDown3DS && !cinema3DS){
 		CamSource=presetPose3DS.source;CamFront=presetPose3DS.front;CamUp=presetPose3DS.up;
 	}
-	if(!manualPresetOverride3DS && wasPresetActive3DS && !presetTransition3DS.active && normalMode3DS)
+	if(!manualPresetOverride3DS && !snapPreset3DS && wasPresetActive3DS && !presetTransition3DS.active && normalMode3DS)
 		presetDistance3DS.Begin(priorPresetPose3DS,presetAnchor3DS);
 	if(!safePresetEligible3DS)presetDistance3DS.active=false;
 	if(presetDistance3DS.active && normalMode3DS && !waitingCinemaExit3DS){
@@ -970,7 +978,7 @@ CCamera::Process(void)
 	// Manual handoff owns direction immediately and ManualDistance alone owns
 	// the return to the selected radius. Never let the old preset guard compete.
 	entryDistance3DS.CancelForManual(manualPresetInput3DS,manualPresetOverride3DS);
-	if(!safePresetEligible3DS || m_bJustInitalised || !vehicleView3DS || !normalMode3DS || cinema3DS)
+	if(!safePresetEligible3DS || m_bJustInitalised || !vehicleView3DS || !normalMode3DS || cinema3DS || snapPreset3DS)
 		entryDistance3DS.active=false;
 	else {
 		if(enteringVehicleView3DS || resolvedFollow3DS)entryDistance3DS.Begin(priorPresetPose3DS,presetAnchor3DS);
@@ -1001,6 +1009,7 @@ CCamera::Process(void)
 		const bool nearBody3DS=CameraPreset3DS::NearVehicle(local3DS,box3DS.min,box3DS.max);
 		const float desiredOpacity3DS=hood3DS?envelopeOpacity3DS:
 			(presetTransition3DS.active && fadePreset3DS && nearBody3DS?.4f:1.f);
+		if(snapOpacity3DS)visibleOpacity3DS.value=desiredOpacity3DS;
 		const float vehicleOpacity3DS=visibleOpacity3DS.Update(desiredOpacity3DS,CTimer::GetTimeStep()/50.f);
 		auto &visibility3DS=CameraOcclusion3DS::Preset();
 		if(vehicleOpacity3DS<1.f || (hood3DS && presetTransition3DS.active)){
