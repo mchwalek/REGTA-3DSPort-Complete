@@ -758,6 +758,9 @@ CPed::Attack(void)
 					case ASSOCGRP_CHAINSAW:
 						delayBetweenAnimAndFire = 0.2f;
 						animLoopStart = 0.1f;
+						// FIGHTppunch is only 0.233 s long, so 0.2 left a single ~30 fps frame to fire in before FinishedAttackCB cleared the attack
+						if (ourWeapon->m_AnimToPlay == ASSOCGRP_UNARMED)
+							delayBetweenAnimAndFire = 0.15f;
 						break;
 					default:
 						break;

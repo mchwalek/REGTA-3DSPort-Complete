@@ -22,6 +22,15 @@ class TestRunningPunchNoPause(unittest.TestCase):
         self.assertNotIn("m_fMoveSpeed", body)
         self.assertNotIn("meleeAttackStarted && IsPlayer()", body)
 
+    def test_unarmed_start_anim_fires_before_its_last_frame(self):
+        # FIGHTppunch (ANIM_MELEE_ATTACK_START, unarmed) is 0.2333 s; the anim
+        # finishing clears the attack in UpdateAnim before Attack() runs, so the
+        # fire delay must leave more than one 30 fps frame before the end.
+        source = PEDFIGHT_CPP.read_text()
+        start = source.index("\nCPed::Attack(void)")
+        body = source[start:source.index("\n}\n", start)]
+        self.assertIn("m_AnimToPlay == ASSOCGRP_UNARMED)\n\t\t\t\t\t\t\tdelayBetweenAnimAndFire = 0.15f;", body)
+
 
 if __name__ == "__main__":
     unittest.main()
