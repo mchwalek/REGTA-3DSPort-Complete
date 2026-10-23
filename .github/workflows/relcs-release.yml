@@ -1,0 +1,119 @@
+name: relcs build & release
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: relcs-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  DEVKITPRO: ${{ github.workspace }}/../devkitpro
+  DEVKITARM: ${{ github.workspace }}/../devkitpro/devkitARM
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # devkitARM release 55 / gcc 10.2.0, as pinned by common/devkitarm-r55.mk.
+      # The image's own userland is too old (no g++), so only the toolchain is used.
+      - name: Install devkitARM r55
+        run: |
+          mkdir -p "$DEVKITPRO"
+          docker run --rm devkitpro/devkitarm:20200730 \
+            tar -C /opt/devkitpro --exclude=./pacman -c . | tar -C "$DEVKITPRO" -x
+          echo "$DEVKITARM/bin" >> "$GITHUB_PATH"
+          echo "$DEVKITPRO/tools/bin" >> "$GITHUB_PATH"
+
+      # scripts/verify-layout.sh is skipped: its install-manifest check hashes
+      # user-supplied gamefiles that are never committed, so it can't pass in CI.
+      - name: Tests
+        run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+
+      - name: Build relcs
+        run: scripts/build.sh relcs
+
+      - name: Package CIA
+        if: github.event_name != 'pull_request'
+        run: |
+          tools="$RUNNER_TEMP/tools"
+          mkdir -p "$tools"
+          cd "$tools"
+          curl -fsSLo makerom.zip https://github.com/3DSGuy/Project_CTR/releases/download/makerom-v0.19.0/makerom-v0.19.0-ubuntu_x86_64.zip
+          curl -fsSLo bannertool.zip https://github.com/diasurgical/bannertool/releases/download/1.2.0/bannertool.zip
+          sha256sum -c <<'EOF'
+          287b809dec064e0ad597e3d272c49ecb7eed41693d5ee6fef9d8a8aa24c2497e  makerom.zip
+          69768596f836acb3e3aeaa66e47c6ba560dde813c6dfcd33c8afc25fe29b7524  bannertool.zip
+          EOF
+          unzip -oj makerom.zip makerom
+          unzip -oj bannertool.zip linux-x86_64/bannertool
+          chmod +x makerom bannertool
+          cd "$GITHUB_WORKSPACE"
+          MAKEROM="$tools/makerom" BANNERTOOL="$tools/bannertool" scripts/package-cia.sh relcs
+          mkdir -p "$RUNNER_TEMP/release"
+          cp "packaging/production_cia/output/GTALCS For Nintendo 3DS.cia" "$RUNNER_TEMP/release/relcs.cia"
+          cp "packaging/production_cia/output/GTALCS For Nintendo 3DS.3dsx" "$RUNNER_TEMP/release/relcs.3dsx"
+
+      - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request'
+        with:
+          name: relcs
+          path: ${{ runner.temp }}/release/
+          if-no-files-found: error
+
+  publish:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: relcs
+          path: ${{ runner.temp }}/release
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: relcs-build-${{ github.run_number }}
+        run: |
+          out="$RUNNER_TEMP/release"
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG"
+
+          python3 -m venv "$RUNNER_TEMP/qr"
+          "$RUNNER_TEMP/qr/bin/pip" install -q 'qrcode[pil]==8.0'
+          "$RUNNER_TEMP/qr/bin/python" -c 'import qrcode, sys; qrcode.make(sys.argv[1]).save(sys.argv[2])' \
+            "$base/relcs.cia" "$out/QR-$TAG.png"
+
+          (cd "$out" && sha256sum relcs.cia relcs.3dsx > SHA256SUMS.txt)
+
+          prev=$(git describe --tags --abbrev=0 --match 'relcs-build-*' HEAD 2>/dev/null || true)
+          {
+            echo "<img width=\"500\" height=\"500\" alt=\"QR code for the $TAG CIA (scan with FBI)\" src=\"$base/QR-$TAG.png\" />"
+            echo
+            echo "## Changes"
+            if [ -n "$prev" ]; then
+              git log --no-merges --format='- %s (%h)' "$prev..HEAD"
+            else
+              git log --no-merges --format='- %s (%h)' -20 HEAD
+            fi
+          } > "$out/notes.md"
+
+          gh release create "$TAG" --target "$GITHUB_SHA" --title "reLCS build ${{ github.run_number }}" \
+            --notes-file "$out/notes.md" \
+            "$out/relcs.cia" "$out/relcs.3dsx" "$out/QR-$TAG.png" "$out/SHA256SUMS.txt"
