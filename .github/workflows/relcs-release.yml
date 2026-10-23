@@ -90,8 +90,9 @@ jobs:
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: relcs-build-${{ github.run_number }}
         run: |
+          # UTC timestamp: fixed width, so GitHub's tag-name ordering matches build order.
+          TAG=relcs-$(date -u +%Y%m%d-%H%M%S)
           out="$RUNNER_TEMP/release"
           base="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG"
 
@@ -102,7 +103,7 @@ jobs:
 
           (cd "$out" && sha256sum relcs.cia relcs.3dsx > SHA256SUMS.txt)
 
-          prev=$(git describe --tags --abbrev=0 --match 'relcs-build-*' HEAD 2>/dev/null || true)
+          prev=$(git describe --tags --abbrev=0 --match 'relcs-[0-9]*' HEAD 2>/dev/null || true)
           {
             echo "<img width=\"500\" height=\"500\" alt=\"QR code for the $TAG CIA (scan with FBI)\" src=\"$base/QR-$TAG.png\" />"
             echo

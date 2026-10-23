@@ -506,6 +506,22 @@ getAtomicAmbientLight(Atomic *atomic)
 	return lightData.ambient;
 }
 
+RGBA
+getEntityMaterialColor(Atomic *atomic, const RGBA &color)
+{
+	if(!getEntityRenderStyle().scorched)
+		return color;
+	/* Unlit paths drop the lighting, so apply the scorched lights' ambient-only
+	 * result (WorldReplaceNormalLightsWithScorched) to the paint directly. */
+	RGBAf amb = getAtomicAmbientLight(atomic);
+	clamp(&amb);
+	RGBA c = color;
+	c.red = (uint8)(c.red * amb.red);
+	c.green = (uint8)(c.green * amb.green);
+	c.blue = (uint8)(c.blue * amb.blue);
+	return c;
+}
+
 
 static Shader *ps2SilhouetteShader;
 extern C3D_Tex whitetex;

@@ -681,6 +681,29 @@ had to be re-ported by hand: `Can3DSFreeAim`/`Begin3DSFreeAim`/
 `PlayerPed.cpp` `ProcessPlayerWeapon`. See
 `git log --grep="free-aim entry"` / `--grep="aim pose"`.
 
+## Reference: PS2 camera switch type (jump cut vs transition)
+
+To find out whether PS2 cuts or eases a camera change, read the switch type,
+not the motion. Field map in `CCamera` (inferred, stripped binary):
+`+0x1ccc` `m_iTypeOfSwitch` (1 = INTERPOLATION, 2 = JUMP_CUT),
+`+0x1cc8` `m_iModeToGoTo`, `+0x150` `WhoIsInControlOfTheCamera`
+(2 = OBBE), `+0x15c` `CarZoomIndicator` (5.0 = cinematic), `+0xac`
+`m_bObbeCinematicCarCamOn`. Cam stride `0x2b0`, `Mode` at cam `+0x260`.
+
+- `CamControl` `0x288798` sets switchByJumpCut for ReqMode `TOPDOWN`(1),
+  `MODE_1STPERSON`(16) and `TOP_DOWN_PED`(37), and for `CAM_ON_A_STRING`(18) or
+  `BEHINDBOAT`(22) coming from one of those. It also cuts to `FIXED`(15) from
+  `TOPDOWN`. Every other change calls `StartTransition` `0x2935e0`
+  (400 ms). reLCS's `CamControl` has the same rules.
+- Obbe cinematic: `ProcessObbeCinemaCameraCar` `0x292478` (mode table
+  `0x393b68`) → `TryToStartNewCamMode` `0x294c70` (21-case table
+  `0x3bc130`) → `TakeControl` `0x294aa0` with type 2 and control 2 for every
+  shot. On exit, `RestoreWithJumpCut` `0x292d98` (type 2, mode FOLLOWPED or
+  CAM_ON_A_STRING).
+
+So in the car only zoom 1↔2↔3 eases; bumper and cinematic in or out cut. See
+AGENTS.md landmine #29 for the 3DS layer that used to override this.
+
 ## Case study: disambiguating PS2 camera-mode functions via the dispatch jump table, not plausibility
 
 Investigating reLCS's "camera points at Toni's face from below" bug
@@ -1154,3 +1177,18 @@ is `victim.fear > 100 - attacker.temper` (player temper 50). `PEDSTATS.DAT`
 and every model's ped/stat type in `DEFAULT.IDE` match PS2's compiled tables
 (CPedModelInfo stride 0x44 in `GAME.DTZ`), and most common civilians have
 fear 56-100. Check the data against PS2 before "fixing" AI aggression.
+
+## Case study: scorched wrecks — tracing a `CEntity` bitfield flag to its readers
+
+Wrecks kept their paint on 3DS. PS2 `BlowUpCar` (`0x137ba0`, found from its
+`rand()%6000+4000` and `0.13f` immediates) writes no colour. It only sets
+flags in the 64-bit word at `entity+0x40` (`ld`/`sd`; `m_status` is bits
+36-40, `bRenderScorched` is bit 53, which is mask `0x00200000` in the word
+at `+0x44`). Grep for tests of that bit to find the readers:
+`SetupLighting` (`0x2c9f30`, and siblings `0x2ca060`/`0x2ca158`/`0x2ca250`) calls
+`WorldReplaceNormalLightsWithScorched(0.1f)` (`0x184918`) and sets global
+`gp+0xd78`. The vehicle env-map setup (`0x2e870c`/`0x2e8f48`) then does
+`movn a2,$zero,<that global>`, so wrecks have no reflection. The 3DS bug was
+not in game code. librw's 3DS MatFX and skin paths are unlit and ignored that
+lighting (AGENTS.md landmine #28). When PS2 does a visual effect through RW
+lights, check that the 3DS render path actually reads the lights.

@@ -319,7 +319,7 @@ skinRenderCB(Atomic *atomic, InstanceDataHeader *header)
 	while(n--){
 		mat = inst->material;
 		setMaterialColor(flags, mat->color);
-		C3D_SetTexEnvColor(0, packTevMaterialColor(mat->color));
+		C3D_SetTexEnvColor(0, packTevMaterialColor(getEntityMaterialColor(atomic, mat->color)));
 #if !defined(RE3_3DS_BUILD) && !defined(RESTORIES_3DS_BUILD)
 		/* VC's PC pedestrian atlases can contain unstable reduced mip levels:
 		 * level 0 is clean, while pale blocks begin to shimmer as the sampler
