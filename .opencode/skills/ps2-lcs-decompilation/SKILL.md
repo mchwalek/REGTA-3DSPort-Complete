@@ -1154,3 +1154,18 @@ is `victim.fear > 100 - attacker.temper` (player temper 50). `PEDSTATS.DAT`
 and every model's ped/stat type in `DEFAULT.IDE` match PS2's compiled tables
 (CPedModelInfo stride 0x44 in `GAME.DTZ`), and most common civilians have
 fear 56-100. Check the data against PS2 before "fixing" AI aggression.
+
+## Case study: scorched wrecks — tracing a `CEntity` bitfield flag to its readers
+
+Wrecks kept their paint on 3DS. PS2 `BlowUpCar` (`0x137ba0`, found from its
+`rand()%6000+4000` and `0.13f` immediates) writes no colour. It only sets
+flags in the 64-bit word at `entity+0x40` (`ld`/`sd`; `m_status` is bits
+36-40, `bRenderScorched` is bit 53, which is mask `0x00200000` in the word
+at `+0x44`). Grep for tests of that bit to find the readers:
+`SetupLighting` (`0x2c9f30`, and siblings `0x2ca060`/`0x2ca158`/`0x2ca250`) calls
+`WorldReplaceNormalLightsWithScorched(0.1f)` (`0x184918`) and sets global
+`gp+0xd78`. The vehicle env-map setup (`0x2e870c`/`0x2e8f48`) then does
+`movn a2,$zero,<that global>`, so wrecks have no reflection. The 3DS bug was
+not in game code. librw's 3DS MatFX and skin paths are unlit and ignored that
+lighting (AGENTS.md landmine #28). When PS2 does a visual effect through RW
+lights, check that the 3DS render path actually reads the lights.
