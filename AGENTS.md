@@ -485,6 +485,27 @@ not mistake for a failed transfer.
     PS2-correct: `fear > 100 - attacker temper`, and `PEDSTATS.DAT` and the
     IDE stat types match PS2 exactly. See the `ps2-lcs-decompilation` skill
     ("melee fight-system parity") and `git log --grep="GANG7"`.
+27. **The 3DS camera "comfort" pass in `CCamera::Process` can overwrite a
+    camera's pose after `CCam::Process` runs. It exists in all three trees.**
+    It was added by the 3DS port (PS2 has no such layer). In
+    `stories/src/core/Camera.cpp` (~806-877) it tests the final pose with a
+    LOS ray and a 0.25 m sphere. If that test is blocked, it restores
+    `Cams[ActiveCam].Alpha/Beta` to their values from before `Process`.
+    That reset doesn't reach a camera's own state (the free-aim point
+    `s3DSFreeAimPoint`, the follow cam's `ps2FollowPedVirtFar/Near`). That
+    state keeps moving, and the camera jumps to it once the check stops
+    running. The on-foot follow cam and free aim pull the source onto walls
+    (0-4 mm), so that check failed whenever they touched a wall and the
+    stick seemed to "hit a clamp". reLCS now skips the stick-held check for
+    `MODE_FOLLOWPED`. Because of that, `Process_FollowPed_Rotation` has its
+    own near-plane sphere check (`ClearNearPlaneOfGeometry3DS`, `Cam.cpp`).
+    The 3DS top screen is wider than PS2's 4:3, so a pulled-in source with
+    the 0.9 m `DEFAULT_NEAR` plane still shows the inside of buildings. When
+    a camera mode keeps state across frames, check what the comfort pass
+    does to it before adding the mode. Don't remove the near-plane check
+    just because PS2's follow cam has none. See
+    `git log --grep="camera jump after releasing"` and `--grep="near plane
+    out of walls"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 

@@ -609,6 +609,13 @@ round-by-round derivation history, including the pitch/pivot-offset fix that
 replaced the earlier direct-Alpha-clamp implementation described above (see
 `git log --grep="world-space aim point"`).
 
+**Collision on PS2 never blocks stick rotation.** Both PS2 on-foot cameras
+(free aim `0x280ee8`, follow cam `0x281f50`) only pull the source in along
+the LOS ray (`0x174530` = `CWorld::ProcessLineOfSight`). PS2 has no step
+that holds the pose or rejects rotation. If a reLCS camera stops at walls,
+or jumps after the stick is released, the cause is the 3DS comfort pass in
+`Camera.cpp` (AGENTS.md landmine #27), not missing PS2 logic.
+
 **Pitfall — a disassembly-faithful fix can still introduce a new bug the
 disassembly never warns about.** Porting the pivot offset above (`pedPos +
 (0,0,0.6f) + ped.GetRight()*0.55f`, LOS-probed) introduced a self-collision
