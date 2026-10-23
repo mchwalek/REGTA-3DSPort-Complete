@@ -506,6 +506,23 @@ not mistake for a failed transfer.
     just because PS2's follow cam has none. See
     `git log --grep="camera jump after releasing"` and `--grep="near plane
     out of walls"`.
+28. **The 3DS preset blend in `CCamera::Process` (`#ifdef _3DS` after the
+    comfort pass, `common/3ds/CameraPresetTransition.h`) eases every change of
+    camera view, including ones the native engine jump-cuts. It exists in
+    all three trees.** The blend runs after `CamControl`, so native
+    `JUMP_CUT` switches still glide (0.65/0.9 s), and so do the
+    `EntryDistance` pull-in and the `VehicleOpacity` car fade (2/s). PS2 only
+    eases car zoom 1↔2↔3 (`StartTransition` `0x2935e0`). It jump-cuts into or
+    out of bumper (`MODE_1STPERSON`, `CamControl` `0x288798`) and cinematic
+    (Obbe: `TakeControl` `0x294aa0` with `JUMP_CUT`, `RestoreWithJumpCut`
+    `0x292d98`). Gliding there clipped through the car and Toni. reLCS now
+    skips the blend for those changes (`snapPreset3DS`), and hides or shows
+    the car at once whenever no blend is running (`snapOpacity3DS`). That also
+    covers the `specialCameraRelease3DS` barrier after cinematic exit, which
+    otherwise reset the car to fully visible. III and miami still blend.
+    Before making a new native camera switch blend or cut, check the PS2
+    `CamControl` jump-cut rules and this layer. See
+    `git log --grep="bumper/cinematic"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 

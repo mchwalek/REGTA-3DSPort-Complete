@@ -681,6 +681,29 @@ had to be re-ported by hand: `Can3DSFreeAim`/`Begin3DSFreeAim`/
 `PlayerPed.cpp` `ProcessPlayerWeapon`. See
 `git log --grep="free-aim entry"` / `--grep="aim pose"`.
 
+## Reference: PS2 camera switch type (jump cut vs transition)
+
+To find out whether PS2 cuts or eases a camera change, read the switch type,
+not the motion. Field map in `CCamera` (inferred, stripped binary):
+`+0x1ccc` `m_iTypeOfSwitch` (1 = INTERPOLATION, 2 = JUMP_CUT),
+`+0x1cc8` `m_iModeToGoTo`, `+0x150` `WhoIsInControlOfTheCamera`
+(2 = OBBE), `+0x15c` `CarZoomIndicator` (5.0 = cinematic), `+0xac`
+`m_bObbeCinematicCarCamOn`. Cam stride `0x2b0`, `Mode` at cam `+0x260`.
+
+- `CamControl` `0x288798` sets switchByJumpCut for ReqMode `TOPDOWN`(1),
+  `MODE_1STPERSON`(16) and `TOP_DOWN_PED`(37), and for `CAM_ON_A_STRING`(18) or
+  `BEHINDBOAT`(22) coming from one of those. It also cuts to `FIXED`(15) from
+  `TOPDOWN`. Every other change calls `StartTransition` `0x2935e0`
+  (400 ms). reLCS's `CamControl` has the same rules.
+- Obbe cinematic: `ProcessObbeCinemaCameraCar` `0x292478` (mode table
+  `0x393b68`) → `TryToStartNewCamMode` `0x294c70` (21-case table
+  `0x3bc130`) → `TakeControl` `0x294aa0` with type 2 and control 2 for every
+  shot. On exit, `RestoreWithJumpCut` `0x292d98` (type 2, mode FOLLOWPED or
+  CAM_ON_A_STRING).
+
+So in the car only zoom 1↔2↔3 eases; bumper and cinematic in or out cut. See
+AGENTS.md landmine #28 for the 3DS layer that used to override this.
+
 ## Case study: disambiguating PS2 camera-mode functions via the dispatch jump table, not plausibility
 
 Investigating reLCS's "camera points at Toni's face from below" bug
