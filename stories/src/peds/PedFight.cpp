@@ -758,6 +758,9 @@ CPed::Attack(void)
 					case ASSOCGRP_CHAINSAW:
 						delayBetweenAnimAndFire = 0.2f;
 						animLoopStart = 0.1f;
+						// FIGHTppunch is only 0.233 s long, so 0.2 left a single ~30 fps frame to fire in before FinishedAttackCB cleared the attack
+						if (ourWeapon->m_AnimToPlay == ASSOCGRP_UNARMED)
+							delayBetweenAnimAndFire = 0.15f;
 						break;
 					default:
 						break;
@@ -821,15 +824,6 @@ CPed::Attack(void)
 
 		}
 		return;
-	}
-
-	if (meleeAttackStarted && IsPlayer()) {
-		if (((CPlayerPed*)this)->m_bHaveTargetSelected || ((CPlayerPed*)this)->m_fMoveSpeed < 0.5f) {
-			weaponAnimAssoc->SetRun();
-		} else {
-			if (weaponAnimAssoc->currentTime > animLoopStart && weaponAnimAssoc->currentTime - weaponAnimAssoc->timeStep <= animLoopStart)
-				weaponAnimAssoc->flags &= ~ASSOC_RUNNING;
-		}
 	}
 
 	float animStart = animLoopStart * 0.4f;
