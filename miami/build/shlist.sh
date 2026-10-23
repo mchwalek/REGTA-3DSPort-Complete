@@ -9,14 +9,14 @@ vsh_bin=${vsh_obj%.shbin.o}.shbin
 vsh_hdr=${vsh_obj%.shbin.o}_shbin.h
 shaders_src=$(for sh in $(cat $shlist); do echo $(dirname $shlist)/$sh; done)
 shaders_hdr=$(for sh in $(cat $shlist); do echo $(dirname $shlist)/$(dirname $sh)/header.v.pica; done)
-shaders_tmp=$(for sh in $(cat $shlist); do echo $(dirname $vsh_bin)/$sh; done)
+shaders_tmp=$(for sh in $(cat $shlist); do echo $(dirname $vsh_bin)/$name/$sh; done)
 
 echo compiling shader \"$name\"
 
 echo preprocessing
 for sh in $(< $shlist)
 do
-    tmp=$(dirname $vsh_bin)/$sh
+    tmp=$(dirname $vsh_bin)/$name/$sh
     mkdir -p $(dirname $tmp)
     cat $(dirname $shlist)/$(dirname $sh)/header.v.pica \
 	$(dirname $shlist)/$sh > $tmp
