@@ -538,6 +538,21 @@ not mistake for a failed transfer.
     Before making a new native camera switch blend or cut, check the PS2
     `CamControl` jump-cut rules and this layer. See
     `git log --grep="bumper/cinematic"`.
+30. **A single-frame anim gate (`currentTime > t && currentTime - timeStep
+    <= t`) can't fire if `t` is too close to the anim's end. This is a
+    stories fix, and the gate exists in all three trees.** `CWorld::Process`
+    runs `UpdateAnim` before `ProcessControl`. `UpdateTime` clamps at
+    `totalLength` and calls the finish callback right there. For the unarmed
+    running punch (`ANIM_MELEE_ATTACK_START` = `FIGHTppunch`, 0.233 s in
+    `ped.ifp`), `FinishedAttackCB` → `ClearAttack` then leaves `PED_ATTACK`
+    before `CPed::Attack` checks its 0.2 s fire frame. Only a frame landing in
+    the last ~33 ms could hit, about one frame at the 3DS's ~30 fps, so most
+    running punches played in full and whiffed. The fix fires unarmed at
+    0.15 s. When you add or tune a fire/strike time, measure the anim's real
+    length (`AnimManager.cpp` `LoadAnimFile` format; KRTS/KRT0/KR00 keys hold
+    absolute times) and leave at least two frames of margin. PS2 anims are
+    compiled into `GAME.DTZ`, not shipped as an IFP. See
+    `git log --grep="running punch"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 

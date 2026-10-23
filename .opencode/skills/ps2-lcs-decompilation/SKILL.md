@@ -1178,6 +1178,22 @@ and every model's ped/stat type in `DEFAULT.IDE` match PS2's compiled tables
 (CPedModelInfo stride 0x44 in `GAME.DTZ`), and most common civilians have
 fear 56-100. Check the data against PS2 before "fixing" AI aggression.
 
+**Running punch whiffs: control flow matched PS2, the timing didn't.** A
+punch pressed at `m_fMoveSpeed >= 1.0` goes through `SetAttack(nil)` →
+`ANIM_MELEE_ATTACK_START` → `CPed::Attack` → `CWeapon::FireMelee`. This
+split matches PS2 (`ProcessPlayerWeapon` `0x34b100`, `SetAttack` `0x1babe0`,
+`FireMelee` `0x2a3360`). There were two bugs. First, reLCS had a VC-only
+block that froze the start anim at 0.1 while the stick was held. PS2
+`Attack` `0x1bc498` never reads `m_fMoveSpeed`, so the block was removed.
+Second, `FIGHTppunch` is only 0.233 s long, and the anim-finish callback
+cleared the attack before the 0.2 s fire frame could run (AGENTS.md
+landmine #30). Lesson: once every function matches PS2 and a bug still
+reproduces, measure the timing. Check anim lengths against single-frame
+gates at the real frame rate. Also confirm the tested build contains the
+fix (`git merge-base --is-ancestor <fix> <tested-branch>`) before you dig
+further: one "still whiffs" report here came from a build without the
+fix. See `git log --grep="running punch"`.
+
 ## Case study: scorched wrecks — tracing a `CEntity` bitfield flag to its readers
 
 Wrecks kept their paint on 3DS. PS2 `BlowUpCar` (`0x137ba0`, found from its
