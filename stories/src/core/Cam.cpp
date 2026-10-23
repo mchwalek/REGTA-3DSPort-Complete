@@ -4901,6 +4901,29 @@ PS2FollowPedSpeedStep(float target, float prevSpeed, float dt)
 	return speed;
 }
 
+#ifdef _3DS
+// The 3DS top screen is wider than PS2's 4:3, so a source pulled in to a wall still lets the
+// near plane's edges cut into it; shrink the near clip (or step in) like the free-aim camera does.
+static void
+ClearNearPlaneOfGeometry3DS(CVector &Source, const CVector &Front, const CVector &TargetCoors, float FOV)
+{
+	float ViewPlaneWidth = Tan(DEGTORAD(FOV) / 2.0f) * CDraw::CalculateAspectRatio() * fTweakFOV;
+	float Near = RwCameraGetNearClipPlane(Scene.camera);
+	CEntity *entity = CWorld::TestSphereAgainstWorld(Source + Front*Near, ViewPlaneWidth*Near, nil, true, true, false, true, false, false);
+	for(int i = 0; entity && i <= 5; i++){
+		CVector CamToCol = gaTempSphereColPoints[0].point - Source;
+		float frontDist = DotProduct(CamToCol, Front);
+		float dist = Max(Min(Near, (CamToCol - Front*frontDist).Magnitude() / ViewPlaneWidth), 0.1f);
+		if(dist < Near)
+			RwCameraSetNearClipPlane(Scene.camera, dist);
+		if(dist == 0.1f)
+			Source += (TargetCoors - Source)*0.3f;
+		Near = RwCameraGetNearClipPlane(Scene.camera);
+		entity = CWorld::TestSphereAgainstWorld(Source + Front*Near, ViewPlaneWidth*Near, nil, true, true, false, true, false, false);
+	}
+}
+#endif
+
 // Auto-rotate-behind-ped step, proportional to the remaining angle:
 // min(1, 0.1*dt*|pedSpeed|) * delta, capped at +-0.02*dt, off at >=170deg.
 // While the force-behind latch is held: speed-independent, cap doubled, no cutoff.
@@ -5131,6 +5154,7 @@ CCam::Process_FollowPed_Rotation(const CVector &CameraTarget, float TargetOrient
 		}
 	}
 	CWorld::pIgnoreEntity = nil;
+	ClearNearPlaneOfGeometry3DS(Source, Front, TargetCoors, FOV);
 
 	// Step 11: tail.
 	float finalDist = (TargetCoors - Source).Magnitude();

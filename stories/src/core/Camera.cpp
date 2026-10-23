@@ -820,7 +820,10 @@ CCamera::Process(void)
 		const bool interactive3DS = CameraComfort3DS::SmoothInteraction(manual3DS,action3DS,m_uiTransitionState!=0);
 		// Normal follow is exactly the engine pose; manual orbit has no lag filter.
 		smoothSource3DS=CamSource;smoothTarget3DS=focus3DS;
-		bool adjusted3DS = (manual3DS && !presetDistance3DS.active) ? comfortMotion3DS.Direct(anchor3DS,CamSource,focus3DS,smoothSource3DS,smoothTarget3DS) :
+		// PS2's on-foot/free-aim cameras never block stick rotation; holding the pose lets the
+		// free-aim point and follow-cam pitch run ahead, then the camera jumps on release.
+		const bool onFootManual3DS = manual3DS && Cams[ActiveCam].Mode == CCam::MODE_FOLLOWPED;
+		bool adjusted3DS = onFootManual3DS ? false : (manual3DS && !presetDistance3DS.active) ? comfortMotion3DS.Direct(anchor3DS,CamSource,focus3DS,smoothSource3DS,smoothTarget3DS) :
 			(interactive3DS && comfortMotion3DS.Candidate(anchor3DS,CamSource,focus3DS,CTimer::GetTimeStep()/50.f,
 				false,smoothSource3DS,smoothTarget3DS));
 		const CVector previousVisibleSource3DS = GetPosition();
