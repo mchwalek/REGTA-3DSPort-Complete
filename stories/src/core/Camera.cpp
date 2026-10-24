@@ -28,6 +28,7 @@ extern bool gLCSUpsideDownCheat;
 #include "Text.h"
 #include "Hud.h"
 #include "DMAudio.h"
+#include "sampman.h"
 #include "FileMgr.h"
 #include "Frontend.h"
 #include "SceneEdit.h"
@@ -4352,7 +4353,11 @@ CCamera::ProcessMusicFade(void)
 			}
 		}
 		DMAudio.SetEffectsFadeVol(127 - m_fFLOATingFadeMusic/255.0f * 127);
-		DMAudio.SetMusicFadeVol(127 - m_fFLOATingFadeMusic/255.0f * 127);
+		uint8 musicVol = 127 - m_fFLOATingFadeMusic/255.0f * 127;
+		// A fade-out must not bring back music already faded by something else (e.g. drowning in a car)
+		if(m_iMusicFadingDirection == FADE_OUT)
+			musicVol = Min(musicVol, SampleManager.GetMusicFadeVolume());
+		DMAudio.SetMusicFadeVol(musicVol);
 	}
 }
 
