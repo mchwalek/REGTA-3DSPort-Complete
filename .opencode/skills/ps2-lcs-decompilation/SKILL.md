@@ -1208,3 +1208,41 @@ at `+0x44`). Grep for tests of that bit to find the readers:
 not in game code. librw's 3DS MatFX and skin paths are unlit and ignored that
 lighting (AGENTS.md landmine #28). When PS2 does a visual effect through RW
 lights, check that the 3DS render path actually reads the lights.
+
+## Case study: island load screens on the water — same data, different lookup
+
+In "Caught in the Act" (GXT `SALS3`, a boat mission down the Portland/Staunton
+channel) the Portland and Staunton loading screens kept showing. PS2 has the
+same mechanism: `CStreaming::LoadBigBuildingsWhenNeeded` (`0x18b760`, only
+caller `Update` `0x18ae60`) does the blocking big-building swap and
+`LoadingIslandScreen` (`0x1f58b8`, splash table `0x3927b8` =
+`{0,"splash1","splash2","splash3","loadsc0"}`) whenever
+`CTheZones::m_CurrLevel` differs from `CGame::currLevel` (`gp+0x2d64`). So the
+question was why `m_CurrLevel` flips on 3DS and not on PS2.
+
+The zone data is not the cause. PS2's map zones are compiled into
+`GAME.DTZ` (0x38-byte records starting at `THEMAP`, decompressed offset
+`0x324a50`: name[8], min xyz `+8`, max xyz `+0x14`, type `+0x20`, level
+`+0x24`). All 103 match `DATA/GTA3.ZON`, in the same order. The difference is
+`GetLevelFromPosition` (`0x2d3b20`). reLCS returned the first containing zone.
+PS2 does this:
+
+```
+level = GENERIC;
+for each containing map zone i >= 1:
+    if(zone.level == CGame::currLevel) return it;      // stay on the current island
+    if(level == GENERIC || currLevel == 4 || zone.level != 4) level = zone.level;
+return level;
+```
+
+Island zones overlap a lot in the channel, so "stay if any containing zone
+is the current island" is hysteresis. reLCS switched islands up to 8 times
+along the route; the PS2 rule switches at most once. Read the delay slots
+carefully here: the `movz` that makes "first match wins" is in the delay slot
+of `bne currLevel,4`, so it always runs. Skipping that delay slot gives a
+wrong rule where level 4 is ignored. `IPL` buildings also get their level
+from this function (PS2 stores it at entity `+0x5a` in `GAME.DTZ`). Checked
+against PS2: 49 buildings got the right island after the fix and none got
+worse. Fix: `stories/src/core/Zones.cpp`, test
+`scripts/tests/test_zone_level_from_position.py`; see
+`git log --grep="island load screens"`.
