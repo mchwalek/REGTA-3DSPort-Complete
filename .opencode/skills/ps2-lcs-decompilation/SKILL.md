@@ -115,6 +115,20 @@ body: `CollectParameters`/`StoreParameters` counts, `GetPointerToScriptVariable`
 calls, `ReadTextLabelFromScript` = 8 bytes each) matches what
 `ScriptDebug.cpp` claims before concluding the anchor or decoder is broken.
 
+**Opcode numbering:** `load_opcode_table()` drops the `#ifdef
+SUPPORT_GINPUT_SCRIPT` arm (`COMMAND_HAS_PAD_IN_HANDS`) of `ScriptDebug.cpp`.
+Before that fix every opcode from ~297 on was off by one (it reported
+`ADD_ONE_OFF_SOUND` as 0x192; the real value is 0x191). If another `#ifdef`
+pair is added to the table, sanity-check a known opcode: `SCRIPT_NAME` must be
+0x3a9.
+
+**`COMMAND_CALL`/`CALLNOT` (0x5ae, `Script8.cpp`) aren't decoded by the arg
+table.** Layout: opcode, 3 raw bytes (`nInputParams`, `nOutputParams`,
+`localsOffset`), one self-describing target param, then `nInputParams`
+params. `disasm_linear` desyncs at the first CALL unless you special-case it.
+To find a named script, search for its 8-byte name: the `SCRIPT_NAME`
+instruction starts 2 bytes before it.
+
 #### `main.scm` binary layout (verified against the real file)
 
 - Raw file starts with an 8-byte header: `uint32 MainScriptSize`, `uint32
@@ -1208,3 +1222,42 @@ at `+0x44`). Grep for tests of that bit to find the readers:
 not in game code. librw's 3DS MatFX and skin paths are unlit and ignored that
 lighting (AGENTS.md landmine #28). When PS2 does a visual effect through RW
 lights, check that the 3DS render path actually reads the lights.
+
+## Case study: script-sound ids — VC's enum reused for LCS's script numbers
+
+Report: entering any Ammu-Nation played a gunshot. Each shop script
+(`INDAMMU`, `COMAMMU`, `SUBAMMU`) plays `ADD_ONE_OFF_SOUND x,y,z,52` (or 53,
+alternating per visit) at the door. reLCS read those ids through VC's
+`eScriptSounds`, where 52/53 are `BULLET_HIT_GROUND_1/2`. On PS2 they are the
+shop greeting samples `SFX_AMMU_AA/AB`.
+
+- PS2 `ADD_ONE_OFF_SOUND` (~`0x20a25c`) sends a few ids to
+  `PlayFrontEndSound` (1, 7-10, 13, 14, 16, 0x46, 0x47). Every other id becomes
+  a `cAudioScriptObject` → `CreateOneShotScriptObject` (`0x2a2120`).
+- Audio path: `ProcessEntity` `0x19eb40` (switch on entity type; 4 =
+  `ProcessScriptObject` `0x1b1d60`). That calls
+  `ProcessOneShotScriptObject` `0x1b1de8` or `ProcessLoopingScriptObject`
+  `0x1b2a90`. `ProcessFrontEnd` is `0x1b32f8`. `cAudioManager` lives at
+  `0x42d2a0` and `PlayOneShot` at `0x238458`. `cDMAudio::PlayOneShot` is
+  `0x2a1f40` (130 callers; scan its `jal`s to find who emits an eSound id).
+- **PS2 sample indices equal reLCS `AudioSamples.h` values exactly.**
+  Check them by compiling the enum (`printf("%d", SFX_X)`). Don't count
+  lines: the awk line-count method was wrong here.
+- LCS one-shot layout: ids 0-51 match VC. 52-54 are AMMU_AA/AB/AC, 55-61
+  C_OR_D_UNK, 62/63 DOCK_BA/BB, 64/65 COLT45, 66 PIZZA_THROW, 67 R_OR_S_UNK1,
+  68/69 GATE_START/STOP_CLU and 70/71 frontend. VC's 52-67 tail
+  (bullet-hit-ground … gunshell drop) moves to 72-87. Looping ids still
+  match VC.
+- PS2 `eSound` has 208 entries; reLCS had 204. 204 is the ped crunch
+  (chainsaw contact, player dying in a car), 205 the frontend `SFX_BEEP`
+  (script id 71), 206 the car-jacked victim whoosh. 203 and 207 are dead. The
+  one-shot priority table is 208 bytes at `0x392830`.
+- C++ emitters use the enum names, so renumbering the enum fixed them all at
+  once. Only literal ids from `main.scm` were wrong. To audit, scan
+  `main.scm` for opcodes 0x191/0x192 and list their literal ids.
+
+Lesson: an enum inherited from VC that a data file indexes by number (script
+ids, `main.scm` literals) can be wrong past some point even when every C++
+use is fine. Get the PS2 handler's case list before trusting the enum. See
+`docs/superpowers/specs/2026-10-24-lcs-script-sound-ids-design.md` and
+`git log --grep="script-sound"`.
