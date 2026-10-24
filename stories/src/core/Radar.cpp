@@ -185,10 +185,9 @@ static_assert(RADAR_TILE_SIZE == (RADAR_SIZE_Y / RADAR_NUM_TILES), "CRadar: not 
 #define RADAR_MIN_SPEED (0.3f)
 #define RADAR_MAX_SPEED (0.9f)
 
-CRGBA CRadar::ArrowBlipColour1;
-CRGBA CRadar::ArrowBlipColour2;
 int16 CRadar::MapLegendCounter;
 int16 CRadar::MapLegendList[NUM_MAP_LEGENDS];
+CRGBA CRadar::MapLegendColours[NUM_MAP_LEGENDS];
 #ifdef MAP_ENHANCEMENTS
 int CRadar::TargetMarkerId = -1;
 CVector CRadar::TargetMarkerPos;
@@ -985,17 +984,8 @@ void CRadar::DrawRadarSprite(uint16 sprite, float x, float y, uint8 alpha)
 		sizeX = sizeY = 9.0f;
 	RadarSprites[sprite]->Draw(CRect(x - sizeX, y - sizeY, x + sizeX, y + sizeY), CRGBA(255, 255, 255, alpha));
 
-	if (FrontEndMenuManager.m_bMenuMapActive) {
-		bool alreadyThere = false;
-		for (int i = 0; i < NUM_MAP_LEGENDS; i++) {
-			if (MapLegendList[i] == sprite)
-				alreadyThere = true;
-		}
-		if (!alreadyThere) {
-			MapLegendList[MapLegendCounter] = sprite;
-			MapLegendCounter++;
-		}
-	}
+	if (FrontEndMenuManager.m_bMenuMapActive)
+		AddMapLegend(sprite, CRGBA(255, 255, 255, 255));
 }
 
 void CRadar::DrawRotatingRadarSprite(CSprite2d* sprite, float x, float y, float angle, int32 alpha)
@@ -1664,8 +1654,6 @@ CRadar::InitFrontEndMap()
 		MapLegendList[i] = RADAR_SPRITE_NONE;
 	}
 	MapLegendCounter = 0;
-	ArrowBlipColour1 = CRGBA(0, 0, 0, 0);
-	ArrowBlipColour2 = CRGBA(0, 0, 0, 0);
 }
 
 void
@@ -1710,7 +1698,7 @@ CRadar::DrawYouAreHereSprite(float x, float y)
 		CFont::SetDropShadowPosition(0);
 		CFont::DrawFonts();
 	}
-	MapLegendList[MapLegendCounter++] = RADAR_SPRITE_MAP_HERE;
+	AddMapLegend(RADAR_SPRITE_MAP_HERE, CRGBA(255, 255, 255, 255));
 }
 
 #ifdef MAP_ENHANCEMENTS
@@ -1801,18 +1789,8 @@ CRadar::DrawEntityBlip(int32 blipId)
 						traceSize = Max(traceSize, 6U);
 					ShowRadarTraceWithHeight(out.x, out.y, traceSize, (uint8)(color >> 24), (uint8)(color >> 16), (uint8)(color >> 8), 255, mode);
 
-					if (FrontEndMenuManager.m_bMenuMapActive) {
-						bool alreadyThere = false;
-						for (int i = 0; i < NUM_MAP_LEGENDS; i++) {
-							if (MapLegendList[i] == -2)
-								alreadyThere = true;
-						}
-						if (!alreadyThere) {
-							MapLegendList[MapLegendCounter] = -2;
-							MapLegendCounter++;
-							ArrowBlipColour2 = CRGBA((uint8)(color >> 24), (uint8)(color >> 16), (uint8)(color >> 8), 255);
-						}
-					}
+					if (FrontEndMenuManager.m_bMenuMapActive)
+						AddMapLegend(RADAR_SPRITE_ENTITY_BLIP, CRGBA((uint8)(color >> 24), (uint8)(color >> 16), (uint8)(color >> 8), 255));
 				}
 			}
 		}
@@ -1855,37 +1833,52 @@ CRadar::DrawCoordBlip(int32 blipId)
 						traceSize = Max(traceSize, 6U);
 					ShowRadarTraceWithHeight(out.x, out.y, traceSize, (uint8)(color >> 24), (uint8)(color >> 16), (uint8)(color >> 8), 255, mode);
 
-					if (FrontEndMenuManager.m_bMenuMapActive) {
-						bool alreadyThere = false;
-						for (int i = 0; i < NUM_MAP_LEGENDS; i++) {
-							if (MapLegendList[i] == -1)
-								alreadyThere = true;
-						}
-						if (!alreadyThere) {
-							MapLegendList[MapLegendCounter] = -1;
-							MapLegendCounter++;
-							ArrowBlipColour1 = CRGBA((uint8)(color >> 24), (uint8)(color >> 16), (uint8)(color >> 8), 255);
-						}
-					}
+					if (FrontEndMenuManager.m_bMenuMapActive)
+						AddMapLegend(RADAR_SPRITE_COORD_BLIP, CRGBA((uint8)(color >> 24), (uint8)(color >> 16), (uint8)(color >> 8), 255));
 				}
 			}
 		}
 	}
 }
 
+// PS2 keeps one legend line per (sprite, colour), so differently coloured blips each get a label
 void
-CRadar::DrawLegend(int32 x, int32 y, int32 sprite)
+CRadar::AddMapLegend(int16 sprite, const CRGBA &colour)
+{
+	for (int i = 0; i < MapLegendCounter; i++)
+		if (MapLegendList[i] == sprite && MapLegendColours[i].r == colour.r && MapLegendColours[i].g == colour.g && MapLegendColours[i].b == colour.b)
+			return;
+	if (MapLegendCounter >= NUM_MAP_LEGENDS)
+		return;
+	MapLegendList[MapLegendCounter] = sprite;
+	MapLegendColours[MapLegendCounter] = colour;
+	MapLegendCounter++;
+}
+
+// PS2 DrawLegend (SLES_541.35 0x116760) labels blips by their GetRadarTraceColour colour, bright or dim
+const char *
+CRadar::GetBlipLegendKey(int32 sprite, const CRGBA &colour)
+{
+#define LEGEND_RGB_IS(R, G, B) (colour.r == (R) && colour.g == (G) && colour.b == (B))
+	if (sprite == RADAR_SPRITE_ENTITY_BLIP) {
+		if (LEGEND_RGB_IS(255, 72, 77) || LEGEND_RGB_IS(127, 0, 0))
+			return "LG_51"; // Threat
+		if (LEGEND_RGB_IS(95, 160, 106) || LEGEND_RGB_IS(0, 127, 0))
+			return "LG_53"; // Pick up
+		return "LG_52"; // Friend
+	}
+	if (LEGEND_RGB_IS(72, 77, 255) || LEGEND_RGB_IS(0, 0, 127))
+		return "LG_52"; // Friend
+	return "LG_35"; // Destination
+#undef LEGEND_RGB_IS
+}
+
+void
+CRadar::DrawLegend(int32 x, int32 y, int32 sprite, const CRGBA &color)
 {
 	if (sprite < 0) {
 		static uint32 lastChange = 0;
 		static int8 blipMode = 0;
-
-		CRGBA color;
-		if (sprite == -1) {
-			color = ArrowBlipColour1;
-		} else {
-			color = ArrowBlipColour2;
-		}
 
 		if (CTimer::GetTimeInMillisecondsPauseMode() - lastChange > 600) {
 			lastChange = CTimer::GetTimeInMillisecondsPauseMode();
@@ -1917,10 +1910,8 @@ CRadar::DrawLegend(int32 x, int32 y, int32 sprite)
 	wchar *text;
 	switch ( sprite ) {
 		case RADAR_SPRITE_ENTITY_BLIP:
-			text = TheText.Get("LG_38");
-		break;
 		case RADAR_SPRITE_COORD_BLIP:
-			text = TheText.Get("LG_35");
+			text = TheText.Get(GetBlipLegendKey(sprite, color));
 		break;
 		case RADAR_SPRITE_MAP_HERE:
 			text = TheText.Get("LG_01");
@@ -2076,8 +2067,7 @@ CRadar::DrawLegend(int32 x, int32 y, int32 sprite)
 			text = TheText.Get("LG_34");
 		break;*/
 		default:
-			text = TheText.Get("LG_34"); // tmp hack
-		break;
+			return; // PS2 prints no label for sprites without a legend key
 	}
 	CFont::PrintString(SCREEN_SCALE_X(20.f) + x, SCREEN_SCALE_Y(3.0f) + y, text);
 }

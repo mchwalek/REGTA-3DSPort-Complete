@@ -306,9 +306,8 @@ public:
 	static CSprite2d *RadarSprites[RADAR_SPRITE_COUNT];
 	static float cachedCos;
 	static float cachedSin;
-	static CRGBA ArrowBlipColour1;
-	static CRGBA ArrowBlipColour2;
 	static int16 MapLegendList[NUM_MAP_LEGENDS];
+	static CRGBA MapLegendColours[NUM_MAP_LEGENDS];
 	static int16 MapLegendCounter;
 
 #ifdef MAP_ENHANCEMENTS
@@ -365,5 +364,7 @@ public:
 	static void CalculateCachedSinCos();
 	static void DrawEntityBlip(int32 blipId);
 	static void DrawCoordBlip(int32 blipId);
-	static void DrawLegend(int32, int32, int32);
+	static void AddMapLegend(int16 sprite, const CRGBA &colour);
+	static const char *GetBlipLegendKey(int32 sprite, const CRGBA &colour);
+	static void DrawLegend(int32, int32, int32, const CRGBA &colour);
 };
