@@ -142,6 +142,20 @@ class TestScriptSoundIds(unittest.TestCase):
         for token in ('SOUND_PED_CRUNCH', 'bIsDrowning', 'Say(SOUND_PED_DAMAGE)'):
             self.assertIn(token, body)
 
+    def test_carjacked_whoosh_case(self):
+        source = (ROOT / 'stories/src/audio/AudioLogic.cpp').read_text()
+        body = function(source, 'cAudioManager::ProcessPedOneShots')
+        self.assertIn('case SOUND_PED_CARJACKED_WHOOSH', body)
+        self.assertIn('SFX_GOLF_CLUB_SWING', body)
+
+    def test_dragged_from_car_sounds(self):
+        source = (ROOT / 'stories/src/peds/PedAI.cpp').read_text()
+        body = function(source, 'CPed::BeingDraggedFromCar')
+        for token in ('ANIM_STD_QUICKJACKED', 'SOUND_PED_CARJACKED_WHOOSH', 'SOUND_186', 'SOUND_187',
+                      'SOUND_PED_DEFEND', 'SOUND_STEP_START', 'SOUND_STEP_END',
+                      '- m_pVehicleAnim->timeStep <='):
+            self.assertIn(token, body)
+
 
 if __name__ == '__main__':
     unittest.main()

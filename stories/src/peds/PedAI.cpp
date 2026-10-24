@@ -3917,6 +3917,37 @@ CPed::BeingDraggedFromCar(void)
 		LineUpPedWithCar(LINE_UP_TO_CAR_2);
 	}
 
+	// PS2 0x312d60: victim anim sounds, fired once as currentTime crosses the key time
+	float soundTime = -1.0f;
+	int16 jackSound = SOUND_NO_SOUND;
+	switch (m_pVehicleAnim->animId) {
+	case ANIM_STD_JACKEDCAR_RHS:
+		soundTime = 0.6f;
+		jackSound = SOUND_186;
+		break;
+	case ANIM_STD_JACKEDCAR_LO_RHS:
+	case ANIM_STD_JACKEDCAR_LO_LHS:
+		soundTime = 1.2f;
+		jackSound = SOUND_187;
+		break;
+	case ANIM_STD_JACKEDCAR_LHS:
+		soundTime = 1.8f;
+		jackSound = SOUND_187;
+		break;
+	case ANIM_STD_QUICKJACKED:
+		soundTime = 1.6f;
+		jackSound = SOUND_PED_CARJACKED_WHOOSH;
+		break;
+	}
+	if (soundTime >= 0.0f && m_pVehicleAnim->currentTime > soundTime && m_pVehicleAnim->currentTime - m_pVehicleAnim->timeStep <= soundTime) {
+		DMAudio.PlayOneShot(m_audioEntityId, jackSound, 3.0f);
+		if (m_pVehicleAnim->animId == ANIM_STD_QUICKJACKED) {
+			DMAudio.PlayOneShot(m_audioEntityId, SOUND_STEP_START, 1.0f);
+			DMAudio.PlayOneShot(m_audioEntityId, SOUND_STEP_END, 1.0f);
+			Say(SOUND_PED_DEFEND);
+		}
+	}
+
 	static float mult = 5.f;
 	if (m_objective == OBJECTIVE_LEAVE_CAR_AND_DIE) {
 		if (m_pMyVehicle) {

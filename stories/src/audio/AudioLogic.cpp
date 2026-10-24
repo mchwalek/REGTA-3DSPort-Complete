@@ -4519,6 +4519,22 @@ cAudioManager::ProcessPedOneShots(cPedParams &params)
 			SET_SOUND_REFLECTION(TRUE);
 			break;
 		}
+		case SOUND_PED_CARJACKED_WHOOSH:
+			m_sQueueSample.m_nSampleIndex = SFX_GOLF_CLUB_SWING;
+			m_sQueueSample.m_nBankIndex = SFX_BANK_0;
+			m_sQueueSample.m_nCounter = 0;
+			m_sQueueSample.m_nFrequency = SampleManager.GetSampleBaseFrequency(SFX_GOLF_CLUB_SWING);
+			m_sQueueSample.m_nPriority = 0;
+			m_sQueueSample.m_fSpeedMultiplier = 0.0f;
+			m_sQueueSample.m_MaxDistance = 100;
+			maxDist = SQR(100);
+			m_sQueueSample.m_nLoopCount = 1;
+			RESET_LOOP_OFFSETS
+			Vol = MAX_VOLUME;
+			SET_EMITTING_VOLUME(Vol);
+			m_sQueueSample.m_bIs2D = FALSE;
+			m_sQueueSample.m_bStatic = TRUE;
+			break;
 		case SOUND_FALL_LAND:
 		case SOUND_FALL_COLLAPSE:
 			if (ped->bIsInTheAir)
