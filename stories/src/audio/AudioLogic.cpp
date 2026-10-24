@@ -9434,6 +9434,9 @@ cAudioManager::ProcessFrontEnd()
 		case SOUND_FRONTEND_AUDIO_TEST:
 			m_sQueueSample.m_nSampleIndex = m_anRandomTable[0] % 3 + SFX_FE_NOISE_BURST_1;
 			break;
+		case SOUND_FRONTEND_BEEP:
+			m_sQueueSample.m_nSampleIndex = SFX_BEEP;
+			break;
 		default:
 			continue;
 		}

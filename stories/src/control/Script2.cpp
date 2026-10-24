@@ -761,11 +761,11 @@ int8 CRunningScript::ProcessCommands300To399(int32 command)
 		case SCRIPT_SOUND_IMRAN_ARM_BOMB:
 			DMAudio.PlayFrontEndSound(SOUND_AMMUNATION_IMRAN_ARM_BOMB, 0);
 			return 0;
-		case 0x46: // TODO
-			DMAudio.PlayFrontEndSound(0xC4, 0);
+		case SCRIPT_SOUND_FRONTEND_ENTER:
+			DMAudio.PlayFrontEndSound(SOUND_FRONTEND_ENTER_OR_ADJUST, 0);
 			return 0;
-		case 0x47: // TODO
-			DMAudio.PlayFrontEndSound(0xCD, 0);
+		case SCRIPT_SOUND_FRONTEND_BEEP:
+			DMAudio.PlayFrontEndSound(SOUND_FRONTEND_BEEP, 0);
 			return 0;
 		default:
 			break;
