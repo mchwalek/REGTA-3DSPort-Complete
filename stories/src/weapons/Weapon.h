@@ -21,11 +21,13 @@ public:
 	int32 m_nAmmoTotal;
 	uint32 m_nTimer;
 	bool m_bAddRotOffset;
+	int8 m_nChainsawCrunchTimer;
 	
 	static bool bPhotographHasBeenTaken;
 	
 	CWeapon() {
 		m_bAddRotOffset = false;
+		m_nChainsawCrunchTimer = 0;
 	}
 	CWeapon(eWeaponType type, int32 ammo);
 	

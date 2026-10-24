@@ -52,6 +52,12 @@ def load_opcode_table(scriptdebug_cpp_path):
         names.append(n)
         a = [x.strip() for x in (i + ',' + o).split(',') if x.strip()]
         args.append(a)
+    # The regex sees both arms of `#ifdef SUPPORT_GINPUT_SCRIPT` (undefined in
+    # this port), which would shift every later opcode up by one.
+    if 'COMMAND_HAS_PAD_IN_HANDS' in names:
+        k = names.index('COMMAND_HAS_PAD_IN_HANDS')
+        del names[k]
+        del args[k]
     return names, args
 
 
