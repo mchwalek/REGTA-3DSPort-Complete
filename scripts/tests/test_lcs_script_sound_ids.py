@@ -120,6 +120,7 @@ class TestScriptSoundIds(unittest.TestCase):
         self.assertIn('SFX_PED_CRUNCH_1', body)
 
     def test_chainsaw_crunch_timer_in_padding(self):
+        # VALIDATE_SIZE(CWeapon, 0x18) is a no-op unless CHECK_STRUCT_SIZES, so pin the size on a host mirror.
         header = (ROOT / 'stories/src/weapons/Weapon.h').read_text()
         self.assertRegex(header, r'bool m_bAddRotOffset;\s*\n\s*int8 m_nChainsawCrunchTimer;')
         mirror = ('#include <cstdint>\n'
@@ -155,6 +156,19 @@ class TestScriptSoundIds(unittest.TestCase):
                       'SOUND_PED_DEFEND', 'SOUND_STEP_START', 'SOUND_STEP_END',
                       '- m_pVehicleAnim->timeStep <='):
             self.assertIn(token, body)
+
+    def test_arrested_drag_does_not_double_emit_sounds(self):
+        # PED_ARRESTED + last state PED_DRAG_FROM_CAR runs BeingDraggedFromCar from both
+        # CPlayerPed::ProcessControl and CWorld::Process in one frame; only the world call may emit sounds.
+        header = (ROOT / 'stories/src/peds/Ped.h').read_text()
+        self.assertIn('void BeingDraggedFromCar(bool playSounds = true);', header)
+        body = function((ROOT / 'stories/src/peds/PedAI.cpp').read_text(), 'CPed::BeingDraggedFromCar')
+        self.assertIn('if (playSounds && soundTime >= 0.0f', body)
+        player = (ROOT / 'stories/src/peds/PlayerPed.cpp').read_text()
+        self.assertIn('BeingDraggedFromCar(false);', player)
+        self.assertNotRegex(player, r'BeingDraggedFromCar\(\s*\)')
+        world = (ROOT / 'stories/src/core/World.cpp').read_text()
+        self.assertRegex(world, r'BeingDraggedFromCar\(\)')
 
 
 if __name__ == '__main__':

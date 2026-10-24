@@ -2119,7 +2119,7 @@ CPlayerPed::ProcessControl(void)
 			break;
 		case PED_ARRESTED:
 			if (m_nLastPedState == PED_DRAG_FROM_CAR && m_pVehicleAnim)
-				BeingDraggedFromCar();
+				BeingDraggedFromCar(false); // CWorld::Process also runs it this frame; its sound gate would fire twice
 			break;
 		default:
 			break;

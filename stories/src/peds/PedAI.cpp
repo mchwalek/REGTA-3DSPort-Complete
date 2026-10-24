@@ -3861,7 +3861,7 @@ CPed::SetBeingDraggedFromCar(CVehicle *veh, uint32 vehEnterType, bool quickJack)
 }
 
 void
-CPed::BeingDraggedFromCar(void)
+CPed::BeingDraggedFromCar(bool playSounds)
 {
 	AnimationId enterAnim;
 	bool dontRunAnim = false;
@@ -3939,7 +3939,7 @@ CPed::BeingDraggedFromCar(void)
 		jackSound = SOUND_PED_CARJACKED_WHOOSH;
 		break;
 	}
-	if (soundTime >= 0.0f && m_pVehicleAnim->currentTime > soundTime && m_pVehicleAnim->currentTime - m_pVehicleAnim->timeStep <= soundTime) {
+	if (playSounds && soundTime >= 0.0f && m_pVehicleAnim->currentTime > soundTime && m_pVehicleAnim->currentTime - m_pVehicleAnim->timeStep <= soundTime) {
 		DMAudio.PlayOneShot(m_audioEntityId, jackSound, 3.0f);
 		if (m_pVehicleAnim->animId == ANIM_STD_QUICKJACKED) {
 			DMAudio.PlayOneShot(m_audioEntityId, SOUND_STEP_START, 1.0f);
