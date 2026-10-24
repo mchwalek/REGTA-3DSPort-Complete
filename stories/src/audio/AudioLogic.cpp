@@ -649,6 +649,13 @@ enum
 	SCRIPT_OBJECT_WILLIE_CARD_SWIPE_VOLUME = 70,
 
 	SCRIPT_OBJECT_GATE_MAX_DIST = 40,
+	SCRIPT_OBJECT_GATE_START_MAX_DIST = 70,
+	SCRIPT_OBJECT_GATE_START_VOLUME = 100,
+	SCRIPT_OBJECT_GATE_STOP_VOLUME = 50,
+
+	SCRIPT_OBJECT_AMMUNATION_MAX_DIST = 40,
+	SCRIPT_OBJECT_AMMUNATION_VOLUME = 127,
+	SCRIPT_OBJECT_PS2_ONE_SHOT_VOLUME = 70,
 
 	SCRIPT_OBJECT_BULLET_HIT_GROUND_MAX_DIST = 50,
 	SCRIPT_OBJECT_BULLET_HIT_GROUND_VOLUME = 90,
@@ -8887,6 +8894,72 @@ cAudioManager::ProcessOneShotScriptObject(uint8 sound)
 		m_sQueueSample.m_fSpeedMultiplier = 0.0f;
 		m_sQueueSample.m_bIs2D = FALSE;
 		SET_SOUND_REFLECTION(TRUE);
+		break;
+	case SCRIPT_SOUND_AMMUNATION_WELCOME_1:
+	case SCRIPT_SOUND_AMMUNATION_WELCOME_2:
+	case SCRIPT_SOUND_AMMUNATION_WELCOME_3:
+	case SCRIPT_SOUND_C_OR_D_1:
+	case SCRIPT_SOUND_C_OR_D_2:
+	case SCRIPT_SOUND_C_OR_D_3:
+	case SCRIPT_SOUND_C_OR_D_4:
+	case SCRIPT_SOUND_C_OR_D_5:
+	case SCRIPT_SOUND_C_OR_D_6:
+	case SCRIPT_SOUND_C_OR_D_7:
+	case SCRIPT_SOUND_DOCK_BA:
+	case SCRIPT_SOUND_DOCK_BB:
+	{
+		// PS2 LCS ids 52-63; C_OR_D_6 reuses sample 3 (PS2 table: 1,2,3,4,5,3,6)
+		static const uint16 ps2Samples[] = {
+			SFX_AMMU_AA, SFX_AMMU_AB, SFX_AMMU_AC,
+			SFX_C_OR_D_UNK_1, SFX_C_OR_D_UNK_2, SFX_C_OR_D_UNK_3, SFX_C_OR_D_UNK_4, SFX_C_OR_D_UNK_5, SFX_C_OR_D_UNK_3, SFX_C_OR_D_UNK_6,
+			SFX_DOCK_BA, SFX_DOCK_BB,
+		};
+		m_sQueueSample.m_MaxDistance = SCRIPT_OBJECT_AMMUNATION_MAX_DIST;
+		m_sQueueSample.m_nSampleIndex = ps2Samples[sound - SCRIPT_SOUND_AMMUNATION_WELCOME_1];
+		m_sQueueSample.m_nBankIndex = SFX_BANK_0;
+		m_sQueueSample.m_nFrequency = 12000;
+		m_sQueueSample.m_nPriority = 1;
+		m_sQueueSample.m_fSpeedMultiplier = 1.0f;
+		m_sQueueSample.m_bIs2D = FALSE;
+		Vol = SCRIPT_OBJECT_AMMUNATION_VOLUME;
+		break;
+	}
+	case SCRIPT_SOUND_COLT45_1:
+	case SCRIPT_SOUND_COLT45_2:
+	case SCRIPT_SOUND_PIZZA_THROW:
+	case SCRIPT_SOUND_R_OR_S_UNK1:
+		m_sQueueSample.m_MaxDistance = SCRIPT_OBJECT_AMMUNATION_MAX_DIST;
+		m_sQueueSample.m_nSampleIndex = SFX_COLT45_LEFT;
+		if (sound == SCRIPT_SOUND_PIZZA_THROW)
+			m_sQueueSample.m_nSampleIndex = SFX_PIZZA_THROW;
+		else if (sound == SCRIPT_SOUND_R_OR_S_UNK1)
+			m_sQueueSample.m_nSampleIndex = SFX_R_OR_S_UNK1;
+		m_sQueueSample.m_nBankIndex = SFX_BANK_0;
+		m_sQueueSample.m_nFrequency = 20159;
+		m_sQueueSample.m_nPriority = 1;
+		m_sQueueSample.m_fSpeedMultiplier = 0.0f;
+		m_sQueueSample.m_bIs2D = FALSE;
+		Vol = SCRIPT_OBJECT_PS2_ONE_SHOT_VOLUME;
+		break;
+	case SCRIPT_SOUND_GATE_START:
+		m_sQueueSample.m_MaxDistance = SCRIPT_OBJECT_GATE_START_MAX_DIST;
+		m_sQueueSample.m_nSampleIndex = SFX_GATE_START_CLU;
+		m_sQueueSample.m_nBankIndex = SFX_BANK_0;
+		m_sQueueSample.m_nFrequency = 20159;
+		m_sQueueSample.m_nPriority = 1;
+		m_sQueueSample.m_fSpeedMultiplier = 0.0f;
+		m_sQueueSample.m_bIs2D = FALSE;
+		Vol = SCRIPT_OBJECT_GATE_START_VOLUME;
+		break;
+	case SCRIPT_SOUND_GATE_STOP:
+		m_sQueueSample.m_MaxDistance = SCRIPT_OBJECT_GATE_MAX_DIST;
+		m_sQueueSample.m_nSampleIndex = SFX_GATE_STOP_CLU;
+		m_sQueueSample.m_nBankIndex = SFX_BANK_0;
+		m_sQueueSample.m_nFrequency = 20159;
+		m_sQueueSample.m_nPriority = 1;
+		m_sQueueSample.m_fSpeedMultiplier = 0.0f;
+		m_sQueueSample.m_bIs2D = FALSE;
+		Vol = SCRIPT_OBJECT_GATE_STOP_VOLUME;
 		break;
 	default:
 		return;
