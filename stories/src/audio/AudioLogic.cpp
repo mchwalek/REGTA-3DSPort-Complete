@@ -4497,6 +4497,28 @@ cAudioManager::ProcessPedOneShots(cPedParams &params)
 			SET_SOUND_REFLECTION(TRUE);
 			break;
 		}
+		case SOUND_PED_CRUNCH:
+		{
+			static uint8 CrunchOffset = 0;
+			m_sQueueSample.m_nSampleIndex = CrunchOffset + SFX_PED_CRUNCH_1;
+			m_sQueueSample.m_nBankIndex = SFX_BANK_0;
+			m_sQueueSample.m_nCounter = 48;
+			m_sQueueSample.m_nFrequency = RandomDisplacement(6000) + 16000;
+			m_sQueueSample.m_nPriority = 1;
+			m_sQueueSample.m_fSpeedMultiplier = 0.0f;
+			m_sQueueSample.m_MaxDistance = VEHICLE_ONE_SHOT_SPLATTER_MAX_DIST;
+			CrunchOffset++;
+			maxDist = SQR(VEHICLE_ONE_SHOT_SPLATTER_MAX_DIST);
+			Vol = m_anRandomTable[4] % 20 + VEHICLE_ONE_SHOT_SPLATTER_VOLUME;
+			CrunchOffset %= 2;
+			m_sQueueSample.m_nLoopCount = 1;
+			RESET_LOOP_OFFSETS
+			SET_EMITTING_VOLUME(Vol);
+			m_sQueueSample.m_bIs2D = FALSE;
+			m_sQueueSample.m_bStatic = TRUE;
+			SET_SOUND_REFLECTION(TRUE);
+			break;
+		}
 		case SOUND_FALL_LAND:
 		case SOUND_FALL_COLLAPSE:
 			if (ped->bIsInTheAir)

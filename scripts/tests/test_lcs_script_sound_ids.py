@@ -113,6 +113,35 @@ class TestScriptSoundIds(unittest.TestCase):
             self.assertIn(token, script)
         self.assertNotIn('0xCD', script)
 
+    def test_ped_crunch_case(self):
+        source = (ROOT / 'stories/src/audio/AudioLogic.cpp').read_text()
+        body = function(source, 'cAudioManager::ProcessPedOneShots')
+        self.assertIn('case SOUND_PED_CRUNCH', body)
+        self.assertIn('SFX_PED_CRUNCH_1', body)
+
+    def test_chainsaw_crunch_timer_in_padding(self):
+        header = (ROOT / 'stories/src/weapons/Weapon.h').read_text()
+        self.assertRegex(header, r'bool m_bAddRotOffset;\s*\n\s*int8 m_nChainsawCrunchTimer;')
+        mirror = ('#include <cstdint>\n'
+                  'struct W { int32_t a, b, c, d; uint32_t t; bool r; int8_t x; };\n'
+                  'static_assert(sizeof(W) == 0x18, "CWeapon padding");\nint main() { return 0; }\n')
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / 'mirror.cpp'
+            src.write_text(mirror)
+            subprocess.run(['c++', '-std=c++11', '-o', str(Path(tmp) / 'mirror'), str(src)], check=True)
+
+    def test_chainsaw_emits_crunch(self):
+        source = (ROOT / 'stories/src/weapons/Weapon.cpp').read_text()
+        block = source[source.index('PARTICLE_DEBRIS2'):source.index('ASSOCGRP_KNIFE')]
+        self.assertIn('SOUND_PED_CRUNCH', block)
+        self.assertIn('m_nChainsawCrunchTimer', block)
+
+    def test_setdie_player_crunch(self):
+        source = (ROOT / 'stories/src/peds/Ped.cpp').read_text()
+        body = function(source, 'CPed::SetDie(AnimationId')
+        for token in ('SOUND_PED_CRUNCH', 'bIsDrowning', 'Say(SOUND_PED_DAMAGE)'):
+            self.assertIn(token, body)
+
 
 if __name__ == '__main__':
     unittest.main()
