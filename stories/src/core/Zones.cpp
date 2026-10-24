@@ -5,6 +5,7 @@
 #include "Zones.h"
 
 #include "Clock.h"
+#include "Game.h"
 #include "Text.h"
 #include "World.h"
 #include "Timer.h"
@@ -316,13 +317,22 @@ eLevelName
 CTheZones::GetLevelFromPosition(CVector const *v)
 {
 	int i;
+	eLevelName level = LEVEL_GENERIC;
 //	char tmp[116];
 //	if(!PointLiesWithinZone(v, &MapZoneArray[0]))
 //		sprintf(tmp, "x = %.3f y= %.3f z = %.3f\n", v.x, v.y, v.z);
-	for(i = 1; i < TotalNumberOfMapZones; i++)
-		if(PointLiesWithinZone(v, &MapZoneArray[i]))
-			return MapZoneArray[i].level;
-	return MapZoneArray[0].level;
+	// PS2 (SLES_541.35 0x2d3b20): stay in the current level if any containing zone has it,
+	// else take the last match, where level-4 zones only count if nothing matched before them
+	for(i = 1; i < TotalNumberOfMapZones; i++){
+		if(!PointLiesWithinZone(v, &MapZoneArray[i]))
+			continue;
+		eLevelName l = MapZoneArray[i].level;
+		if(l == CGame::currLevel)
+			return l;
+		if(level == LEVEL_GENERIC || CGame::currLevel == LEVEL_UNDERGROUND || l != LEVEL_UNDERGROUND)
+			level = l;
+	}
+	return level;
 }
 
 CZone*
