@@ -2036,9 +2036,6 @@ CRadar::DrawLegend(int32 x, int32 y, int32 sprite, const CRGBA &color)
 		case RADAR_SPRITE_PHIL_CASSIDY:
 			text = TheText.Get("LG_50");
 		break;
-		case RADAR_SPRITE_POWERUP:
-			text = TheText.Get("LG_53");
-		break;
 		/*case RADAR_SPRITE_RADIO_WILDSTYLE:
 			text = TheText.Get("LG_26");
 		break;
