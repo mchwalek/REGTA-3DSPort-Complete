@@ -356,18 +356,6 @@ UpdatePlayerVehicleReflection3DS(void)
 		return;
 	}
 
-	/* Update every third frame. The previous capture remains valid on the two
-	 * intervening frames and retains its own camera transform, so it does not
-	 * swim. */
-	if(gPlayerVehicleReflectionValid && CTimer::GetFrameCounter() % 3 != 0){
-		PublishPlayerVehicleReflection3DS();
-		rw::c3d::setTrafficVehicleReflection(
-			gTrafficVehicleReflectionValid ? gTrafficVehicleReflectionTex : nil,
-			gTrafficVehicleReflectionValid ?
-				gTrafficVehicleReflectionCam->getFrame() : nil);
-		return;
-	}
-
 	/* The main framebuffer already contains roads and surrounding world at this
 	 * point. Downsample it with one GPU blit instead of submitting the entire
 	 * scene a second time. */
