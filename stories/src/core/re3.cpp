@@ -862,6 +862,49 @@ SwitchToMission(void)
 {
 	CTheScripts::SwitchToMission(nextMissionToSwitch);
 }
+
+// A batch is the "initial:" scripts, the giver-less side missions, or one run of a "(Giver)".
+static bool
+SameMissionBatch(const char *a, const char *b)
+{
+	const char *ka = strncmp(a, "initial:", 8) == 0 ? "initial:" : strrchr(a, '(');
+	const char *kb = strncmp(b, "initial:", 8) == 0 ? "initial:" : strrchr(b, '(');
+	if(ka == nil || kb == nil)
+		return ka == kb;
+	return strcmp(ka, kb) == 0;
+}
+
+static int32
+MissionBatchStart(const char **missions, int32 i)
+{
+	while(i > 0 && SameMissionBatch(missions[i - 1], missions[i]))
+		i--;
+	return i;
+}
+
+// L: start of the current batch, or of the previous one if already there. R: start of the next batch. Both wrap.
+static int32
+StepMissionBatch(const char **missions, int32 count, int32 cur, int dir)
+{
+	if(dir < 0){
+		int32 start = MissionBatchStart(missions, cur);
+		if(start != cur)
+			return start;
+		return MissionBatchStart(missions, (start + count - 1) % count);
+	}
+	while(cur < count - 1 && SameMissionBatch(missions[cur], missions[cur + 1]))
+		cur++;
+	return (cur + 1) % count;
+}
+
+static const char **missionLabels;
+static int32 numMissionLabels;
+
+static void
+PageMissionBatch(int dir)
+{
+	nextMissionToSwitch = StepMissionBatch(missionLabels, numMissionLabels, nextMissionToSwitch, dir);
+}
 #endif
 
 static const char *carnames[] = {
@@ -1202,6 +1245,9 @@ extern bool gbRenderDebugEnvMap;
 
 		missionEntry = DebugMenuAddVar("Game", "Select mission", &nextMissionToSwitch, nil, 1, 0, ARRAY_SIZE(missions) - 1, missions);
 		DebugMenuEntrySetWrap(missionEntry, true);
+		missionLabels = missions;
+		numMissionLabels = ARRAY_SIZE(missions);
+		DebugMenuEntrySetPageFunc(missionEntry, PageMissionBatch);
 		DebugMenuAddCmd("Game", "Start selected mission ", SwitchToMission);
 #endif
 		extern bool PrintDebugCode;
