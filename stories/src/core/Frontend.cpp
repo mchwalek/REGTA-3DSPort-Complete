@@ -6228,7 +6228,7 @@ CMenuManager::PrintMap(void)
 		int x = MENU_X_LEFT_ALIGNED(160.0f);
 
 		for (int16 i = 0; i < CRadar::MapLegendCounter; i++) {
-			CRadar::DrawLegend(x, y, CRadar::MapLegendList[i]);
+			CRadar::DrawLegend(x, y, CRadar::MapLegendList[i], CRadar::MapLegendColours[i]);
 
 			if (i == secondColumnStart) {
 				x = MENU_X_LEFT_ALIGNED(350.0f);
