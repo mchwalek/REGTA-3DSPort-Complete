@@ -809,7 +809,7 @@ public:
 	void Duck(void);
 	void ClearDuck(bool = false);
 	void ClearPointGunAt(void);
-	void BeingDraggedFromCar(void);
+	void BeingDraggedFromCar(bool playSounds = true);
 	void RestartNonPartialAnims(void);
 	void LineUpPedWithCar(PedLineUpPhase phase);
 	void SetPedPositionInCar(void);

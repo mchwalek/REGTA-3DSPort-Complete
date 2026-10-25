@@ -99,6 +99,7 @@ CWeapon::CWeapon(eWeaponType type, int32 ammo)
 	Reload();
 	m_nTimer = 0;
 	m_bAddRotOffset = false;
+	m_nChainsawCrunchTimer = 0;
 }
 
 void
@@ -141,6 +142,7 @@ CWeapon::Initialise(eWeaponType type, int32 ammo)
 	m_nAmmoInClip = 0;
 	Reload();
 	m_nTimer = 0;
+	m_nChainsawCrunchTimer = 0;
 	int32 modelId = CWeaponInfo::GetWeaponInfo(m_eWeaponType)->m_nModelId;
 	int32 model2Id = CWeaponInfo::GetWeaponInfo(m_eWeaponType)->m_nModel2Id;
 	
@@ -679,6 +681,12 @@ CWeapon::FireMelee(CEntity *shooter, CVector &fireSource)
 									newDir.y = 0.0f;
 									newDir.z = 0.01f;
 									CParticle::AddParticle(PARTICLE_DEBRIS2, bloodPos, newDir);
+
+									if (m_nChainsawCrunchTimer < 0) {
+										DMAudio.PlayOneShot(victimPed->m_audioEntityId, SOUND_PED_CRUNCH, 1.0f);
+										m_nChainsawCrunchTimer = CGeneral::GetRandomNumber() % 3;
+									} else
+										m_nChainsawCrunchTimer--;
 
 									CVector dropDir(CGeneral::GetRandomNumberInRange(-0.15f, 0.15f), CGeneral::GetRandomNumberInRange(0.1f, 0.35f), 0.f);
 									CVector dropPos(CGeneral::GetRandomNumberInRange(SCREEN_STRETCH_X(50.0f), SCREEN_STRETCH_FROM_RIGHT(50.0f)),
