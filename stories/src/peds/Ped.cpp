@@ -7080,6 +7080,9 @@ CPed::SetDie(AnimationId animId, float delta, float speed)
 	if (player == this) {
 		if (!player->m_bCanBeDamaged)
 			return;
+		if (!bIsDrowning && FindPlayerVehicle() && !FindPlayerVehicle()->bIsDrowning)
+			DMAudio.PlayOneShot(m_audioEntityId, SOUND_PED_CRUNCH, 1.0f);
+		Say(SOUND_PED_DAMAGE);
 	}
 
 	m_threatEntity = nil;

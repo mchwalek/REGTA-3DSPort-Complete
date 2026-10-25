@@ -44,7 +44,7 @@ jobs:
         run: scripts/build.sh relcs
 
       - name: Package CIA
-        if: github.event_name != 'pull_request'
+        if: github.event_name == 'workflow_dispatch'
         run: |
           tools="$RUNNER_TEMP/tools"
           mkdir -p "$tools"
@@ -65,14 +65,14 @@ jobs:
           cp "packaging/production_cia/output/GTALCS For Nintendo 3DS.3dsx" "$RUNNER_TEMP/release/relcs.3dsx"
 
       - uses: actions/upload-artifact@v4
-        if: github.event_name != 'pull_request'
+        if: github.event_name == 'workflow_dispatch'
         with:
           name: relcs
           path: ${{ runner.temp }}/release/
           if-no-files-found: error
 
   publish:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'workflow_dispatch'
     needs: build
     runs-on: ubuntu-24.04
     permissions:
