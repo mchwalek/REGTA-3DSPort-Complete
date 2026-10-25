@@ -568,9 +568,9 @@ not mistake for a failed transfer.
     an IMG that `CGame::Initialise` mounts after `GTA3.IMG` only if the file
     exists (the install manifest still requires it on the SD card). With
     `CStreaming::LoadCdDirectory`, the first copy of a name wins and later
-    images are read first, so any entry in it overrides `gta3.img`. To fix another model, add it to that IMG instead of adding
-    loose files, then regenerate the install manifest. See
-    `git log --grep="church"`.
+    images are read first, so any entry in it overrides `gta3.img`. To fix
+    another model, add it to that IMG instead of adding loose files, then
+    regenerate the install manifest. See `git log --grep="church"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 
