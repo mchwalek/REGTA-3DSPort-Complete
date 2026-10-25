@@ -152,6 +152,9 @@ void DebugMenuInit(void);
 void DebugMenuShutdown(void);
 void DebugMenuProcess(void);
 void DebugMenuRender(void);
+#ifdef _3DS
+extern bool gbDebugMenuShowFps;
+#endif
 bool DebugMenuIsOn(void);
 
 
