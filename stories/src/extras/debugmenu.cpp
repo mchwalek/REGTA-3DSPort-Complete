@@ -1141,11 +1141,41 @@ DebugMenuIsOn(void)
 	return menuOn != 0;
 }
 
+#ifdef _3DS
+bool gbDebugMenuShowFps;
+
+// Wall-clock average over ~0.5s; drawn even with the menu closed so it measures the game alone.
+static void
+drawFps(void)
+{
+	static u64 windowStart;
+	static int frames;
+	static float fps;
+	u64 now = osGetTime();
+	frames++;
+	if(windowStart == 0)
+		windowStart = now;
+	else if(now - windowStart >= 500){
+		fps = frames * 1000.0f / (now - windowStart);
+		windowStart = now;
+		frames = 0;
+	}
+	char buf[16];
+	snprintf(buf, sizeof(buf), "FPS %.1f", fps);
+	fontPrint(buf, screenWidth - fontGetLen(strlen(buf)) - 4, 2, MENUFONT_NORMAL);
+}
+#endif
+
 void
 DebugMenuRender(void)
 {
+#ifdef _3DS
+	if(!menuOn && !gbDebugMenuShowFps)
+		return;
+#else
 	if(!menuOn)
 		return;
+#endif
 
 	RwRenderStateSet(rwRENDERSTATEZTESTENABLE, 0);
 	RwRenderStateSet(rwRENDERSTATEZWRITEENABLE, 0);
@@ -1165,6 +1195,12 @@ DebugMenuRender(void)
 		fontscale = 1;
 
 #ifdef _3DS
+	if(gbDebugMenuShowFps)
+		drawFps();
+	if(!menuOn){
+		RtCharsetBufferFlush();
+		return;
+	}
 	// One column: title shows which submenu is active
 	const char *title = "Debug Menu";
 	if(activeMenu->parent && activeMenu->parent->selectedEntry)

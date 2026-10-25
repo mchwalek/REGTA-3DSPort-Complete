@@ -1092,6 +1092,9 @@ extern bool gbRenderWorld2;
 #ifndef MASTER
 		DebugMenuAddVarBool8("Render", "Occlusion debug", &bDispayOccDebugStuff, nil);
 #endif
+#ifdef _3DS
+		DebugMenuAddVarBool8("Debug", "Show FPS", (int8*)&gbDebugMenuShowFps, nil);
+#endif
 #if defined LIBRW && !defined _3DS
 		// this librw's MatFX has no envMap* toggles
 		DebugMenuAddVarBool32("Render", "MatFX env map apply light", &rw::MatFX::envMapApplyLight, nil);

@@ -205,6 +205,19 @@ CopyVehicleReflection3DS(rw::Camera *camera, rw::Raster *source,
 	DefinedState();
 }
 
+// Same blit inside the current frame: skips the End/BeginUpdate pair and its vblank waits.
+static void
+CopyVehicleReflectionInFrame3DS(rw::Camera *camera, rw::Raster *source,
+	const rw::Matrix *captureMatrix)
+{
+	rw::Matrix capture = *captureMatrix;
+	camera->getFrame()->transform(&capture, rw::COMBINEREPLACE);
+	rw::Raster::pushContext(camera->frameBuffer);
+	source->renderFast(0, 0);
+	rw::Raster::popContext();
+	DefinedState();
+}
+
 static void
 PublishPlayerVehicleReflection3DS(void)
 {
@@ -356,22 +369,10 @@ UpdatePlayerVehicleReflection3DS(void)
 		return;
 	}
 
-	/* Update every third frame. The previous capture remains valid on the two
-	 * intervening frames and retains its own camera transform, so it does not
-	 * swim. */
-	if(gPlayerVehicleReflectionValid && CTimer::GetFrameCounter() % 3 != 0){
-		PublishPlayerVehicleReflection3DS();
-		rw::c3d::setTrafficVehicleReflection(
-			gTrafficVehicleReflectionValid ? gTrafficVehicleReflectionTex : nil,
-			gTrafficVehicleReflectionValid ?
-				gTrafficVehicleReflectionCam->getFrame() : nil);
-		return;
-	}
-
 	/* The main framebuffer already contains roads and surrounding world at this
 	 * point. Downsample it with one GPU blit instead of submitting the entire
 	 * scene a second time. */
-	CopyVehicleReflection3DS(gPlayerVehicleReflectionCam,
+	CopyVehicleReflectionInFrame3DS(gPlayerVehicleReflectionCam,
 		Scene.camera->frameBuffer, Scene.camera->getFrame()->getLTM());
 	gPlayerVehicleReflectionValid = true;
 	if(!gTrafficVehicleReflectionValid && gTrafficVehicleReflectionCam &&
