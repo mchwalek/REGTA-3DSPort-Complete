@@ -552,6 +552,12 @@ bool CGame::Initialise(const char* datFile)
 	CTheCarGenerators::Init();
 
 	CdStreamAddImage("MODELS\\GTA3.IMG");
+	// Port model fixes; added after GTA3.IMG so its entries win (LoadCdDirectory reads the last image first)
+	int portFix = CFileMgr::OpenFile("MODELS\\PORTFIX.IMG", "r");
+	if(portFix){
+		CFileMgr::CloseFile(portFix);
+		CdStreamAddImage("MODELS\\PORTFIX.IMG");
+	}
 
 //	CFileLoader::LoadLevel("DATA\\DEFAULT.DAT");
 	CFileLoader::LoadLevel(datFile);

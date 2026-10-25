@@ -213,7 +213,9 @@ case "$game" in
 			txd/LOADSC0.TXD \
 			models/generic/race_arrow.dff \
 			models/generic/race_arrow.txd \
-			DATA/WEAPON.DAT
+			DATA/WEAPON.DAT \
+			models/PORTFIX.IMG \
+			models/PORTFIX.DIR
 		do
 			copy_runtime_override "$relative_path"
 		done

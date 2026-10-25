@@ -138,7 +138,13 @@ instruction starts 2 bytes before it.
 - **Mission table**: at raw file offset `MainScriptSize + 8 + 20`, preceded
   by `uint32 LargestMissionSize` (repeated) and `uint32 missionCount`. Table
   is `missionCount` `uint32` entries, each one a **ScriptSpace offset** for
-  that mission's code.
+  that mission's code. (This did not match the EUR file during the
+  Karmageddon investigation; the authoritative walk is
+  `ReadMultiScriptFileOffsetsFromScript` in `stories/src/control/Script5.cpp`.
+  Finding a mission by its 8-byte `SCRIPT_NAME` is simpler.)
+- **UsedObjectArray**: negative model ids in script params (`INT8 0x94` = -108)
+  index a table of 24-byte names. In the EUR file it starts right after an
+  `int32` count (297) just before raw offset `0x489e`. Entry 0 is empty.
 - **Raw-file offset of mission `i`'s code**: `table[i] + 8 + local_offset`
   (the `+8` re-adds the header that `load_scm()`/ScriptSpace strips — do not
   forget it when seeking in the *raw* file, as opposed to indexing into
