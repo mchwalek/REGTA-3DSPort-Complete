@@ -106,6 +106,8 @@ crash_dump_*.dmp
 !/gamefiles/relcs/movies/Logo.pcm
 !/gamefiles/relcs/txd/LOADSC0.TXD
 !/gamefiles/relcs/DATA/WEAPON.DAT
+!/gamefiles/relcs/models/PORTFIX.IMG
+!/gamefiles/relcs/models/PORTFIX.DIR
 !/gamefiles/revc/Audio/music/SELF_FM.WAV
 !/gamefiles/revc/Audio/music/SELF_LOOP.WAV
 !/gamefiles/revc/TEXT/american.gxt

@@ -553,6 +553,24 @@ not mistake for a failed transfer.
     absolute times) and leave at least two frames of margin. PS2 anims are
     compiled into `GAME.DTZ`, not shipped as an IFP. See
     `git log --grep="running punch"`.
+31. **A "missing wall" or a glimpse of sky in a scripted widescreen scene is
+    usually PS2 geometry, not a render bug. Check `main.scm` model swaps
+    first.** For the church confessional scenes, `main.scm` itself
+    (`SWAP_NEAREST_BUILDING_MODEL` 0x3bb) replaces the cathedral exterior
+    `Clnm_cthdrlfcde` with a second `izzy_churchInt` and hides
+    `LODm_cthdrlfcde` (`SET_VISIBILITY_OF_CLOSEST_OBJECT_OF_TYPE`). The
+    interior model has no right-hand end wall. PS2's 4:3 frame never shows
+    that, but the 3DS HOR+ widescreen FOV (`CDraw::SetFOV`) does. Because of
+    the swap the exterior building is simply gone from the pools, so render
+    or streaming diagnostics show "never scanned" and look like a culling bug.
+    Script model ids are negative indexes into the `main.scm` UsedObjectArray.
+    The fix ships a patched DFF in `gamefiles/relcs/models/PORTFIX.IMG/.DIR`,
+    an IMG that `CGame::Initialise` mounts after `GTA3.IMG` only if the file
+    exists (the install manifest still requires it on the SD card). With
+    `CStreaming::LoadCdDirectory`, the first copy of a name wins and later
+    images are read first, so any entry in it overrides `gta3.img`. To fix
+    another model, add it to that IMG instead of adding loose files, then
+    regenerate the install manifest. See `git log --grep="church"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 

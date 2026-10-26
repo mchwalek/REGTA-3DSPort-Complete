@@ -368,6 +368,7 @@ MenuEntry::MenuEntry(const char *name)
 	this->name = strdup(name);
 	this->next = nil;
 	this->menu = nil;
+	this->pageFunc = nil;
 }
 
 MenuEntry_Sub::MenuEntry_Sub(const char *name, Menu *menu)
@@ -1000,10 +1001,18 @@ processInput(void)
 		}
 	}
 
-	if(pgupjustdown)
-		activeMenu->scroll(shift ? -5 : -1);
-	if(pgdnjustdown)
-		activeMenu->scroll(shift ? 5 : 1);
+	MenuEntry *paged = activeMenu->selectedEntry;
+	if(paged && paged->pageFunc){
+		if(pgupjustdown)
+			paged->pageFunc(-1);
+		if(pgdnjustdown)
+			paged->pageFunc(1);
+	}else{
+		if(pgupjustdown)
+			activeMenu->scroll(shift ? -5 : -1);
+		if(pgdnjustdown)
+			activeMenu->scroll(shift ? 5 : 1);
+	}
 	if(downjustdown)
 		activeMenu->changeSelection(activeMenu->selection + (shift ? 5 : 1));
 	if(upjustdown)
@@ -1448,6 +1457,13 @@ DebugMenuEntrySetWrap(MenuEntry *e, bool wrap)
 {
 	if(e && e->type == MENUVAR)
 		((MenuEntry_Var*)e)->wrapAround = wrap;
+}
+
+void
+DebugMenuEntrySetPageFunc(MenuEntry *e, void (*pageFunc)(int dir))
+{
+	if(e)
+		e->pageFunc = pageFunc;
 }
 
 void

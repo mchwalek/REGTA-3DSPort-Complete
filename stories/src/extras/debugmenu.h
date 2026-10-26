@@ -127,6 +127,7 @@ struct MenuEntry
 	MenuEntry *next;
 	RwRect r;
 	Menu *menu;
+	void (*pageFunc)(int dir); // L/R (PgUp/PgDn) override while highlighted
 
 	MenuEntry(const char *name);
 	virtual ~MenuEntry(void) { free((void*)name); }
@@ -146,6 +147,7 @@ MenuEntry *DebugMenuAddFloat32(const char *path, const char *name, float *ptr, T
 MenuEntry *DebugMenuAddFloat64(const char *path, const char *name, double *ptr, TriggerFunc triggerFunc, double step, double lowerBound, double upperBound);
 MenuEntry *DebugMenuAddCmd(const char *path, const char *name, TriggerFunc triggerFunc);
 void DebugMenuEntrySetWrap(MenuEntry *e, bool wrap);
+void DebugMenuEntrySetPageFunc(MenuEntry *e, void (*pageFunc)(int dir));
 void DebugMenuEntrySetStrings(MenuEntry *e, const char **strings);
 void DebugMenuEntrySetAddress(MenuEntry *e, void *addr);
 void DebugMenuInit(void);
