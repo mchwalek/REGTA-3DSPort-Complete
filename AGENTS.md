@@ -502,10 +502,15 @@ not mistake for a failed transfer.
     The 3DS top screen is wider than PS2's 4:3, so a pulled-in source with
     the 0.9 m `DEFAULT_NEAR` plane still shows the inside of buildings. When
     a camera mode keeps state across frames, check what the comfort pass
-    does to it before adding the mode. Don't remove the near-plane check
-    just because PS2's follow cam has none. See
-    `git log --grep="camera jump after releasing"` and `--grep="near plane
-    out of walls"`.
+    does to it before adding the mode. Don't remove the near-plane check:
+    without its step toward Toni the camera shows interiors. PS2 has its own
+    check (`0x299098`, pushes the near plane out along the wall normal), but
+    a port of it shoved the source sideways and made yaw erratic near walls.
+    The 3DS step-in is released at a capped rate
+    (`ps2FollowPedNearPlanePullIn`); applied raw it snapped the camera out in
+    one frame when the LOS ray cleared. See
+    `git log --grep="camera jump after releasing"`, `--grep="near plane
+    out of walls"` and `--grep="jump-cutting off walls"`.
 28. **3DS vehicle paint (`3dsmatfx.cpp`) and skinned peds (`3dsskin.cpp`)
     are drawn unlit, so game code that changes RW lights doesn't reach them.
     This is shared librw code, so it affects all three trees.** Their TEV

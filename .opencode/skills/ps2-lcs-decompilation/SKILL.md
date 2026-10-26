@@ -630,6 +630,28 @@ that holds the pose or rejects rotation. If a reLCS camera stops at walls,
 or jumps after the stick is released, the cause is the 3DS comfort pass in
 `Camera.cpp` (AGENTS.md landmine #27), not missing PS2 logic.
 
+**Follow-cam collision details and the safehouse-exit camera.** Found while
+fixing the camera pulling in and out after leaving a safehouse:
+- Whiskers (`0x2822f0`) test buildings only. The step-10 LOS pull-in tests
+  buildings, vehicles, peds and objects with `ignoreSomeObjects`.
+- PS2's near-plane check is `0x299098`, called at the end of the follow cam.
+  It pushes a sphere (radius `near*tan(FOV/2)*1.55`) out along the hit normal
+  up to 4 times, shrinks near by 0.75 down to 0.15, falls back to the last
+  good position, then sets `Source = center - near*Front` (reverted if more
+  than 8 m from the target). A port of it shoved the 3DS camera sideways
+  near walls, so reLCS keeps its own step-in check instead.
+- `CCullZones::Update` (`0x352590`) refreshes the player's zone flags every
+  8th frame, and also right away when `m_bCameraJustRestored`
+  (`TheCamera+0xb0`). The game loop runs it (`0x2fbfec`) before
+  `TheCamera.Process` (`0x28fb88`). `CamControl` (`0x28889c`) re-reads
+  `CamCloseInForPlayer` (`0x352b90`) when cull checks are on or the camera
+  was just restored. Without both, a teleport out of an interior keeps the
+  close-in zoom (0.5) for a few frames and the camera pulls in and out.
+- main.scm's `INTERIO` exits a safehouse in one tick: fade out,
+  `RESTORE_CAMERA_JUMPCUT`, teleport, `SET_CAMERA_BEHIND_PLAYER`,
+  `DO_FADE 1000 1`. The Staunton interior is in a `CULL.IPL` close-in zone
+  (flags 537).
+
 **Pitfall — a disassembly-faithful fix can still introduce a new bug the
 disassembly never warns about.** Porting the pivot offset above (`pedPos +
 (0,0,0.6f) + ped.GetRight()*0.55f`, LOS-probed) introduced a self-collision
