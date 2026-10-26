@@ -4904,23 +4904,26 @@ PS2FollowPedSpeedStep(float target, float prevSpeed, float dt)
 #ifdef _3DS
 // The 3DS top screen is wider than PS2's 4:3, so a source pulled in to a wall still lets the
 // near plane's edges cut into it; shrink the near clip (or step in) like the free-aim camera does.
-static void
-ClearNearPlaneOfGeometry3DS(CVector &Source, const CVector &Front, const CVector &TargetCoors, float FOV)
+// Returns how far it wants to step in along Front; the caller applies it so it can release slowly.
+static float
+ClearNearPlaneOfGeometry3DS(const CVector &Source, const CVector &Front, const CVector &TargetCoors, float FOV)
 {
+	CVector src = Source;
 	float ViewPlaneWidth = Tan(DEGTORAD(FOV) / 2.0f) * CDraw::CalculateAspectRatio() * fTweakFOV;
 	float Near = RwCameraGetNearClipPlane(Scene.camera);
-	CEntity *entity = CWorld::TestSphereAgainstWorld(Source + Front*Near, ViewPlaneWidth*Near, nil, true, true, false, true, false, false);
+	CEntity *entity = CWorld::TestSphereAgainstWorld(src + Front*Near, ViewPlaneWidth*Near, nil, true, true, false, true, false, false);
 	for(int i = 0; entity && i <= 5; i++){
-		CVector CamToCol = gaTempSphereColPoints[0].point - Source;
+		CVector CamToCol = gaTempSphereColPoints[0].point - src;
 		float frontDist = DotProduct(CamToCol, Front);
 		float dist = Max(Min(Near, (CamToCol - Front*frontDist).Magnitude() / ViewPlaneWidth), 0.1f);
 		if(dist < Near)
 			RwCameraSetNearClipPlane(Scene.camera, dist);
 		if(dist == 0.1f)
-			Source += (TargetCoors - Source)*0.3f;
+			src += (TargetCoors - src)*0.3f;
 		Near = RwCameraGetNearClipPlane(Scene.camera);
-		entity = CWorld::TestSphereAgainstWorld(Source + Front*Near, ViewPlaneWidth*Near, nil, true, true, false, true, false, false);
+		entity = CWorld::TestSphereAgainstWorld(src + Front*Near, ViewPlaneWidth*Near, nil, true, true, false, true, false, false);
 	}
+	return DotProduct(src - Source, Front);
 }
 #endif
 
@@ -4967,6 +4970,7 @@ static CVector ps2FollowPedVirtFar, ps2FollowPedVirtNear;
 static float ps2FollowPedPrevMaxDist;
 static float ps2FollowPedWhiskerAccum;
 static int ps2FollowPedCollisionCountdown;
+static float ps2FollowPedNearPlanePullIn;
 #endif
 
 #ifdef FREE_CAM
@@ -5016,7 +5020,7 @@ CCam::Process_FollowPed_Rotation(const CVector &CameraTarget, float TargetOrient
 		for(int i = 0; i < 5; i++){
 			CEntity *whiskerEntity = nil;
 			CColPoint whiskerPoint;
-			if(CWorld::ProcessLineOfSight(start + (float)(i-2)*right, Source, whiskerPoint, whiskerEntity, true, true, true, true, false, false, true) &&
+			if(CWorld::ProcessLineOfSight(start + (float)(i-2)*right, Source, whiskerPoint, whiskerEntity, true, false, false, false, false, false) && // PS2 0x2822f0: buildings only
 			   (Source - whiskerPoint.point).Magnitude() > nearClip){
 				count++;
 				if(pedSpeed > 0.0f)
@@ -5055,6 +5059,7 @@ CCam::Process_FollowPed_Rotation(const CVector &CameraTarget, float TargetOrient
 		Distance = 1000.0f;
 		ps2FollowPedWhiskerAccum = 0.0f;
 		ps2FollowPedCollisionCountdown = 0;
+		ps2FollowPedNearPlanePullIn = 0.0f;
 		ps2FollowPedBehindLatch = false;
 		CVector flat(-Cos(Beta), -Sin(Beta), 0.0f);
 		ps2FollowPedVirtFar = TargetCoors - farDist*flat;
@@ -5154,7 +5159,12 @@ CCam::Process_FollowPed_Rotation(const CVector &CameraTarget, float TargetOrient
 		}
 	}
 	CWorld::pIgnoreEntity = nil;
-	ClearNearPlaneOfGeometry3DS(Source, Front, TargetCoors, FOV);
+	// Rise at once, release at ~3 m/s: dropping it in one frame when the wall ray clears was a visible jump cut.
+	// 0.88 = the most six 30% steps can pull in, so it never passes the target.
+	float wantedPullIn = ClearNearPlaneOfGeometry3DS(Source, Front, TargetCoors, FOV);
+	ps2FollowPedNearPlanePullIn = Min(Max(wantedPullIn, ps2FollowPedNearPlanePullIn - 0.06f*CTimer::GetTimeStep()),
+	                                  0.88f*DotProduct(TargetCoors - Source, Front));
+	Source += Front*ps2FollowPedNearPlanePullIn;
 
 	// Step 11: tail.
 	float finalDist = (TargetCoors - Source).Magnitude();
