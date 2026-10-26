@@ -6,10 +6,6 @@ on:
   pull_request:
   workflow_dispatch:
 
-concurrency:
-  group: relcs-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
 permissions:
   contents: read
 
@@ -20,6 +16,10 @@ env:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    # Job-level, so a run waiting for release approval doesn't block later builds.
+    concurrency:
+      group: relcs-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -44,7 +44,7 @@ jobs:
         run: scripts/build.sh relcs
 
       - name: Package CIA
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name != 'pull_request'
         run: |
           tools="$RUNNER_TEMP/tools"
           mkdir -p "$tools"
@@ -65,15 +65,17 @@ jobs:
           cp "packaging/production_cia/output/GTALCS For Nintendo 3DS.3dsx" "$RUNNER_TEMP/release/relcs.3dsx"
 
       - uses: actions/upload-artifact@v4
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name != 'pull_request'
         with:
           name: relcs
           path: ${{ runner.temp }}/release/
           if-no-files-found: error
 
   publish:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name != 'pull_request'
     needs: build
+    # Pauses for approval; requires the `release` environment with required reviewers.
+    environment: release
     runs-on: ubuntu-24.04
     permissions:
       contents: write
