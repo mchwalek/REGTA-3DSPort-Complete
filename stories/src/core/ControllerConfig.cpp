@@ -2728,6 +2728,8 @@ void CControllerConfigManager::GetWideStringOfCommandKeys(uint16 action, wchar *
 	const char *button = action == PED_SNIPER_ZOOM_IN ? "Y" :
 		action == PED_SNIPER_ZOOM_OUT ? "B" :
 		action == VEHICLE_ENTER_EXIT && CPad::GetPad(0)->ArePlayerControlsDisabled() ? "B" :
+		// scripts poll accelerate prompts via GetPadState slot 16, which reads A while controls are off
+		action == VEHICLE_ACCELERATE && CPad::GetPad(0)->ArePlayerControlsDisabled() ? "A" :
 		Nintendo3DSButtons[CPad::GetPad(0)->Mode][action];
 	if (button == nil) {
 		text[0] = '\0';
