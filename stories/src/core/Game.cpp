@@ -1175,9 +1175,10 @@ void CGame::Process(void)
 		CSpecialFX::Update();
 		CRopes::Update();
 		CTimeCycle::Update();
+		// PS2 order: before the camera, so it sees m_bCameraJustRestored
+		CCullZones::Update();
 		if (CReplay::ShouldStandardCameraBeProcessed())
 			TheCamera.Process();
-		CCullZones::Update();
 		if (!CReplay::IsPlayingBack())
 			CGameLogic::Update();
 		CBridge::Update();
