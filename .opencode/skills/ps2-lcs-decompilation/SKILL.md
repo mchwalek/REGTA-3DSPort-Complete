@@ -1267,6 +1267,25 @@ worse. Fix: `stories/src/core/Zones.cpp`, test
 `scripts/tests/test_zone_level_from_position.py`; see
 `git log --grep="island load screens"`.
 
+## Case study: map waypoint blip — the look lives in the sprite texture
+
+Report: the map waypoint was a grey triangle on 3DS and a red hollow square on
+PS2. reLCS's `ToggleTargetMarker` made a dim grey sprite-less coord blip, so
+`DrawCoordBlip` picked a triangle or square from player height (waypoint z is
+0). PS2 `0x119120` (called from the frontend toggle `0x33fac8`) fills the first
+free `ms_RadarTrace` slot with colour 0 (red), bright flag `+0x32` = 1, scale 1,
+`BLIP_ONLY` and sprite `0x31` = `mp_objective`. There is no "hollow square"
+draw code: the shape is the texture itself (11×11 white ring with black
+outline in `hud.txd`). `DrawCoordBlip` `0x115fe4` forces alpha 255 for sprite
+`0x31` and draws via the tinted sprite draw `0x119eb0` (colour from
+`GetRadarTraceColour` `0x119aa0` = 255,72,77). `DrawLegend` `0x116760` shows it
+as `LG_54` "Player Target", tinted pure red (`0x1167b4`).
+
+Lesson: when a blip's shape looks wrong, dump the `RadarSprites[]` table from
+`LoadTextures` (`0x115548`) and look at the texture before writing a new
+primitive. Fix: `stories/src/core/Radar.cpp`, test
+`scripts/tests/test_waypoint_blip.py`.
+
 ## Case study: script-sound ids — VC's enum reused for LCS's script numbers
 
 Report: entering any Ammu-Nation played a gunshot. Each shop script

@@ -978,14 +978,19 @@ void CRadar::DrawRadarSection(int32 x, int32 y)
 
 void CRadar::DrawRadarSprite(uint16 sprite, float x, float y, uint8 alpha)
 {
+	DrawRadarSprite(sprite, x, y, CRGBA(255, 255, 255, alpha), CRGBA(255, 255, 255, 255));
+}
+
+void CRadar::DrawRadarSprite(uint16 sprite, float x, float y, const CRGBA &colour, const CRGBA &legendColour)
+{
 	float sizeX = SCREEN_SCALE_X(8.0f);
 	float sizeY = SCREEN_SCALE_Y(8.0f);
 	if (m_bDrawingBottomScreen)
 		sizeX = sizeY = 9.0f;
-	RadarSprites[sprite]->Draw(CRect(x - sizeX, y - sizeY, x + sizeX, y + sizeY), CRGBA(255, 255, 255, alpha));
+	RadarSprites[sprite]->Draw(CRect(x - sizeX, y - sizeY, x + sizeX, y + sizeY), colour);
 
 	if (FrontEndMenuManager.m_bMenuMapActive)
-		AddMapLegend(sprite, CRGBA(255, 255, 255, 255));
+		AddMapLegend(sprite, legendColour);
 }
 
 void CRadar::DrawRotatingRadarSprite(CSprite2d* sprite, float x, float y, float angle, int32 alpha)
@@ -1715,9 +1720,10 @@ CRadar::ToggleTargetMarker(float x, float y)
 		if (nextBlip == 0)
 			return;
 			
+		// PS2 waypoint (SLES_541.35 0x119120): bright red mp_objective sprite, scale 1
 		ms_RadarTrace[nextBlip].m_eBlipType = BLIP_COORD;
-		ms_RadarTrace[nextBlip].m_nColor = RADAR_TRACE_GRAY;
-		ms_RadarTrace[nextBlip].m_bDim = 0;
+		ms_RadarTrace[nextBlip].m_nColor = RADAR_TRACE_RED;
+		ms_RadarTrace[nextBlip].m_bDim = 1;
 		ms_RadarTrace[nextBlip].m_bInUse = 1;
 		ms_RadarTrace[nextBlip].m_Radius = 1.0f;
 		CVector pos(x, y, 0.0f);
@@ -1725,9 +1731,9 @@ CRadar::ToggleTargetMarker(float x, float y)
 		ms_RadarTrace[nextBlip].m_vec2DPos = pos;
 		ms_RadarTrace[nextBlip].m_vecPos = pos;
 		ms_RadarTrace[nextBlip].m_nEntityHandle = 0;
-		ms_RadarTrace[nextBlip].m_wScale = 5;
+		ms_RadarTrace[nextBlip].m_wScale = 1;
 		ms_RadarTrace[nextBlip].m_eBlipDisplay = BLIP_DISPLAY_BLIP_ONLY;
-		ms_RadarTrace[nextBlip].m_eRadarSprite = RADAR_SPRITE_NONE;
+		ms_RadarTrace[nextBlip].m_eRadarSprite = RADAR_SPRITE_MPOBJECTIVE;
 		TargetMarkerId = CRadar::GetNewUniqueBlipIndex(nextBlip);
 	} else {
 		ClearBlip(TargetMarkerId);
@@ -1818,7 +1824,10 @@ CRadar::DrawCoordBlip(int32 blipId)
 			float dist = LimitRadarPoint(in);
 			TransformRadarPointToScreenSpace(out, in);
 			if (!ms_RadarTrace[blipId].m_bShortRange || dist <= 1.0f || FrontEndMenuManager.m_bMenuMapActive) {
-				if (ms_RadarTrace[blipId].m_eRadarSprite != RADAR_SPRITE_NONE) {
+				if (ms_RadarTrace[blipId].m_eRadarSprite == RADAR_SPRITE_MPOBJECTIVE) {
+					// PS2 DrawCoordBlip (0x115fe4) tints it with the blip colour, never fades it, and lists it pure red in the legend
+					DrawRadarSprite(RADAR_SPRITE_MPOBJECTIVE, out.x, out.y, CRGBA((uint8)(color >> 24), (uint8)(color >> 16), (uint8)(color >> 8), 255), CRGBA(255, 0, 0, 255));
+				} else if (ms_RadarTrace[blipId].m_eRadarSprite != RADAR_SPRITE_NONE) {
 					DrawRadarSprite(ms_RadarTrace[blipId].m_eRadarSprite, out.x, out.y, CalculateBlipAlpha(dist));
 				} else {
 					const CVector& pos = FindPlayerCentreOfWorld_NoSniperShift();
@@ -1904,7 +1913,7 @@ CRadar::DrawLegend(int32 x, int32 y, int32 sprite, const CRGBA &color)
 		}
 
 	} else {
-		RadarSprites[sprite]->Draw(CRect(x, y, x + SCREEN_SCALE_X(16.f), y + SCREEN_SCALE_X(16.f)), CRGBA(255, 255, 255, 255));
+		RadarSprites[sprite]->Draw(CRect(x, y, x + SCREEN_SCALE_X(16.f), y + SCREEN_SCALE_X(16.f)), color);
 	}
 
 	wchar *text;
@@ -2035,6 +2044,9 @@ CRadar::DrawLegend(int32 x, int32 y, int32 sprite, const CRGBA &color)
 		break;
 		case RADAR_SPRITE_PHIL_CASSIDY:
 			text = TheText.Get("LG_50");
+		break;
+		case RADAR_SPRITE_MPOBJECTIVE:
+			text = TheText.Get("LG_54"); // Player Target
 		break;
 		/*case RADAR_SPRITE_RADIO_WILDSTYLE:
 			text = TheText.Get("LG_26");
