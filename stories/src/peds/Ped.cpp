@@ -7405,7 +7405,8 @@ CPed::AnswerMobile(void)
 	CAnimBlendAssociation *phoneTalkAssoc = RpAnimBlendClumpGetAssociation(GetClump(), ANIM_STD_PHONE_TALK);
 	if (phoneInAssoc || phoneTalkAssoc || phoneOutAssoc) {
 		if (phoneInAssoc) {
-			if (phoneInAssoc->currentTime >= 0.85f && !m_pWeaponModel) {
+			// PS2 0x1e9d88 uses 0.35; VC's 0.85 is past the end of LCS's 0.667s phone_in
+			if (phoneInAssoc->currentTime >= 0.35f && !m_pWeaponModel) {
 				CBaseModelInfo *phoneModel = CModelInfo::GetModelInfo(MI_MOBILE);
 				m_pWeaponModel = (RpAtomic*)phoneModel->CreateInstance();
 				phoneModel->AddRef();
