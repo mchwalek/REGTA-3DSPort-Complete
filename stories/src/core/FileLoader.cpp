@@ -511,7 +511,16 @@ CFileLoader::LoadModelFile(const char *filename)
 	debug("Loading model file %s\n", filename);
 	stream = RwStreamOpen(rwSTREAMFILENAME, rwSTREAMREAD, filename);
 	if(RwStreamFindChunk(stream, rwID_CLUMP, nil, nil)){
+#ifdef _3DS
+		/* Same as CStreaming::ConvertBufferToObject: don't search the SD card for textures. */
+		rw::Texture::setLoadTextures(false);
+		rw::Texture::setCreateDummies(true);
+#endif
 		clump = RpClumpStreamRead(stream);
+#ifdef _3DS
+		rw::Texture::setCreateDummies(false);
+		rw::Texture::setLoadTextures(true);
+#endif
 		if(clump){
 			InitClump(clump);
 			RpClumpForAllAtomics(clump, FindRelatedModelInfoCB, clump);

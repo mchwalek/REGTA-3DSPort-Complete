@@ -482,8 +482,19 @@ CStreaming::LoadCdDirectory(const char *dirname, int32 n)
 
 	imgSelector = n<<24;
 	assert(sizeof(direntry) == 32);
-	while(CFileMgr::Read(fd, (char*)&direntry, sizeof(direntry))){
+	/* One SD read per 32-byte entry is ~2.5 ms each on 3DS; read in blocks. */
+	static CDirectory::DirectoryInfo dirBlock[1024];
+	size_t blockEntries = 0, blockPos = 0;
+	for(;;){
 		bool bAddToStreaming = false;
+
+		if(blockPos == blockEntries){
+			blockEntries = CFileMgr::Read(fd, (char*)dirBlock, sizeof(dirBlock)) / sizeof(direntry);
+			blockPos = 0;
+			if(blockEntries == 0)
+				break;
+		}
+		direntry = dirBlock[blockPos++];
 
 		if(direntry.size > (uint32)ms_streamingBufferSize)
 			ms_streamingBufferSize = direntry.size;
