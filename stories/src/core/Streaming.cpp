@@ -3570,6 +3570,7 @@ CStreaming::MemoryCardLoad(uint8 *buf, uint32 size)
 {
 	uint32 count = Min(size, (uint32)MODELINFOSIZE);
 	bool requestedModels = false;
+	int requested = 0, skipped = 0;
 
 	for(uint32 i = 0; i < count; i++) {
 		if(buf[i] == 0xFF)
@@ -3577,11 +3578,19 @@ CStreaming::MemoryCardLoad(uint8 *buf, uint32 size)
 
 		if(ms_aInfoForModel[i].m_loadState == STREAMSTATE_LOADED) {
 			ms_aInfoForModel[i].m_flags = buf[i];
+#ifdef _3DS
+		/* Merely cached models (no keep-in-memory flag) stream back on demand;
+		 * LoadScene covers everything near the camera. */
+		} else if(!(buf[i] & STREAMFLAGS_KEEP_IN_MEMORY)) {
+			skipped++;
+#endif
 		} else if(CModelInfo::GetModelInfo(i) && IsObjectInCdImage(i)) {
 			RequestModel(i, buf[i]);
 			requestedModels = true;
+			requested++;
 		}
 	}
+	re3_load_mark("MemoryCardLoad: requested %d, skipped %d", requested, skipped);
 
 	/* Restarting the game object graph unloads script-owned interiors.  Finish
 	 * restoring the saved resident set before the player is allowed to move. */

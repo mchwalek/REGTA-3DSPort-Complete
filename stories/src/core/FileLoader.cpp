@@ -98,14 +98,18 @@ CFileLoader::LoadLevel(const char *filename)
 				LoadingScreenLoadingFile("Collision");
 				PUSH_MEMID(MEMID_WORLD);
 				CObjectData::Initialise("DATA\\OBJECT.DAT");
+				re3_load_mark("LoadLevel: ObjectData done");
 				CStreaming::Init();
+				re3_load_mark("LoadLevel: CStreaming::Init done");
 				POP_MEMID();
 				PUSH_MEMID(MEMID_COLLISION);
 				CColStore::LoadAllCollision();
+				re3_load_mark("LoadLevel: LoadAllCollision done");
 				POP_MEMID();
 				for(int i = 0; i < MODELINFOSIZE; i++)
 					if(CModelInfo::GetModelInfo(i))
 						CModelInfo::GetModelInfo(i)->ConvertAnimFileIndex();
+				re3_load_mark("LoadLevel: ConvertAnimFileIndex done");
 				objectsLoaded = true;
 			}
 			PUSH_MEMID(MEMID_WORLD);
@@ -510,11 +514,15 @@ CFileLoader::LoadModelFile(const char *filename)
 
 	debug("Loading model file %s\n", filename);
 	stream = RwStreamOpen(rwSTREAMFILENAME, rwSTREAMREAD, filename);
+	re3_load_mark("LoadModelFile %s: opened", filename);
 	if(RwStreamFindChunk(stream, rwID_CLUMP, nil, nil)){
 		clump = RpClumpStreamRead(stream);
+		re3_load_mark("LoadModelFile %s: clump read", filename);
 		if(clump){
 			InitClump(clump);
+			re3_load_mark("LoadModelFile %s: InitClump", filename);
 			RpClumpForAllAtomics(clump, FindRelatedModelInfoCB, clump);
+			re3_load_mark("LoadModelFile %s: FindRelatedModelInfo", filename);
 			RpClumpDestroy(clump);
 		}
 	}
