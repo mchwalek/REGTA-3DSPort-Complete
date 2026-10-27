@@ -1351,6 +1351,45 @@ re3_wall_time_ms(void)
 	return (double)RsTimer();
 }
 
+// Load-time profile: buffered in RAM so SD writes don't skew the timings;
+// re3_load_flush() appends it to load_profile.log once the load is done.
+static char loadMarkBuf[16384];
+static size_t loadMarkLen;
+
+void
+re3_load_mark(const char *format, ...)
+{
+#ifdef RW_3DS
+	if(loadMarkLen + 200 > sizeof(loadMarkBuf))
+		return;
+	loadMarkLen += snprintf(loadMarkBuf + loadMarkLen, 40, "[%8.0f] ", re3_wall_time_ms());
+	va_list va;
+	va_start(va, format);
+	int n = vsnprintf(loadMarkBuf + loadMarkLen, 150, format, va);
+	va_end(va);
+	loadMarkLen += n < 0 ? 0 : (n > 149 ? 149 : n);
+	loadMarkBuf[loadMarkLen++] = '\n';
+#else
+	(void)format;
+#endif
+}
+
+void
+re3_load_flush(void)
+{
+#ifdef RW_3DS
+	if(loadMarkLen == 0)
+		return;
+	FILE *f = fopen("load_profile.log", "a");
+	if(f){
+		fprintf(f, "\n--- load session ---\n");
+		fwrite(loadMarkBuf, 1, loadMarkLen, f);
+		fclose(f);
+	}
+	loadMarkLen = 0;
+#endif
+}
+
 void
 re3_stall_log(const char *format, ...)
 {

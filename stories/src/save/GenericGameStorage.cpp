@@ -220,6 +220,7 @@ do {\
 #define ReadDataFromBlock(msg,load_func)\
 do {\
 	debug(msg);\
+	re3_load_mark("GenericLoad %s", msg);\
 	ReadDataFromBufferPointer(buf, size);\
 	load_func(buf, size);\
 	size = align4bytes(size);\
@@ -641,14 +642,20 @@ CloseFile(int32 file)
 void
 DoGameSpecificStuffAfterSucessLoad()
 {
+	re3_load_mark("AfterLoad: SortOutCollisionAfterLoad");
 	CCollision::SortOutCollisionAfterLoad();
+	re3_load_mark("AfterLoad: LoadSceneCollision");
 	CStreaming::LoadSceneCollision(TheCamera.GetPosition());
+	re3_load_mark("AfterLoad: LoadScene");
 	CStreaming::LoadScene(TheCamera.GetPosition());
+	re3_load_mark("AfterLoad: TidyUpMemory");
 	CGame::TidyUpMemory(true, false);
 	StillToFadeOut = true;
 	JustLoadedDontFadeInYet = true;
 	TheCamera.Fade(0.0f, FADE_OUT);
+	re3_load_mark("AfterLoad: Script Process");
 	CTheScripts::Process();
+	re3_load_mark("AfterLoad: end");
 }
 
 bool

@@ -79,6 +79,13 @@ found:
 	myfiles[fd].file = fcaseopen(filename, realmode);
 	if(myfiles[fd].file == nil)
 		return 0;
+#ifdef _3DS
+	// Text files (IDE/IPL/DAT) are parsed one char at a time and libctru gives stdio
+	// a 1 KB buffer, i.e. one SD IPC per KB. Only for sequential read-only files: a
+	// big buffer would make the seeking readers (main.scm) refill on every seek.
+	if(myfiles[fd].isText && realmode[0] == 'r' && strchr(realmode, '+') == nil)
+		setvbuf(myfiles[fd].file, nil, _IOFBF, 32768);
+#endif
 	return fd;
 }
 

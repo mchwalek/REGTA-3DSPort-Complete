@@ -352,6 +352,8 @@ void re3_assert(const char *expr, const char *filename, unsigned int lineno, con
 void re3_usererror(const char *format, ...);
 double re3_wall_time_ms(void);
 void re3_stall_log(const char *format, ...);
+void re3_load_mark(const char *format, ...);
+void re3_load_flush(void);
 
 #define DEBUGBREAK() __debugbreak();
 

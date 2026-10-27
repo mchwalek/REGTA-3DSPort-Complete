@@ -3585,8 +3585,11 @@ CStreaming::MemoryCardLoad(uint8 *buf, uint32 size)
 
 	/* Restarting the game object graph unloads script-owned interiors.  Finish
 	 * restoring the saved resident set before the player is allowed to move. */
-	if(requestedModels)
+	if(requestedModels) {
+		re3_load_mark("MemoryCardLoad: LoadAllRequestedModels begin");
 		LoadAllRequestedModels(false);
+		re3_load_mark("MemoryCardLoad: LoadAllRequestedModels end");
+	}
 }
 
 void
