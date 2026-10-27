@@ -785,9 +785,7 @@ bool CGame::ReInitGameObjectVariables(bool load)
 	CStreaming::RemoveIslandsNotUsed(LEVEL_INDUSTRIAL);
 	CStreaming::RemoveIslandsNotUsed(LEVEL_COMMERCIAL);
 	CStreaming::RemoveIslandsNotUsed(LEVEL_SUBURBAN);
-	re3_load_mark("ReInit: LoadAllRequestedModels begin");
 	CStreaming::LoadAllRequestedModels(false);
-	re3_load_mark("ReInit: LoadAllRequestedModels end");
 	currArea = AREA_MAIN_MAP;
 	CPed::Initialise();
 	CEventList::Initialise();
@@ -822,9 +820,7 @@ bool CGame::ReInitGameObjectVariables(bool load)
 		CSpecialFX::Init();
 
 	PUSH_MEMID(MEMID_SCRIPT);
-	re3_load_mark("ReInit: CTheScripts::Init begin");
 	bool res = CTheScripts::Init(load);
-	re3_load_mark("ReInit: CTheScripts::Init end");
 	/* GenericLoad has already restored these native LCS blocks.  Initialising
 	 * them here used to erase the freshly loaded state before gameplay resumed. */
 	if (!load)

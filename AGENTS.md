@@ -599,10 +599,9 @@ not mistake for a failed transfer.
     first guess (missing `WHEELS.TXD` search) was wrong. Also don't trim
     `CStreaming::MemoryCardLoad` to "must-keep" models: it saved only ~2-4 s
     (`LoadScene` then streams the same models) and caused post-load
-    hitching at the safehouse exit/garage. Profile with `re3_load_mark()`
-    (`core/re3.cpp`), which writes `load_profile.log` in the game's cwd after
-    each load (appended; timestamps are app-uptime ms). Result: save-slot
-    load 66.7 s -> 41.1 s. See `git log --grep="one SD IPC"`.
+    hitching at the safehouse exit/garage. Result: save-slot load
+    66.7 s -> 41.1 s (found with temporary in-RAM timestamp marks flushed to
+    an SD log; they were removed again, see commit `3ec9392` to restore). See `git log --grep="one SD IPC"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 

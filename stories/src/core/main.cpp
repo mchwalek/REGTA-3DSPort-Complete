@@ -974,8 +974,6 @@ LoadingScreen(const char *str1, const char *str2, const char *splashscreen)
 	CSprite2d *splash;
 	bool loadingOnly = str1 != nil && str2 == nil && !strcmp(str1, "Loading");
 
-	re3_load_mark("LoadingScreen %s | %s", str1 ? str1 : "-", str2 ? str2 : "-");
-
 #ifdef DISABLE_LOADING_SCREEN
 	if (str1 && str2)
 		return;

@@ -733,12 +733,8 @@ gameReload()
 	CTimer::Stop();
 
 	if(FrontEndMenuManager.m_bWantToLoad){
-		re3_load_mark("gameReload: ShutDownForRestart begin");
 		CGame::ShutDownForRestart();
-		re3_load_mark("gameReload: InitialiseWhenRestarting begin");
 		CGame::InitialiseWhenRestarting();
-		re3_load_mark("gameReload: InitialiseWhenRestarting end");
-		re3_load_flush();
 		DMAudio.ChangeMusicMode(MUSICMODE_GAME);
 		LoadSplash(GetLevelSplashScreen(CGame::currLevel));
 		FrontEndMenuManager.m_bWantToLoad = false;

@@ -304,22 +304,15 @@ CStreaming::Init(void)
 	int txdHandle = CFileMgr::OpenFile("MODELS\\TXD.IMG", "r");
 	if (txdHandle)
 		CFileMgr::CloseFile(txdHandle);
-	bool capsChanged = CheckVideoCardCaps();
-	re3_load_mark("CStreaming::Init: txd.img exists=%d capsChanged=%d", txdHandle != 0, capsChanged);
-	if (!capsChanged && txdHandle) {
+	if (!CheckVideoCardCaps() && txdHandle) {
 		CdStreamAddImage("MODELS\\TXD.IMG");
-		re3_load_mark("CStreaming::Init: image added");
 		CStreaming::Init2();
-		re3_load_mark("CStreaming::Init: Init2 done");
 	} else {
 		CStreaming::Init2();
-		re3_load_mark("CStreaming::Init: first Init2 done");
 		if (CreateTxdImageForVideoCard()) {
-			re3_load_mark("CStreaming::Init: txd.img generated");
 			CStreaming::Shutdown();
 			CdStreamAddImage("MODELS\\TXD.IMG");
 			CStreaming::Init2();
-			re3_load_mark("CStreaming::Init: second Init2 done");
 		}
 	}
 #else
@@ -3497,12 +3490,9 @@ CStreaming::LoadScene(const CVector &pos)
 	RequestBigBuildings(level, pos);
 	RequestBigBuildings(LEVEL_GENERIC, pos);
 	RemoveIslandsNotUsed(level);
-	re3_load_mark("LoadScene: requested %d, LoadAllRequestedModels #1", ms_numModelsRequested);
 	LoadAllRequestedModels(false);
-	re3_load_mark("LoadScene: #1 done");
 	InstanceBigBuildings(level, pos);
 	InstanceBigBuildings(LEVEL_GENERIC, pos);
-	re3_load_mark("LoadScene: InstanceBigBuildings done");
 	AddModelsToRequestList(pos, STREAMFLAGS_20);
 	CRadar::StreamRadarSections(pos);
 
@@ -3514,11 +3504,8 @@ CStreaming::LoadScene(const CVector &pos)
 			CStreaming::RequestModel(model, STREAMFLAGS_DEPENDENCY);
 		}
 	}
-	re3_load_mark("LoadScene: requested %d, LoadAllRequestedModels #2", ms_numModelsRequested);
 	LoadAllRequestedModels(false);
-	re3_load_mark("LoadScene: #2 done");
 	InstanceLoadedModels(pos);
-	re3_load_mark("LoadScene: InstanceLoadedModels done");
 
 	for(int i = 0; i < NUMSTREAMINFO; i++)
 		ms_aInfoForModel[i].m_flags &= ~STREAMFLAGS_20;
@@ -3594,7 +3581,6 @@ CStreaming::MemoryCardLoad(uint8 *buf, uint32 size)
 {
 	uint32 count = Min(size, (uint32)MODELINFOSIZE);
 	bool requestedModels = false;
-	int requested = 0;
 
 	for(uint32 i = 0; i < count; i++) {
 		if(buf[i] == 0xFF)
@@ -3605,18 +3591,13 @@ CStreaming::MemoryCardLoad(uint8 *buf, uint32 size)
 		} else if(CModelInfo::GetModelInfo(i) && IsObjectInCdImage(i)) {
 			RequestModel(i, buf[i]);
 			requestedModels = true;
-			requested++;
 		}
 	}
-	re3_load_mark("MemoryCardLoad: requested %d", requested);
 
 	/* Restarting the game object graph unloads script-owned interiors.  Finish
 	 * restoring the saved resident set before the player is allowed to move. */
-	if(requestedModels) {
-		re3_load_mark("MemoryCardLoad: LoadAllRequestedModels begin");
+	if(requestedModels)
 		LoadAllRequestedModels(false);
-		re3_load_mark("MemoryCardLoad: LoadAllRequestedModels end");
-	}
 }
 
 void
