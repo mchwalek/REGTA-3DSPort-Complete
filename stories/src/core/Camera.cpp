@@ -1185,7 +1185,9 @@ CCamera::CamControl(void)
 	if(m_iZoneCullFrameNumWereAt > m_iCheckCullZoneThisNumFrames)
 		m_iZoneCullFrameNumWereAt = 1;
 	m_bCullZoneChecksOn = m_iZoneCullFrameNumWereAt == m_iCheckCullZoneThisNumFrames;
-	if(m_bCullZoneChecksOn)
+	// PS2 (CamControl 0x28889c) also re-tests right after RestoreWithJumpCut, so the
+	// interior close-in zoom starts easing out while the exit fade is still black.
+	if(m_bCullZoneChecksOn || m_bCameraJustRestored)
 		m_bFailedCullZoneTestPreviously = CCullZones::CamCloseInForPlayer();
 
 	if(m_bLookingAtPlayer){

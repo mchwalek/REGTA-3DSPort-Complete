@@ -57,6 +57,11 @@ CCullZones::Update(void)
 			&CurrentWantedLevelDrop_Player);
 		break;
 	}
+
+	// PS2 0x352590: refresh right after a jump-cut restore (e.g. a teleport out of an interior),
+	// so the camera doesn't keep the old zone's close-in flag for up to 8 frames
+	if(TheCamera.m_bCameraJustRestored)
+		CurrentFlags_Player = FindAttributesForCoors(FindPlayerCoors(), &CurrentWantedLevelDrop_Player);
 }
 
 // TODO? put somewhere else?
