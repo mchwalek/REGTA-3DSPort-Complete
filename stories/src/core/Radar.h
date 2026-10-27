@@ -336,6 +336,7 @@ public:
 	static void DrawRadarMask();
 	static void DrawRadarSection(int32 x, int32 y);
 	static void DrawRadarSprite(uint16 sprite, float x, float y, uint8 alpha);
+	static void DrawRadarSprite(uint16 sprite, float x, float y, const CRGBA &colour, const CRGBA &legendColour);
 	static void DrawRotatingRadarSprite(CSprite2d* sprite, float x, float y, float angle, int32 alpha);
 	static int32 GetActualBlipArrayIndex(int32 i);
 	static int32 GetNewUniqueBlipIndex(int32 i);

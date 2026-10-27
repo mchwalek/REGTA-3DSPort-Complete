@@ -576,6 +576,15 @@ not mistake for a failed transfer.
     images are read first, so any entry in it overrides `gta3.img`. To fix
     another model, add it to that IMG instead of adding loose files, then
     regenerate the install manifest. See `git log --grep="church"`.
+32. **Radar sprites are drawn white unless the caller tints them, and not
+    every loaded radar texture exists on PS2.** The 4-argument
+    `CRadar::DrawRadarSprite` and `DrawLegend` draw sprites untinted; PS2 tints
+    some (the map waypoint is `mp_objective`, `RADAR_SPRITE_MPOBJECTIVE`,
+    tinted bright red, legend `LG_54` pure red). Use the `CRGBA` overload for
+    tinted sprites. `radar_player_target` (`CRadar::MapWayPoint`) is a port
+    addition that PS2 never had; don't wire it up as "the PS2 waypoint". Check
+    `LoadTextures` (`0x115548`) on PS2 before trusting a sprite name. See
+    `git log --grep="waypoint"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 
