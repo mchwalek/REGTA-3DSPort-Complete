@@ -293,10 +293,18 @@ public:
 
 	// TODO(LCS): properly, this is just to get some estimation for script
 	int16 GetOddJobTrigger() { return GetRightShockJustDown(); }
+#ifdef _3DS
+	// Script menus (shops) take the physical D-pad too, like PS2.
+	int16 GuiLeft() { return GetAnaloguePadLeft() || LegacyDirections3DS::JustDown(NewState, OldState, LegacyDirections3DS::Left, true); }
+	int16 GuiRight() { return GetAnaloguePadRight() || LegacyDirections3DS::JustDown(NewState, OldState, LegacyDirections3DS::Right, true); }
+	int16 GuiUp() { return GetAnaloguePadUp() || LegacyDirections3DS::JustDown(NewState, OldState, LegacyDirections3DS::Up, true); }
+	int16 GuiDown() { return GetAnaloguePadDown() || LegacyDirections3DS::JustDown(NewState, OldState, LegacyDirections3DS::Down, true); }
+#else
 	int16 GuiLeft() { return GetAnaloguePadLeft() || GetDPadLeftJustDown(); }
 	int16 GuiRight() { return GetAnaloguePadRight() || GetDPadRightJustDown(); }
 	int16 GuiUp() { return GetAnaloguePadUp() || GetDPadUpJustDown(); }
 	int16 GuiDown() { return GetAnaloguePadDown() || GetDPadDownJustDown(); }
+#endif
 	int16 GuiSelect() {
 #ifdef _3DS
 		return GetCircleJustDown();

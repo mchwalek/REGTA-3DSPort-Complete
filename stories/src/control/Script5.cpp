@@ -1423,11 +1423,12 @@ int16 CRunningScript::GetPadState(uint16 pad, uint16 button)
 	case 6: return pPad->NewState.RightShoulder1;
 	case 7: return pPad->NewState.RightShoulder2;
 #ifdef _3DS
-	// Legacy SCM directions use the Circle Pad; physical D-pad is graphics-only.
-	case 8: return LegacyDirections3DS::Held(pPad->NewState, LegacyDirections3DS::Up) ? 255 : 0;
-	case 9: return LegacyDirections3DS::Held(pPad->NewState, LegacyDirections3DS::Down) ? 255 : 0;
-	case 10: return LegacyDirections3DS::Held(pPad->NewState, LegacyDirections3DS::Left) ? 255 : 0;
-	case 11: return LegacyDirections3DS::Held(pPad->NewState, LegacyDirections3DS::Right) ? 255 : 0;
+	// Legacy SCM directions accept the Circle Pad or the physical D-pad (shop menus, like PS2).
+	// Select+D-pad hotkeys never reach NewState.DPad*, see CPad::AffectFrom3DS.
+	case 8: return LegacyDirections3DS::Held(pPad->NewState, LegacyDirections3DS::Up, true) ? 255 : 0;
+	case 9: return LegacyDirections3DS::Held(pPad->NewState, LegacyDirections3DS::Down, true) ? 255 : 0;
+	case 10: return LegacyDirections3DS::Held(pPad->NewState, LegacyDirections3DS::Left, true) ? 255 : 0;
+	case 11: return LegacyDirections3DS::Held(pPad->NewState, LegacyDirections3DS::Right, true) ? 255 : 0;
 #else
 	case 8: return pPad->NewState.DPadUp;
 	case 9: return pPad->NewState.DPadDown;
