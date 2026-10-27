@@ -516,7 +516,17 @@ CFileLoader::LoadModelFile(const char *filename)
 	stream = RwStreamOpen(rwSTREAMFILENAME, rwSTREAMREAD, filename);
 	re3_load_mark("LoadModelFile %s: opened", filename);
 	if(RwStreamFindChunk(stream, rwID_CLUMP, nil, nil)){
+#ifdef _3DS
+		/* Same as CStreaming::ConvertBufferToObject: a texture miss otherwise
+		 * walks the SD card per material (WHEELS.DFF alone took ~10 s). */
+		rw::Texture::setLoadTextures(false);
+		rw::Texture::setCreateDummies(true);
+#endif
 		clump = RpClumpStreamRead(stream);
+#ifdef _3DS
+		rw::Texture::setCreateDummies(false);
+		rw::Texture::setLoadTextures(true);
+#endif
 		re3_load_mark("LoadModelFile %s: clump read", filename);
 		if(clump){
 			InitClump(clump);

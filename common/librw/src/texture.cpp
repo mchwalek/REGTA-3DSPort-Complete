@@ -341,25 +341,9 @@ Texture::read(const char *name, const char *mask)
 		return tex;
 	}
 	if(TEXTUREGLOBAL(loadTextures)){
-#ifdef RW_3DS
-		// Every miss probes each search path x image format on a slow SD card;
-		// remember names that already missed (loose images don't appear at runtime).
-		static char missed[64][32];
-		static int numMissed;
-		for(int i = 0; i < numMissed; i++)
-			if(strncmp(missed[i], name, 32) == 0)
-				goto dummytex;
-		tex = Texture::readCB(name, mask);
-		if(tex == nil){
-			if(numMissed < 64)
-				strncpy(missed[numMissed++], name, 31);
-			goto dummytex;
-		}
-#else
 		tex = Texture::readCB(name, mask);
 		if(tex == nil)
 			goto dummytex;
-#endif
 	}else dummytex: if(TEXTUREGLOBAL(makeDummies)){
 //printf("missing texture %s %s\n", name ? name : "", mask ? mask : "");
 		tex = Texture::create(nil);

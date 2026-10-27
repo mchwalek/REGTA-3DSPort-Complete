@@ -304,15 +304,22 @@ CStreaming::Init(void)
 	int txdHandle = CFileMgr::OpenFile("MODELS\\TXD.IMG", "r");
 	if (txdHandle)
 		CFileMgr::CloseFile(txdHandle);
-	if (!CheckVideoCardCaps() && txdHandle) {
+	bool capsChanged = CheckVideoCardCaps();
+	re3_load_mark("CStreaming::Init: txd.img exists=%d capsChanged=%d", txdHandle != 0, capsChanged);
+	if (!capsChanged && txdHandle) {
 		CdStreamAddImage("MODELS\\TXD.IMG");
+		re3_load_mark("CStreaming::Init: image added");
 		CStreaming::Init2();
+		re3_load_mark("CStreaming::Init: Init2 done");
 	} else {
 		CStreaming::Init2();
+		re3_load_mark("CStreaming::Init: first Init2 done");
 		if (CreateTxdImageForVideoCard()) {
+			re3_load_mark("CStreaming::Init: txd.img generated");
 			CStreaming::Shutdown();
 			CdStreamAddImage("MODELS\\TXD.IMG");
 			CStreaming::Init2();
+			re3_load_mark("CStreaming::Init: second Init2 done");
 		}
 	}
 #else
@@ -3479,9 +3486,12 @@ CStreaming::LoadScene(const CVector &pos)
 	RequestBigBuildings(level, pos);
 	RequestBigBuildings(LEVEL_GENERIC, pos);
 	RemoveIslandsNotUsed(level);
+	re3_load_mark("LoadScene: requested %d, LoadAllRequestedModels #1", ms_numModelsRequested);
 	LoadAllRequestedModels(false);
+	re3_load_mark("LoadScene: #1 done");
 	InstanceBigBuildings(level, pos);
 	InstanceBigBuildings(LEVEL_GENERIC, pos);
+	re3_load_mark("LoadScene: InstanceBigBuildings done");
 	AddModelsToRequestList(pos, STREAMFLAGS_20);
 	CRadar::StreamRadarSections(pos);
 
@@ -3493,8 +3503,11 @@ CStreaming::LoadScene(const CVector &pos)
 			CStreaming::RequestModel(model, STREAMFLAGS_DEPENDENCY);
 		}
 	}
+	re3_load_mark("LoadScene: requested %d, LoadAllRequestedModels #2", ms_numModelsRequested);
 	LoadAllRequestedModels(false);
+	re3_load_mark("LoadScene: #2 done");
 	InstanceLoadedModels(pos);
+	re3_load_mark("LoadScene: InstanceLoadedModels done");
 
 	for(int i = 0; i < NUMSTREAMINFO; i++)
 		ms_aInfoForModel[i].m_flags &= ~STREAMFLAGS_20;
