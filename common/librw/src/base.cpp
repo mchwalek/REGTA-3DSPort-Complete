@@ -1006,6 +1006,11 @@ StreamFile::open(const char *path, const char *mode)
 		RWERROR((ERR_FILE, path));
 		return nil;
 	}
+#ifdef RW_3DS
+	// Default stdio buffering costs one SD IPC (~2.5 ms) per small fread.
+	if(mode[0] == 'r' && strchr(mode, '+') == nil)
+		setvbuf(this->file, nil, _IOFBF, 32768);
+#endif
 	return this;
 }
 
