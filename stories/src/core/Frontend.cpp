@@ -4753,6 +4753,11 @@ CMenuManager::UserInput(void)
 				goBack = true;
 			}
 		}
+#ifdef _3DS
+		// B on the pause menu resumes, like Start
+		if (m_nCurrScreen == MENUPAGE_PAUSE_MENU && CPad::GetPad(0)->GetBackJustDown())
+			RequestFrontEndShutDown();
+#endif
 
 		if (((goDown) || (goUp)) || (optionSelected)) {
 			goBack = false;
