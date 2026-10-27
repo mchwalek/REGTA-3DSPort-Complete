@@ -585,6 +585,24 @@ not mistake for a failed transfer.
     addition that PS2 never had; don't wire it up as "the PS2 waypoint". Check
     `LoadTextures` (`0x115548`) on PS2 before trusting a sprite name. See
     `git log --grep="waypoint"`.
+33. **On 3DS every small stdio/librw `fread` on the SD card is one FS IPC
+    (~2.5 ms), because libctru leaves `st_blksize=0` and newlib falls back to
+    a 1 KB buffer — shared by all three trees.** Parsing byte- or struct-wise
+    through `CFileMgr`/`rw::StreamFile` made `CStreaming::LoadCdDirectory`
+    (4971 x 32 B reads of `gta3.dir`) cost ~12 s and the 159 KB `WHEELS.DFF`
+    (~5000 tiny chunk reads) ~10 s of the load screen. Fixed in stories by
+    `setvbuf(..., 32768)` for read-only files in `myfopen` (text mode) and
+    `rw::StreamFile::open` (`common/librw/src/base.cpp`, so III/miami get it
+    too), and block-reading `.DIR` files. New loaders of big files should
+    `setvbuf` or read the whole file first (cf. `CAnimManager::LoadAnimFile`).
+    Don't assume a slow load is texture lookup/ETC1 until measured: the
+    first guess (missing `WHEELS.TXD` search) was wrong. Also don't trim
+    `CStreaming::MemoryCardLoad` to "must-keep" models: it saved only ~2-4 s
+    (`LoadScene` then streams the same models) and caused post-load
+    hitching at the safehouse exit/garage. Profile with `re3_load_mark()`
+    (`core/re3.cpp`), which writes `load_profile.log` in the game's cwd after
+    each load (appended; timestamps are app-uptime ms). Result: save-slot
+    load 66.7 s -> 41.1 s. See `git log --grep="one SD IPC"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 

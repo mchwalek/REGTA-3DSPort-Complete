@@ -217,3 +217,15 @@ changing any `gamefiles/<game>/` override, re-run
 refresh the local SD staging directory (e.g. `sdstage/`) — a `3dslink`
 deploy alone will boot a binary that expects the new override data but
 never received it.
+
+## Profiling a save-slot load on hardware
+
+`re3_load_mark()` (`stories/src/core/re3.cpp`) buffers timestamped lines in RAM
+and `gameReload` flushes them to `load_profile.log` in the game's cwd on the
+SD card (appended per load; start of the last `--- load session ---` block is
+the latest run). Timestamps are app-uptime ms. The real load runs from the
+third `LoadingScreen - | -` mark to `gameReload: InitialiseWhenRestarting end`
+(the first two are boot). Add marks around suspect steps, rebuild, deploy,
+cold boot -> Load Game, read the log. Reference: 66.7 s before the `.DIR`/stdio
+buffering fixes, 41.1 s after (loading bar 23.8 s, "please wait" 17.4 s of
+which `MemoryCardLoad` ~13 s).
