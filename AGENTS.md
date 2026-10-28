@@ -602,6 +602,22 @@ not mistake for a failed transfer.
     hitching at the safehouse exit/garage. Result: save-slot load
     66.7 s -> 41.1 s (found with temporary in-RAM timestamp marks flushed to
     an SD log; they were removed again, see commit `3ec9392` to restore). See `git log --grep="one SD IPC"`.
+34. **PS2 LCS PAL runs at 25 fps (timestep 2.0), not 50. Its vehicle data
+    and code match reLCS, so "feels different" is usually an input-curve or
+    per-frame constant problem. Stories fix; III/miami unchecked.**
+    `HANDLING.CFG` (incl. `!` bike rows) and `SURFACE.DAT` match PS2's
+    tables compiled into `GAME.DTZ`, and so do `ProcessBikeWheel`, the
+    bike/car steering-range blocks, `CBike::ProcessControlInputs` and
+    `CTimer`. Two real differences turned up. (1) Steering stick curve: PS2
+    applies a 42/128 dead zone per axis and rescales linearly (`FIX_AXIS`,
+    `0x16f7e0`), while the 3DS circle pad used a radial 0.14 dead zone, so a
+    half deflection steered at 17% of lock instead of 7%. `GetSteeringLeftRight`
+    now reads `s3DSSteerX`. (2) Bike balance torque: PS2 applies -0.1/-0.15
+    per frame with no timestep (`0x15ca3c`). At 25 fps that is
+    `0.05/0.075 * ts`; VC used `0.07/0.1 * ts`. When a PS2 constant has no
+    timestep factor, convert it at ts 2.0 and don't compare per frame.
+    Digital throttle (B = 255 on 3DS, pressure-analog on PS2) was ruled out
+    on PCSX2. See `git log --grep="bike"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 

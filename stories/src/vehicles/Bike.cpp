@@ -1256,11 +1256,12 @@ CBike::ProcessControl(void)
 		onSideness = Clamp(onSideness, -1.0f, 1.0f);
 		CVector worldCOM = Multiply3x3(GetMatrix(), m_vecCentreOfMass);
 		// Keep bike upright
+		// PS2 LCS (SLES_541.35 0x15ca3c) applies -0.1/-0.15 per frame with no timestep, at PAL 25 fps (ts 2.0)
 		if(bBalancedByRider){
-			ApplyTurnForce(-0.07f*onSideness*m_fTurnMass*GetUp()*CTimer::GetTimeStep(), worldCOM+GetRight());
+			ApplyTurnForce(-0.05f*onSideness*m_fTurnMass*GetUp()*CTimer::GetTimeStep(), worldCOM+GetRight());
 			bIsStanding = false;
 		}else
-			ApplyTurnForce(-0.1f*onSideness*m_fTurnMass*GetUp()*CTimer::GetTimeStep(), worldCOM+GetRight());
+			ApplyTurnForce(-0.075f*onSideness*m_fTurnMass*GetUp()*CTimer::GetTimeStep(), worldCOM+GetRight());
 
 		// Wheelie/Stoppie stabilization
 		if(GetStatus() == STATUS_PLAYER){
