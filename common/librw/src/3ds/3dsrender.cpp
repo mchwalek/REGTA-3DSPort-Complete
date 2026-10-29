@@ -512,8 +512,12 @@ getEntityMaterialColor(Atomic *atomic, const RGBA &color)
 	if(!getEntityRenderStyle().scorched)
 		return color;
 	/* Unlit paths drop the lighting, so apply the scorched lights' ambient-only
-	 * result (WorldReplaceNormalLightsWithScorched) to the paint directly. */
+	 * result (WorldReplaceNormalLightsWithScorched) to the paint directly.
+	 * PS2 uploads ambient at twice its value (SLES_541.35 0x184e60), so 0.1 shows as 0.2. */
 	RGBAf amb = getAtomicAmbientLight(atomic);
+	amb.red *= 2.0f;
+	amb.green *= 2.0f;
+	amb.blue *= 2.0f;
 	clamp(&amb);
 	RGBA c = color;
 	c.red = (uint8)(c.red * amb.red);
