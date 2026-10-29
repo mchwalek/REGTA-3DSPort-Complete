@@ -616,6 +616,11 @@ not mistake for a failed transfer.
     per frame with no timestep (`0x15ca3c`). At 25 fps that is
     `0.05/0.075 * ts`; VC used `0.07/0.1 * ts`. When a PS2 constant has no
     timestep factor, convert it at ts 2.0 and don't compare per frame.
+    (3) Bikes still called VC's "TEMP" drive-accel and spring/dampening
+    overloads. PS2 uses the LCS ones the cars use (`0x1b5318`, `0x2c2398`,
+    `0x2c22a8`, `0x2c2508`). The VC ones gave less low-gear thrust, so the
+    bike stalled on slopes, and uncapped damping that pulled it into the
+    ground. They are deleted now.
     Digital throttle (B = 255 on 3DS, pressure-analog on PS2) was ruled out
     on PCSX2. See `git log --grep="bike"`.
 

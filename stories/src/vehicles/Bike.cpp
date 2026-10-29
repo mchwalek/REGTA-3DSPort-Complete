@@ -663,6 +663,7 @@ CBike::ProcessControl(void)
 		m_aWheelSkidmarkUnk[0] = m_aWheelSkidmarkUnk[1] = false;
 
 		// Make springs push up vehicle
+		float springImpulses[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 		for(i = 0; i < 4; i++){
 			if(m_aSuspensionSpringRatio[i] < 1.0f){
 				float bias = pHandling->fSuspensionBias;
@@ -672,11 +673,11 @@ CBike::ProcessControl(void)
 				if(m_aWheelColPoints[i].normal.z > 0.35f)
 					ApplySpringCollisionAlt(pHandling->fSuspensionForceLevel,
 						springDirections[i], contactPoints[i],
-						m_aSuspensionSpringRatio[i], bias, m_aWheelColPoints[i].normal);
+						m_aSuspensionSpringRatio[i], bias, m_aWheelColPoints[i].normal, springImpulses[i]);
 				else
 					ApplySpringCollision(pHandling->fSuspensionForceLevel,
 						springDirections[i], contactPoints[i],
-						m_aSuspensionSpringRatio[i], bias);
+						m_aSuspensionSpringRatio[i], bias, springImpulses[i]);
 
 				if(m_aWheelColPoints[i].surfaceB == SURFACE_GRASS ||
 				   m_aWheelColPoints[i].surfaceB == SURFACE_MUD_DRY){
@@ -735,7 +736,7 @@ CBike::ProcessControl(void)
 		// dampen springs
 		for(i = 0; i < 4; i++)
 			if(m_aSuspensionSpringRatio[i] < 1.0f)
-				ApplySpringDampening(pHandling->fSuspensionDampingLevel,
+				ApplySpringDampening(pHandling->fSuspensionDampingLevel, springImpulses[i],
 					springDirections[i], contactPoints[i], contactSpeeds[i]);
 
 		// Get speed at contact points again
@@ -752,7 +753,7 @@ CBike::ProcessControl(void)
 		fwdSpeed = DotProduct(m_vecMoveSpeed, GetForward());
 		if(!CVehicle::bCheat3)
 			gripCheat = false;
-		acceleration = pHandling->Transmission.CalculateDriveAcceleration(m_fGasPedal, m_nCurrentGear, m_fChangeGearTime, fwdSpeed, gripCheat);
+		acceleration = pHandling->Transmission.CalculateDriveAcceleration(m_fGasPedal, m_nCurrentGear, m_fChangeGearTime, fwdSpeed, nil, nil, m_nDriveWheelsOnGround, gripCheat);
 		acceleration /= m_fForceMultiplier;
 
 		brake = m_fBrakePedal * pHandling->fBrakeDeceleration * CTimer::GetTimeStep();

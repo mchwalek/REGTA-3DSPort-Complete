@@ -1204,6 +1204,17 @@ reLCS except:
   per frame with no `ms_fTimeStep`. VC/reLCS used `-0.07/-0.1 * ts`.
 - PS2 face buttons are pressure-analog (`min(raw*4,255)`, `0x16f868`), but the
   user ruled out throttle on PCSX2.
+- **Leftover VC overloads marked "TEMP ... until bikes are done"**: PS2's
+  bike calls the same LCS functions as the car. That is the drive accel
+  `0x1b5318` with `(…, nil, nil, driveWheelsOnGround, cheat)`, the springs
+  `0x2c2398`/`0x2c22a8`, which return the spring impulse, and the dampening
+  `0x2c2508`, which caps the downward impulse at 0.999 x that spring impulse.
+  reLCS bikes used VC's versions. VC's drive accel falls off linearly with
+  speed (about 30-40% less low-gear thrust, so the Sanchez stalled on the TR1
+  divider slope). VC's dampening has no spring cap, so on a slope it pulled
+  the bike into the ground. Grep for `TEMP`/`old VC code` before trusting a
+  vehicle function. `CBike::CBike` `0x154a88`, `SetupSuspensionLines`
+  `0x1551c8` and `ProcessEntityCollision` (vtable idx 21, `0x1608d8`) match.
 **PCSX2's OSD shows PAL LCS at 25 fps (50 vps), so ts = 2.0.** A PS2
 per-frame constant `c` without a timestep factor ports as `c/2 * ts`.
 Don't assume 50 fps.
