@@ -582,14 +582,14 @@ CPhysical::ApplyFrictionTurnForce(float jx, float jy, float jz, float px, float 
 }
 
 bool
-CPhysical::ApplySpringCollision(float springConst, CVector &springDir, CVector &point, float springRatio, float bias)
+CPhysical::ApplySpringCollision(float springConst, CVector &springDir, CVector &point, float springRatio, float bias, float &impulse)
 {
 	float compression = 1.0f - springRatio;
 	if(compression > 0.0f){
 		float step = Min(CTimer::GetTimeStep(), 3.0f);
-		float impulse = -GRAVITY*m_fMass*step * springConst * compression * bias*2.0f;
-		ApplyMoveForce(springDir*impulse);
-		ApplyTurnForce(springDir*impulse, point);
+		impulse = GRAVITY*m_fMass*step * springConst * compression * bias*2.0f;
+		ApplyMoveForce(springDir*-impulse);
+		ApplyTurnForce(springDir*-impulse, point);
 	}
 	return true;
 }
@@ -2491,41 +2491,3 @@ CPhysical::ProcessCollision(void)
 
 
 
-// TEMP old VC code until bikes are done
-bool
-CPhysical::ApplySpringCollisionAlt(float springConst, CVector &springDir, CVector &point, float springRatio, float bias, CVector &forceDir)
-{
-	float compression = 1.0f - springRatio;
-	if(compression > 0.0f){
-		if(DotProduct(springDir, forceDir) > 0.0f)
-			forceDir *= -1.0f;
-		float step = Min(CTimer::GetTimeStep(), 3.0f);
-		float impulse = GRAVITY*m_fMass*step * springConst * compression * bias*2.0f;
-		if(bIsHeavy)
-			impulse *= 0.75f;
-		ApplyMoveForce(forceDir*impulse);
-		ApplyTurnForce(forceDir*impulse, point);
-	}
-	return true;
-}
-bool
-CPhysical::ApplySpringDampening(float damping, CVector &springDir, CVector &point, CVector &speed)
-{
-	float speedA = DotProduct(speed, springDir);
-	float speedB = DotProduct(GetSpeed(point), springDir);
-	float step = Min(CTimer::GetTimeStep(), 3.0f);
-	float impulse = -damping * (speedA + speedB)/2.0f * m_fMass * step * 0.53f;
-	if(bIsHeavy)
-		impulse *= 2.0f;
-
-	// what is this?
-	float a = m_fTurnMass / ((point.MagnitudeSqr() + 1.0f) * 2.0f * m_fMass);
-	a = Min(a, 1.0f);
-	float b = Abs(impulse / (speedB * m_fMass));
-	if(a < b)
-		impulse *= a/b;
-
-	ApplyMoveForce(springDir*impulse);
-	ApplyTurnForce(springDir*impulse, point);
-	return true;
-}
