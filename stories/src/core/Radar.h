@@ -316,7 +316,7 @@ public:
 #endif
 
 	static void InitFrontEndMap();
-	static void DrawYouAreHereSprite(float, float);
+	static void DrawYouAreHereSprite(float, float, float);
 #ifdef MAP_ENHANCEMENTS
 	static void ToggleTargetMarker(float, float);
 #endif
