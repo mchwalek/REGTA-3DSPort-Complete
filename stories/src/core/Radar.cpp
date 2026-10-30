@@ -1291,14 +1291,14 @@ CRadar::LoadTextures()
 	MPTank.SetTexture("mp_tank");
 	MPCarLockup.SetTexture("mp_carlockup");
 	MPTargetPlayer.SetTexture("mp_targetplayer");
-	MapHereSprite0.SetTexture("radar_arrow");
-	MapHereSprite1.SetTexture("radar_arrow_01");
-	MapHereSprite2.SetTexture("radar_arrow_02");
-	MapHereSprite3.SetTexture("radar_arrow_03");
-	MapHereSprite4.SetTexture("radar_arrow_04");
-	MapHereSprite5.SetTexture("radar_arrow_05");
-	MapHereSprite6.SetTexture("radar_arrow_06");
-	MapHereSprite7.SetTexture("radar_arrow_07");
+	MapHereSprite0.SetTexture("arrow_00");
+	MapHereSprite1.SetTexture("arrow_01");
+	MapHereSprite2.SetTexture("arrow_02");
+	MapHereSprite3.SetTexture("arrow_03");
+	MapHereSprite4.SetTexture("arrow_04");
+	MapHereSprite5.SetTexture("arrow_05");
+	MapHereSprite6.SetTexture("arrow_06");
+	MapHereSprite7.SetTexture("arrow_07");
 	MapWayPoint.SetTexture("radar_player_target");
 	CTxdStore::PopCurrentTxd();
 }
