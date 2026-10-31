@@ -47,6 +47,7 @@
 #include "Plane.h"
 #include "WaterLevel.h"
 #include "PlayerInfo.h"
+#include "Script.h"
 
 // maybe some day...
 //#define GTA_WORLDSTREAM
@@ -271,6 +272,23 @@ HasVisibleLCSBuildingLodSource(CEntity *lod, CSimpleModelInfo *high)
 		 * world bounds; retain the tight XY fallback for old assets whose
 		 * collision bounds do not represent the rendered shell. */
 		if(lod->GetIsTouching(candidate) || delta.x*delta.x + delta.y*delta.y < 4.0f)
+			return true;
+	}
+	return false;
+}
+
+static bool
+IsLCSBuildingLodSourceSwappedOut(CEntity *lod, CSimpleModelInfo *high)
+{
+	/* main.scm swaps a safehouse shell (e.g. ind_land097) for its interior.
+	 * PS2 swaps the whole sector and never draws the shell's LOD there; without
+	 * this the LOD (painted windows) is drawn around the interior. */
+	for(int i = 0; i < MAX_NUM_BUILDING_SWAPS; i++){
+		const tBuildingSwap &swap = CTheScripts::BuildingSwapArray[i];
+		if(swap.m_pBuilding == nil || CModelInfo::GetModelInfo(swap.m_nOldModel) != high)
+			continue;
+		const CVector delta = swap.m_pBuilding->GetPosition() - lod->GetPosition();
+		if(lod->GetIsTouching(swap.m_pBuilding) || delta.x*delta.x + delta.y*delta.y < 4.0f)
 			return true;
 	}
 	return false;
@@ -1548,6 +1566,10 @@ CRenderer::SetupBigBuildingVisibility(CEntity *ent)
 		const bool sourceVisible3DS = paired3DS ? HasVisibleLCSBuildingLodSource(ent, nonLOD) : true;
 		if(nonLOD == nil || sourceVisible3DS && nonLOD->GetRwObject() && nonLOD->m_alpha == 255)
 			return VIS_INVISIBLE;
+#ifdef _3DS
+		if(ent->IsBuilding() && IsLCSBuildingLodSourceSwappedOut(ent, nonLOD))
+			return VIS_INVISIBLE;
+#endif
 
 		// But if it is a time object, we'd rather draw the wrong
 		// non-LOD than the right LOD.

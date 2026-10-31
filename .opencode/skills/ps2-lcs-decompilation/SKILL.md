@@ -1298,6 +1298,21 @@ not in game code. librw's 3DS MatFX and skin paths are unlit and ignored that
 lighting (AGENTS.md landmine #28). When PS2 does a visual effect through RW
 lights, check that the 3DS render path actually reads the lights.
 
+The first fix used 0.1 x paint and wrecks came out almost black; on PS2 a
+taxi wreck is clearly mustard yellow. **PS2 ambient light counts double.**
+Per-atomic light setup (`0x1850c0`) uploads ambient with `0x184e60`:
+`int(colour*255)`, then `sll 1`, clamp to 255. Directional lights go through
+`0x184f40` with no doubling. `0x3562f0` copies the light state to VU1. The
+lighting microcode is embedded in `.text` (`0x272800` compressed normals,
+`0x272cf0` float normals, pointer table `0x39a9a8`), not in `.vutext` (that
+one is collision code): it scales each light by `material * 1/510`
+(`LOI 0x3b008081`), sums ambient + N.L, clamps to 255 and writes the vertex
+colour, which GS modulate reads with 128 = 1.0. So the scorched 0.1 ambient
+shows as 0.2 x texture x paint. A PS2 screenshot agrees: hood pixel
+`(40,30,5)` for taxi paint `(255,182,16)`, i.e. a body texture of ~0.8.
+Ghidra's EE language can't decode VU micro mode; a small decoder of the
+upper/lower 32-bit pairs was enough to read it.
+
 ## Case study: island load screens on the water — same data, different lookup
 
 In "Caught in the Act" (GXT `SALS3`, a boat mission down the Portland/Staunton

@@ -520,8 +520,11 @@ not mistake for a failed transfer.
     their paint and burning peds their colours. The fix passes the state
     through `rw::c3d::EntityRenderStyle` (`scorched`, set in
     `CameraOcclusion3DS::RenderScope`, which wraps every `CEntity::Render`).
-    The unlit paths then apply the ambient through `getEntityMaterialColor`.
-    PS2 also zeroes env-map intensity for scorched entities (`SLES_541.35`
+    The unlit paths then apply the ambient through `getEntityMaterialColor`,
+    doubled: PS2 uploads ambient at 2x (`0x184e60`, `sll 1`) but directional
+    at 1x (`0x184f40`), so a scorched wreck is 0.2 x paint, not 0.1 (a taxi
+    wreck stays visibly yellow). Decals (taxi sign, plate) are textures on
+    the same path and keep their texture, darkened like the paint. PS2 also zeroes env-map intensity for scorched entities (`SLES_541.35`
     `0x2e870c`, the global set by `SetupLighting` `0x2c9f30`). For any new
     per-entity lighting effect, carry it through `EntityRenderStyle` the same
     way, and don't expect it to come from the light state. Alpha-list atomics
