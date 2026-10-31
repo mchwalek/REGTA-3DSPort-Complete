@@ -527,7 +527,9 @@ CMenuScreenCustom aScreens[] = {
 
 	// MENUPAGE_MAP = 6
 	{ "FEH_MAP", MENUPAGE_NONE, nil, nil,
+#ifndef _3DS // PS2 has no Back entry on the map; B backs out
 		 MENUACTION_GOBACK,	"FEDS_TB", {nil, SAVESLOT_NONE, MENUPAGE_NONE}, 70, 380, MENUALIGN_CENTER,
+#endif
 	},
 
 	// MENUPAGE_NEW_GAME_RELOAD = 7

@@ -352,6 +352,8 @@ public:
 		return LegacyDirections3DS::JustUp(NewState, OldState, direction, Is3DSMenuInputActive());
 	}
 	static bool Is3DSTouchOverlayVisible();
+	static int16 Get3DSPs2StickX();
+	static int16 Get3DSPs2StickY();
 #endif
 
 	// mouse

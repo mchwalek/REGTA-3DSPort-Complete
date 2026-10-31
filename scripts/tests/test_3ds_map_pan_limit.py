@@ -1,20 +1,17 @@
 #!/usr/bin/env python3
-"""Regression test for the 3DS map pan-limit macros (MAP_PAN_LIMIT_X/_Y)
-and the always-true-on-3DS horizontal-pan gate (CAN_PAN_X_AT_CURRENT_ZOOM).
+"""Regression test for the 3DS pause-menu map panning (PS2 LCS behaviour,
+SLES_541.35 0x33f578): the map scrolls under a centred crosshair until its
+edge (the 320x220 atlas, see CMenuManager::PrintMap) meets the screen edge,
+then the crosshair itself moves. Moving back snaps the crosshair to the
+centre before the map scrolls again.
 
-On 3DS the map crosshair is pinned to screen centre (there is no mouse), so
-reaching a given map point means panning that point to screen centre. The
-pan clamp must therefore allow m_fMapCenterX/Y to range across the map's
-own true half-extent (the 320x220 atlas -- see
-CRadar::TransformRadarPointToScreenSpace and CMenuManager::PrintMap), not
-the PC-only `m_fMapSize - MAP_MIN_SIZE` formula, which falls short of the
-map edges (that's the bug this macro fixes).
-
-Extracts the real MAP_PAN_LIMIT_X/_Y/CAN_PAN_X_AT_CURRENT_ZOOM macros and
-the real screen->atlas conversion snippet from the waypoint hit-test (both
-in Frontend.cpp), compiles them against a minimal stub, and asserts the
-screen-centre crosshair can reach all four atlas corners (0,0) and
-(320,220) at both minimum and maximum zoom.
+Extracts the real MAP_PAN_LIMIT_X/_Y macros and screen<->world helpers from
+Frontend.cpp, includes common/3ds/MapPan3DS.h, compiles against a minimal
+stub and checks that:
+- every atlas corner is reachable by the crosshair at min and max zoom,
+- the crosshair stays centred while the map can still scroll,
+- moving back snaps the crosshair to the centre,
+- MapScreenToWorld3DS and MapWorldToScreen3DS are inverses.
 """
 import subprocess
 import tempfile
@@ -23,6 +20,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 FRONTEND_CPP = ROOT / "stories" / "src" / "core" / "Frontend.cpp"
+RADAR_H = ROOT / "stories" / "src" / "core" / "Radar.h"
+MAP_PAN_H = ROOT / "common" / "3ds" / "MapPan3DS.h"
 
 
 def extract(source: str, start_marker: str, end_marker: str) -> str:
@@ -45,31 +44,12 @@ def build_and_run(cpp_source: str) -> None:
 
 
 class Test3DSMapPanLimit(unittest.TestCase):
-    def test_pan_limit_reaches_all_atlas_corners(self):
-        source = FRONTEND_CPP.read_text()
-
-        pan_limit_macros = extract(
-            source,
-            "#ifdef _3DS\n// Fixed centre crosshair",
-            "#define MAX_VISIBLE_LIST_ROW",
-        )
-
-        # Extracted in two pieces to skip the screen-rect containment guard
-        # (`if (mapCrosshair.y > ... ) {`) sitting between them -- that
-        # guard is about whether a click lands inside the rendered map
-        # widget at all, not about the pan-limit math under test here, and
-        # pulling it in verbatim would leave an unmatched brace.
-        map_half_width = extract(
-            source,
-            "const float mapHalfWidth = m_fMapSize * (320.0f / 220.0f);",
-            "if (mapCrosshair.y",
-        )
-        conversion_body = extract(
-            source,
-            "const float sourceScale = m_fMapSize * 2.0f / 220.0f;",
-            "(m_fMapCenterY - m_fMapSize)) / sourceScale;",
-        ) + "(m_fMapCenterY - m_fMapSize)) / sourceScale;"
-        screen_to_atlas = map_half_width + conversion_body
+    def test_ps2_map_pan(self):
+        frontend = FRONTEND_CPP.read_text()
+        macros = extract(frontend, "#define MAP_PAN_LIMIT_X(s) Max", "#define CAN_PAN_X_AT_CURRENT_ZOOM")
+        helpers = extract(frontend, "static CVector2D\nMapScreenToWorld3DS", "#endif\n\n#ifdef CUTSCENE_BORDERS_SWITCH")
+        registration = "".join(line + "\n" for line in RADAR_H.read_text().splitlines()
+                               if line.startswith("#define LCS_MENU_MAP_"))
 
         stub = r"""
 #include <cassert>
@@ -77,56 +57,71 @@ class Test3DSMapPanLimit(unittest.TestCase):
 #include <cstdio>
 
 #define _3DS
-#define Clamp(v, low, high) ((v)<(low) ? (low) : (v)>(high) ? (high) : (v))
-#define MENU_X(x) (x)
-#define MENU_Y(y) (y)
+#include """ + '"' + str(MAP_PAN_H) + '"' + r"""
+static float Max(float a, float b) { return a > b ? a : b; }
 #define SCREEN_WIDTH 400.0f
 #define SCREEN_HEIGHT 240.0f
-#define MAP_MIN_SIZE 224.f
+#define MENU_Y(y) ((y) * SCREEN_HEIGHT / 448.0f)
+struct CVector2D { float x, y; CVector2D(float x, float y) : x(x), y(y) {} };
+""" + registration + macros + helpers + r"""
 
-""" + pan_limit_macros + r"""
+struct Map { float size, cx, cy, ox, oy; };
 
-struct V2 { float x, y; };
+static void pan(Map &m, float dx, float dy) {
+	MapPan3DS::Pan(dx, m.ox, m.cx, SCREEN_WIDTH / 2, MAP_PAN_LIMIT_X(m.size), SCREEN_WIDTH / 2);
+	MapPan3DS::Pan(dy, m.oy, m.cy, SCREEN_HEIGHT / 2, MAP_PAN_LIMIT_Y(m.size), SCREEN_HEIGHT / 2);
+}
 
-/* Mirrors the real reachability check: clamp m_fMapCenterX/Y to the new
- * limit, with the crosshair fixed at screen centre (as it always is on
- * 3DS), then run the real screen->atlas conversion and check the result
- * reaches the expected atlas corner. */
-static void check_reachable(float mapSize, float cx, float cy,
-                             float expectedAtlasX, float expectedAtlasY) {
-	V2 mapCrosshair = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
-	float m_fMapSize = mapSize;
-	float m_fMapCenterX = cx;
-	float m_fMapCenterY = cy;
-
-	""" + screen_to_atlas + r"""
-
-	if (fabsf(sourceX - expectedAtlasX) > 0.01f || fabsf(sourceY - expectedAtlasY) > 0.01f) {
-		fprintf(stderr, "unreachable at mapSize=%.1f center=(%.2f,%.2f): got atlas (%.3f,%.3f), want (%.3f,%.3f)\n",
-			mapSize, cx, cy, sourceX, sourceY, expectedAtlasX, expectedAtlasY);
-		assert(false);
-	}
+// Crosshair position in atlas pixels (0..320, 0..220).
+static void atlas(const Map &m, float &ax, float &ay) {
+	const float scale = m.size * 2.0f / 220.0f;
+	ax = (SCREEN_WIDTH / 2 + m.ox - (m.cx - m.size * (320.0f / 220.0f))) / scale;
+	ay = (SCREEN_HEIGHT / 2 + m.oy - (m.cy - m.size)) / scale;
 }
 
 int main() {
-	assert(CAN_PAN_X_AT_CURRENT_ZOOM);
-
-	float zoomLevels[] = { MENU_Y(MAP_MIN_SIZE), MENU_Y(1000.0f) };
-	for (float mapSize : zoomLevels) {
-		float limitX = MAP_PAN_LIMIT_X(mapSize);
-		float limitY = MAP_PAN_LIMIT_Y(mapSize);
-
-		float lowX = SCREEN_WIDTH/2 - limitX, highX = limitX + SCREEN_WIDTH/2;
-		float lowY = SCREEN_HEIGHT/2 - limitY, highY = limitY + SCREEN_HEIGHT/2;
-
-		/* Top-left atlas corner (0,0) requires panning the map's own
-		 * top-left to screen centre, i.e. m_fMapCenterX/Y at their
-		 * highest clamp value. */
-		check_reachable(mapSize, highX, highY, 0.0f, 0.0f);
-		/* Bottom-right atlas corner (320,220) requires the opposite
-		 * extreme. */
-		check_reachable(mapSize, lowX, lowY, 320.0f, 220.0f);
+	float sizes[] = { MENU_Y(224.0f), MENU_Y(500.0f), MENU_Y(775.0f) };
+	for (float size : sizes) {
+		for (int sx = -1; sx <= 1; sx += 2)
+		for (int sy = -1; sy <= 1; sy += 2) {
+			Map m = { size, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 0, 0 };
+			for (int i = 0; i < 2000; i++)
+				pan(m, sx * 3.0f, sy * 3.0f);
+			float ax, ay;
+			atlas(m, ax, ay);
+			if (!((sx < 0 ? ax <= 0.01f : ax >= 319.99f) && (sy < 0 ? ay <= 0.01f : ay >= 219.99f))) {
+				fprintf(stderr, "corner (%d,%d) unreachable at size %.1f: atlas (%.2f,%.2f)\n", sx, sy, size, ax, ay);
+				return 1;
+			}
+			assert(fabsf(m.ox) <= SCREEN_WIDTH / 2 && fabsf(m.oy) <= SCREEN_HEIGHT / 2);
+		}
 	}
+
+	// Zoomed in: the map scrolls, the crosshair stays centred.
+	Map m = { MENU_Y(775.0f), SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 0, 0 };
+	pan(m, 10.0f, -10.0f);
+	assert(m.ox == 0.0f && m.oy == 0.0f);
+	assert(m.cx == SCREEN_WIDTH / 2 - 10.0f && m.cy == SCREEN_HEIGHT / 2 + 10.0f);
+
+	// Push past the right edge, then come back: crosshair snaps to centre.
+	for (int i = 0; i < 2000; i++)
+		pan(m, 3.0f, 0.0f);
+	assert(m.ox > 0.0f);
+	const float edge = m.cx;
+	pan(m, -(m.ox + 5.0f), 0.0f);
+	assert(m.ox == 0.0f && m.cx == edge + 5.0f);
+
+	// Min zoom fits the screen: the map never moves, only the crosshair.
+	Map small = { MENU_Y(224.0f), SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 0, 0 };
+	pan(small, 7.0f, -4.0f);
+	assert(small.cx == SCREEN_WIDTH / 2 && small.cy == SCREEN_HEIGHT / 2);
+	assert(small.ox == 7.0f && small.oy == -4.0f);
+
+	// Screen <-> world round trip.
+	CVector2D w = MapScreenToWorld3DS(CVector2D(123.0f, 77.0f), MENU_Y(500.0f), 150.0f, 130.0f);
+	CVector2D s = MapWorldToScreen3DS(w, MENU_Y(500.0f), 150.0f, 130.0f);
+	assert(fabsf(s.x - 123.0f) < 0.01f && fabsf(s.y - 77.0f) < 0.01f);
+
 	printf("ok\n");
 	return 0;
 }
