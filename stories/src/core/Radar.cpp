@@ -808,7 +808,7 @@ void CRadar::DrawBlips()
 
 			LimitRadarPoint(in);
 			TransformRadarPointToScreenSpace(out, in);
-			DrawYouAreHereSprite(out.x, out.y);
+			DrawYouAreHereSprite(out.x, out.y, FindPlayerHeading());
 		}
 	}
 }
@@ -1291,14 +1291,14 @@ CRadar::LoadTextures()
 	MPTank.SetTexture("mp_tank");
 	MPCarLockup.SetTexture("mp_carlockup");
 	MPTargetPlayer.SetTexture("mp_targetplayer");
-	MapHereSprite0.SetTexture("radar_arrow");
-	MapHereSprite1.SetTexture("radar_arrow_01");
-	MapHereSprite2.SetTexture("radar_arrow_02");
-	MapHereSprite3.SetTexture("radar_arrow_03");
-	MapHereSprite4.SetTexture("radar_arrow_04");
-	MapHereSprite5.SetTexture("radar_arrow_05");
-	MapHereSprite6.SetTexture("radar_arrow_06");
-	MapHereSprite7.SetTexture("radar_arrow_07");
+	MapHereSprite0.SetTexture("arrow_00");
+	MapHereSprite1.SetTexture("arrow_01");
+	MapHereSprite2.SetTexture("arrow_02");
+	MapHereSprite3.SetTexture("arrow_03");
+	MapHereSprite4.SetTexture("arrow_04");
+	MapHereSprite5.SetTexture("arrow_05");
+	MapHereSprite6.SetTexture("arrow_06");
+	MapHereSprite7.SetTexture("arrow_07");
 	MapWayPoint.SetTexture("radar_player_target");
 	CTxdStore::PopCurrentTxd();
 }
@@ -1662,7 +1662,7 @@ CRadar::InitFrontEndMap()
 }
 
 void
-CRadar::DrawYouAreHereSprite(float x, float y)
+CRadar::DrawYouAreHereSprite(float x, float y, float heading)
 {
 	static uint32 lastChange = 0;
 	static bool show = true;
@@ -1679,31 +1679,23 @@ CRadar::DrawYouAreHereSprite(float x, float y)
 		}
 	}
 
+	// PS2 picks one of 8 pre-rendered arrows by player heading (SLES_541.35 0x11a0a8)
+	float angle = heading - 3.0f * PI / 8.0f;
+	while (angle < 0.0f)
+		angle += 2.0f * PI;
+	while (angle >= 2.0f * PI)
+		angle -= 2.0f * PI;
+	const int idx = ((int)(7.0f - angle * (4.0f / PI))) & 7;
+	const eRadarSprite sprite = (eRadarSprite)(RADAR_SPRITE_MAPHERE0 + idx);
+
 	if (show) {
-		const float left = x - SCREEN_SCALE_X(8.0f);
-		const float top = y - SCREEN_SCALE_Y(40.0f);
-		const float right = x + SCREEN_SCALE_X(40.0);
-		const float bottom = y + SCREEN_SCALE_Y(8.0f);
-		MapHereSprite.Draw(CRect(left + SCREEN_SCALE_X(2.f), top + SCREEN_SCALE_Y(2.f), right + SCREEN_SCALE_X(2.f), bottom + SCREEN_SCALE_Y(2.f)),
+		// PS2 uses 16; enlarged for the smaller 3DS screen
+		const float half = SCREEN_SCALE_X(24.0f);
+		RadarSprites[sprite]->Draw(CRect(x - half + SCREEN_SCALE_X(1.f), y - half + SCREEN_SCALE_Y(1.f), x + half + SCREEN_SCALE_X(1.f), y + half + SCREEN_SCALE_Y(1.f)),
 			CRGBA(0, 0, 0, 255));
-
-		MapHereSprite.Draw(CRect(left, top, right, bottom), CRGBA(255, 255, 255, 255));
-
-		CFont::SetWrapx(right + SCREEN_SCALE_X(28.0f));
-		CFont::SetRightJustifyWrap(right);
-		CFont::SetBackGroundOnlyTextOff();
-		CFont::SetColor(CRGBA(255, 150, 225, 255));
-		CFont::SetDropShadowPosition(2);
-		CFont::SetDropColor(CRGBA(0, 0, 0, 255));
-		CFont::SetCentreOff();
-		CFont::SetRightJustifyOff();
-		CFont::SetFontStyle(FONT_LOCALE(FONT_HEADING));
-		CFont::SetScale(SCREEN_SCALE_X(0.65f), SCREEN_SCALE_Y(0.95f));
-		CFont::PrintString(right, top, TheText.Get("MAP_YAH"));
-		CFont::SetDropShadowPosition(0);
-		CFont::DrawFonts();
+		RadarSprites[sprite]->Draw(CRect(x - half, y - half, x + half, y + half), CRGBA(255, 255, 255, 255));
 	}
-	AddMapLegend(RADAR_SPRITE_MAP_HERE, CRGBA(255, 255, 255, 255));
+	AddMapLegend(sprite, CRGBA(255, 255, 255, 255));
 }
 
 #ifdef MAP_ENHANCEMENTS
@@ -1923,6 +1915,14 @@ CRadar::DrawLegend(int32 x, int32 y, int32 sprite, const CRGBA &color)
 			text = TheText.Get(GetBlipLegendKey(sprite, color));
 		break;
 		case RADAR_SPRITE_MAP_HERE:
+		case RADAR_SPRITE_MAPHERE0:
+		case RADAR_SPRITE_MAPHERE1:
+		case RADAR_SPRITE_MAPHERE2:
+		case RADAR_SPRITE_MAPHERE3:
+		case RADAR_SPRITE_MAPHERE4:
+		case RADAR_SPRITE_MAPHERE5:
+		case RADAR_SPRITE_MAPHERE6:
+		case RADAR_SPRITE_MAPHERE7:
 			text = TheText.Get("LG_01");
 		break;
 		case RADAR_SPRITE_AVERY:
