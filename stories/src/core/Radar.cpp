@@ -1689,7 +1689,8 @@ CRadar::DrawYouAreHereSprite(float x, float y, float heading)
 	const eRadarSprite sprite = (eRadarSprite)(RADAR_SPRITE_MAPHERE0 + idx);
 
 	if (show) {
-		const float half = SCREEN_SCALE_X(16.0f);
+		// PS2 uses 16; enlarged for the smaller 3DS screen
+		const float half = SCREEN_SCALE_X(24.0f);
 		RadarSprites[sprite]->Draw(CRect(x - half + SCREEN_SCALE_X(1.f), y - half + SCREEN_SCALE_Y(1.f), x + half + SCREEN_SCALE_X(1.f), y + half + SCREEN_SCALE_Y(1.f)),
 			CRGBA(0, 0, 0, 255));
 		RadarSprites[sprite]->Draw(CRect(x - half, y - half, x + half, y + half), CRGBA(255, 255, 255, 255));
