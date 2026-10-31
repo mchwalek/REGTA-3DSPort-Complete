@@ -309,6 +309,15 @@ drawInst_GSemu(InstanceDataHeader *header, InstanceData *inst, ProfileDrawClass 
 		if(zwrite){
 			alpharef = rw::GetRenderState(rw::ALPHATESTREF);
 			gsalpharef = rw::GetRenderState(rw::GSALPHATESTREF);
+			Texture *texture = inst->material->texture;
+			if(texture && texture->raster && GETC3DRASTEREXT(texture->raster)->hasOnlyFaintAlpha){
+				/* Faint glass such as izzy_dirtGlass never reaches the GS
+				 * reference, so the split below would draw it without depth
+				 * and let later geometry paint over it.  PS2 draws world
+				 * geometry with alpha test off: one depth-writing pass. */
+				drawInst_simple(header, inst, drawClass);
+				return;
+			}
 			if((stereoRenderActive() || performanceModeActive()) && !needsBlendedAlphaPass(inst, drawClass)){
 				/* The PS2 FB_ONLY emulation normally submits alpha-tested
 				 * geometry twice.  In stereo that becomes four draws, mostly
