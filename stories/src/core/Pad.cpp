@@ -2145,6 +2145,20 @@ Apply3DSRadialDeadzone(float &x, float &y, float deadzone)
 	y *= scale;
 }
 
+/* Circle Pad X with PS2 LCS's per-axis stick curve (FIX_AXIS in CPad::Update,
+ * SLES_541.35 0x16f7e0): 42/128 deadzone, linear rescale. Used for vehicle
+ * steering; the radial 0.14 deadzone made small deflections steer too hard. */
+static int16 s3DSSteerX;
+
+static int16
+Ps2StickAxis3DS(float axis)
+{
+	int32 x = Clamp((int32)(axis * 128.0f), -128, 127);
+	if(x < 43 && x >= -42)
+		return 0;
+	return x > 0 ? (x - 42) * 127 / 85 : (x + 42) * 127 / 85;
+}
+
 void
 CPad::AffectFrom3DS()
 {
@@ -2274,6 +2288,7 @@ CPad::AffectFrom3DS()
 	float ly = fmax(-1.0f, fmin(1.0f, (float)left.dy / 156.0f));
 	float rx = fmax(-1.0f, fmin(1.0f, (float)right.dx / 140.0f));
 	float ry = fmax(-1.0f, fmin(1.0f, (float)right.dy / 140.0f));
+	s3DSSteerX = Ps2StickAxis3DS(lx);
 	Apply3DSRadialDeadzone(lx, ly, 0.14f);
 	Apply3DSRadialDeadzone(rx, ry, 0.18f);
 	/* Match the production reVC New3DS response: preserve the radial deadzone,
@@ -2784,13 +2799,20 @@ int16 CPad::GetSteeringLeftRight(void)
 	if ( ArePlayerControlsDisabled() )
 		return 0;
 
+	int16 stickX = NewState.LeftStickX;
+#ifdef _3DS
+	// NewState still gates it, so menus/Clear() zero the steer
+	if(this == &Pads[0] && stickX != 0)
+		stickX = s3DSSteerX;
+#endif
+
 	int16 value;
 	switch (CURMODE)
 	{
 		case 0:
 		case 2:
 		{
-			int16 axis = NewState.LeftStickX;
+			int16 axis = stickX;
 			int16 dpad = (NewState.DPadRight - NewState.DPadLeft) / 2;
 
 			if ( Abs(axis) > Abs(dpad) )
@@ -2807,7 +2829,7 @@ int16 CPad::GetSteeringLeftRight(void)
 		case 1:
 		case 3:
 		{
-			SteeringLeftRightBuffer[0] = NewState.LeftStickX;
+			SteeringLeftRightBuffer[0] = stickX;
 			value = SteeringLeftRightBuffer[DrunkDrivingBufferUsed];
 			break;
 		}
