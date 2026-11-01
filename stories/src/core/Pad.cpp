@@ -2147,8 +2147,13 @@ Apply3DSRadialDeadzone(float &x, float &y, float deadzone)
 
 /* Circle Pad X with PS2 LCS's per-axis stick curve (FIX_AXIS in CPad::Update,
  * SLES_541.35 0x16f7e0): 42/128 deadzone, linear rescale. Used for vehicle
- * steering; the radial 0.14 deadzone made small deflections steer too hard. */
+ * steering and the pause-menu map; the radial 0.14 deadzone made small
+ * deflections steer too hard. Y is up-negative like LeftStickY. */
 static int16 s3DSSteerX;
+static int16 s3DSSteerY;
+
+int16 CPad::Get3DSPs2StickX() { return s3DSSteerX; }
+int16 CPad::Get3DSPs2StickY() { return s3DSSteerY; }
 
 static int16
 Ps2StickAxis3DS(float axis)
@@ -2289,6 +2294,7 @@ CPad::AffectFrom3DS()
 	float rx = fmax(-1.0f, fmin(1.0f, (float)right.dx / 140.0f));
 	float ry = fmax(-1.0f, fmin(1.0f, (float)right.dy / 140.0f));
 	s3DSSteerX = Ps2StickAxis3DS(lx);
+	s3DSSteerY = Ps2StickAxis3DS(-ly);
 	Apply3DSRadialDeadzone(lx, ly, 0.14f);
 	Apply3DSRadialDeadzone(rx, ry, 0.18f);
 	/* Match the production reVC New3DS response: preserve the radial deadzone,
