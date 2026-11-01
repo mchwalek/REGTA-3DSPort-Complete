@@ -436,6 +436,9 @@ struct C3DRaster
 	/* Distinguish real translucency from binary cut-outs so glass keeps its
 	 * blended pass without making foliage pay for it. */
 	bool  hasTranslucentAlpha;
+	/* No texel reaches the GS alpha reference; drawn in one depth-writing
+	 * pass like PS2 world geometry, which has alpha test off. */
+	bool  hasOnlyFaintAlpha;
 	bool  autogenMipmap;
 	int8  numLevels;
 	int8  bpp;
