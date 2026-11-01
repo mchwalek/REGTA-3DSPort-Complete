@@ -350,18 +350,19 @@ DrawStatusBar(CPlayerPed *player)
 	DrawHudNumberString(ascii, 252.0f, 101.0f, false,
 		CRGBA(255, 255, 255, 255), 14.0f, 14.0f);
 	sprintf(ascii, "$%07d", CWorld::Players[CWorld::PlayerInFocus].m_nVisibleMoney);
-	DrawHudNumberString(ascii, 246.0f, 138.0f, true,
+	DrawHudNumberString(ascii, 246.0f, 203.0f, true,
 		CRGBA(255, 255, 255, 255));
+	// PS2 order, top to bottom: time, armour, health, money.
+	DrawHudMeter(player->m_fArmour,
+		CWorld::Players[CWorld::PlayerInFocus].m_nMaxArmour,
+		136.0f, HUD_BAR_INSIDE1, HUD_BAR_INSIDE1DARK, true);
+	if(CWorld::Players[CWorld::PlayerInFocus].m_nMaxArmour > 100)
+		DrawHudBoostPlus(136.0f);
 	DrawHudMeter(player->m_fHealth,
 		CWorld::Players[CWorld::PlayerInFocus].m_nMaxHealth,
 		168.0f, HUD_BAR_INSIDE2, HUD_BAR_INSIDE2DARK, false);
 	if(CWorld::Players[CWorld::PlayerInFocus].m_nMaxHealth > 100)
 		DrawHudBoostPlus(168.0f);
-	DrawHudMeter(player->m_fArmour,
-		CWorld::Players[CWorld::PlayerInFocus].m_nMaxArmour,
-		201.0f, HUD_BAR_INSIDE1, HUD_BAR_INSIDE1DARK, true);
-	if(CWorld::Players[CWorld::PlayerInFocus].m_nMaxArmour > 100)
-		DrawHudBoostPlus(201.0f);
 	CFont::DrawFonts();
 }
 }
