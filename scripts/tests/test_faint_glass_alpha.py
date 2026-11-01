@@ -5,6 +5,8 @@ izzy_dirtGlass (Toni's Portland safehouse windows) has alpha 0..83 only. The
 3DS two-pass GS emulation drew it only in its no-depth pass, so later geometry
 painted over it. Textures flagged by hasOnlyFaintAlpha are drawn in one
 depth-writing pass instead, like PS2 (alpha test off for world geometry).
+isFaintAlphaImage keeps such textures out of ETC1A4, whose 4-bit alpha
+zeroed or halved most of the smudges.
 
 Extracts the real hasOnlyFaintAlpha from 3dsraster.cpp and compiles it with
 minimal stubs.
@@ -33,6 +35,7 @@ class TestFaintGlassAlpha(unittest.TestCase):
 #define nil nullptr
 typedef unsigned char uint8;
 typedef unsigned int uint32;
+typedef int int32;
 enum GPU_TEXCOLOR { GPU_RGBA8, GPU_ETC1A4, GPU_RGB8 };
 struct C3DRaster { GPU_TEXCOLOR format; bool hasAlpha; };
 """ + func + r"""
@@ -62,6 +65,16 @@ int main()
 
 	C3DRaster rgbRas{GPU_RGB8, true};
 	assert(!hasOnlyFaintAlpha(&rgbRas, rgba, sizeof(rgba)));
+
+	// RGBA image rows, 2x2 with a padded stride (alpha at byte 3)
+	uint8 img[2 * 12];
+	memset(img, 0, sizeof(img));
+	assert(!isFaintAlphaImage(img, 2, 2, 4, 12));            // fully transparent
+	img[3] = 83; img[12 + 4 + 3] = 9;
+	img[8 + 3] = 255;                                        // padding ignored
+	assert(isFaintAlphaImage(img, 2, 2, 4, 12));
+	img[12 + 3] = 128;
+	assert(!isFaintAlphaImage(img, 2, 2, 4, 12));
 	return 0;
 }
 """

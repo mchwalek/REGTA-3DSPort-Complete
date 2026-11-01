@@ -28,6 +28,8 @@ int32 nativeRasterOffset;
 
 int gForceCompression = 1;
 int gForceMipmaps = 0;
+// shortcut: set by imageFindRasterFormat, consumed by the next rasterCreate (convertTexToCurrentPlatform calls them back to back); pass it in the raster format if another caller ever splits them.
+static bool sNextTextureUncompressed = false;
   
 static uint32
 getLevelSize(Raster *raster, int32 level)
@@ -101,6 +103,23 @@ hasOnlyFaintAlpha(const C3DRaster *natras, const uint8 *data, uint32 size)
 			if(data[i] >= 128)
 				return false;
 			visible |= data[i] != 0;
+		}
+	}
+	return visible;
+}
+
+/* Same test on a 32-bit RGBA image before upload. ETC1A4 keeps 4 alpha bits,
+ * which zeroes or halves most of a faint texture, so these stay RGBA8. */
+static bool
+isFaintAlphaImage(const uint8 *pixels, int32 width, int32 height, int32 bpp, int32 stride)
+{
+	bool visible = false;
+	for(int32 y = 0; y < height; y++){
+		const uint8 *line = pixels + y*stride;
+		for(int32 x = 0; x < width; x++, line += bpp){
+			if(line[3] >= 128)
+				return false;
+			visible |= line[3] != 0;
 		}
 	}
 	return visible;
@@ -528,6 +547,8 @@ rasterCreate(Raster *raster)
 {
 	Raster       *ret = raster;
 	C3DRaster *natras = GETC3DRASTEREXT(raster);
+	bool uncompressed = sNextTextureUncompressed;
+	sNextTextureUncompressed = false;
 
 	natras->isCompressed = 0;
 	natras->hasAlpha     = 0;
@@ -552,7 +573,7 @@ rasterCreate(Raster *raster)
 	switch(raster->type){
 	case Raster::NORMAL:
 	case Raster::TEXTURE:
-		if(gForceCompression){
+		if(gForceCompression && !uncompressed){
 			ret = allocateETC(raster);
 		}else{
 			ret = rasterCreateTexture(raster);
@@ -731,10 +752,14 @@ imageFindRasterFormat(Image *img, int32 type,
 	if(depth <= 8)
 		depth = 32;
 
+	sNextTextureUncompressed = false;
 	switch(depth){
 	case 32:
-		if(img->hasAlpha())
+		if(img->hasAlpha()){
 			format = Raster::C8888;
+			sNextTextureUncompressed = img->depth == 32 &&
+				isFaintAlphaImage(img->pixels, img->width, img->height, img->bpp, img->stride);
+		}
 		else{
 			format = Raster::C888;
 			depth = 24;
