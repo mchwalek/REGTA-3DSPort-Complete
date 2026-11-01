@@ -1173,6 +1173,53 @@ extra argument at the PS2 entry point that reLCS's signature lacks is a strong
 hint a whole behavior was dropped; scan the callers to see which actually
 pass it. Fix: `git log --grep="smash traffic lights"`.
 
+## Case study: slippery bikes — data and physics match, input and frame rate don't
+
+Report: bikes slide too easily in turns and on the TR1 track-divider slopes.
+**GAME.DTZ is a plain zlib stream** (`78 da`):
+`iso9660.py extract <iso> /CHK/PS2/GAME.DTZ /tmp/opencode/GAME.DTZ`, then
+`zlib.decompress(data)` gives 6,001,016 bytes. Keep it in `/tmp`, never in
+the repo. Tables in the decompressed blob, all already in game units:
+- Car handling: 81 rows of 0xF0 at `0x164790`, in the same order as reLCS
+  `VehicleNames[]`. reLCS `tHandlingData` order, but the COM `CVector` is
+  16-byte aligned (`+0x20`) and the transmission starts at `+0x38`. Other
+  offsets: `+0xa8` steeringLock, `+0xac` tractionLoss, `+0xb0` tractionBias.
+- Bike `!` rows: 0x44-byte records (u32 id 0x41..0x47 + 16 floats) from
+  `0x169390`. The flying `$` rows follow.
+- Surface adhesion: 6x6 floats at `0x49ef70`.
+To compare them, run the staged `.cfg` through reLCS's `LoadHandlingData` +
+`ConvertDataToGameUnits` math in Python. Every row matched.
+
+PS2 functions: `CAutomobile::ProcessControl` `0x128408` (xref of the .sdata
+0.0007f), `CBike::ProcessControl` `0x157990` (caller of
+`GetTractionMultiplier` `0x1449a8`), `ProcessBikeWheel` `0x328778`,
+`ProcessCarWheelPair` `0x13b810`, `CBike::ProcessControlInputs` `0x160cc8`
+(bike vtable `0x3ac388` + 0xbc, 8-byte entries), `CTimer::Update`
+`0x2b4db8` (ts = ticks*3.39e-7, i.e. seconds*50, floor 0.5, cap 3),
+`CPad::Update` `0x16f8d0`, `GetSteeringLeftRight` `0x170bf8`. All matched
+reLCS except:
+- **Stick curve**: `0x16f7e0` = `FIX_AXIS` (per-axis 42/128 dead zone, linear
+  rescale). 3DS used a radial 0.14 dead zone.
+- **Balance torque**: `0x15ca3c` applies `-0.1/-0.15 * turnMass * onSideness`
+  per frame with no `ms_fTimeStep`. VC/reLCS used `-0.07/-0.1 * ts`.
+- PS2 face buttons are pressure-analog (`min(raw*4,255)`, `0x16f868`), but the
+  user ruled out throttle on PCSX2.
+- **Leftover VC overloads marked "TEMP ... until bikes are done"**: PS2's
+  bike calls the same LCS functions as the car. That is the drive accel
+  `0x1b5318` with `(…, nil, nil, driveWheelsOnGround, cheat)`, the springs
+  `0x2c2398`/`0x2c22a8`, which return the spring impulse, and the dampening
+  `0x2c2508`, which caps the downward impulse at 0.999 x that spring impulse.
+  reLCS bikes used VC's versions. VC's drive accel falls off linearly with
+  speed (about 30-40% less low-gear thrust, so the Sanchez stalled on the TR1
+  divider slope). VC's dampening has no spring cap, so on a slope it pulled
+  the bike into the ground. Grep for `TEMP`/`old VC code` before trusting a
+  vehicle function. `CBike::CBike` `0x154a88`, `SetupSuspensionLines`
+  `0x1551c8` and `ProcessEntityCollision` (vtable idx 21, `0x1608d8`) match.
+**PCSX2's OSD shows PAL LCS at 25 fps (50 vps), so ts = 2.0.** A PS2
+per-frame constant `c` without a timestep factor ports as `c/2 * ts`.
+Don't assume 50 fps.
+Fixes: `git log --grep="bike"`.
+
 ## Case study: melee fight-system parity — diff the whole cluster, not one function
 
 Report: "not confident melee works like PS2". Earlier melee fixes had each
