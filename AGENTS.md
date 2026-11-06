@@ -626,6 +626,33 @@ not mistake for a failed transfer.
     ground. They are deleted now.
     Digital throttle (B = 255 on 3DS, pressure-analog on PS2) was ruled out
     on PCSX2. See `git log --grep="bike"`.
+35. **Texture alpha below 128 is drawn without depth on 3DS, and the SD
+    texture cache hides texture-loading changes. This is shared librw code,
+    so it affects all three trees.** With `GSALPHATEST` on, `drawInst_GSemu`
+    (`common/librw/src/3ds/3dsrender.cpp`) draws texels with alpha >= 128
+    with depth write and the rest in a second pass with no depth write. A
+    texture whose alpha is all below 128 (Toni's `izzy_dirtGlass`, 0..83)
+    then writes no depth, and anything drawn later paints over it. PS2 draws
+    the world with the GS alpha test off (`TEST_1` ATE=0, render-state setter
+    `0x144b58`) and draws its TRANSPARENT building list last. reLCS now marks
+    such textures `hasOnlyFaintAlpha`, draws them in one depth-writing pass
+    with the alpha test off, and draws entities using them after peds and
+    vehicles (`DeferFaintGlassEntity`, `Renderer.cpp`). Drawn earlier, the
+    depth-writing glass hid peds, lamp posts and, depending on camera yaw,
+    whole buildings behind the window. The pass runs twice because every PS2
+    interior swap sector holds its interior as two building ids with the same
+    geometry and transform, so PS2 blends the glass twice (draw loop
+    `0x2008b8` only merges equal ids). World textures load from the SD cache
+    `models/txd.img`/`txd.dir`, already ETC1A4, and that cache is only rebuilt
+    when `DATA/CAPS.DAT` differs from `CAPSVERSION`
+    (`stories/src/rw/TexRead.cpp`). Bump `CAPSVERSION` whenever you change
+    texture conversion or compression, or the change never reaches the
+    console. Don't write uncompressed textures into the cache:
+    `readNativeTexture`'s uncompressed branch goes through `rasterCreate`,
+    which forces ETC, and the size check then calls `svcBreak` on load. The
+    SD's DFF/TXD files come prebuilt with `reLCSAssetConverter.exe`, not
+    converted from the PS2 disc, so compare against the disc's Leeds data
+    (see the `ps2-lcs-decompilation` skill). See `git log --grep="faint glass"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 

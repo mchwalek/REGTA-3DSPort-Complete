@@ -1408,3 +1408,56 @@ ids, `main.scm` literals) can be wrong past some point even when every C++
 use is fine. Get the PS2 handler's case list before trusting the enum. See
 `docs/superpowers/specs/2026-10-24-lcs-script-sound-ids-design.md` and
 `git log --grep="script-sound"`.
+
+## Case study: faint safehouse glass — reading PS2 world data (Leeds sectors)
+
+Report: the dirty glass in Toni's Portland apartment was invisible on 3DS.
+The fix is mostly 3DS render code (AGENTS.md landmine #35). This section
+covers the PS2 data checks, which ruled out each data theory in turn.
+
+- **The SD assets are not from the disc.** `reLCSAssetConverter.exe`
+  (knackers4/res) carries a full PC-format data set (gta3.img DFF/TXD,
+  cuts.img, DATA tree) in an LZF-compressed overlay after the PE sections
+  (magic `IGAMLTSF`, 32 KB blocks). The SD `tonisaptinterior1.dff` is
+  byte-identical to the bundled one. To learn what PS2 does, read the
+  disc's Leeds data, not the SD files.
+- **Level files.** `/MODELS/{INDUST,COMMER,SUBURB,UNDERG}.LVZ` is a raw zlib
+  stream (`zlib.decompress`). It starts with a `DLRW` chunk header (0x20
+  bytes, pointers are file offsets). At 0x20: resource table pointer, 46
+  sector rows of 8 bytes, numResources, 32 positions, then numLevelSwaps +
+  pointer (4-byte {slot, state, u16 id} entries), numDynamics + pointer,
+  numInteriors + pointer (6-byte {secx, secy, slot, state, i16 sectorId}).
+  The WRLD sector headers are a 0x20-stride array at the pointer in LVZ
+  0x24 (ident `DLRW`, size at +8, IMG offset at +0x18). Sector body:
+  `b'\0'*0x20 + img[off:off+size-0x20]`, so its pointers are offsets too.
+  Sector at +0x20: overlay resources {i32 id; ptr}, u16 count, u16, 8 pass
+  list pointers (0 SUPERLOD, 1 LOD, 2 ROADS, 3 NORMAL, 4 NOZWRITE,
+  5 LIGHTS, 6 TRANSPARENT, end), swaps. Instances are 0x50 bytes {u16 id,
+  u16 resId, half-float bound[4], pad, matrix at +0x10}. aap/librwgta
+  `tools/storiesconv/streamworld.h` and `storiesview/worldstream.cpp` have
+  the structs and the VIF/DMA mesh decoder.
+- **Textures** are `RslRaster {data, flags}`: w = 1<<(f&63), h = 1<<(f>>6&63),
+  depth f>>12&63, mips f>>20&15, swizzled if f>>24&1. 4-bit texels are
+  low nibble first, then PS2-unswizzled. 8-bit indices also need the
+  0x08/0x10 CLUT bit swap. The palette follows the last mip and alpha is
+  0..128. Names are stripped, so match a texture by pixel content against
+  the PC one. `izzy_dirtGlass` is indust sector 484 resource 3683, alpha
+  2..42/128, the same opacity as the PC 0..83/255.
+- **Mesh data.** Prelight is a VIF V4-5 unpack: RGB = 5 bits << 3, alpha
+  bit -> 0x80, and 0x80 is 1.0 in GS MODULATE. The PS2 glass mesh has the
+  same UVs (one texture copy per pane) and prelight as the DFF.
+- **Interiors are drawn twice.** Every interior swap sector in all four
+  levels holds its interior as two building ids with the same resource,
+  bound and matrix (the apartment: ids 0x13b3/0x13b4). The world draw loop
+  `0x2008b8` merges two sectors' pass lists by masked id and draws different
+  ids separately. It skips instances with bit 0x8000, a runtime hidden flag
+  set at sector load (`0x1fffec`-`0x200100`) when the resource isn't loaded
+  or the level swap table hides the id. Lists below 6 draw right away.
+  TRANSPARENT entries go to a distance-sorted list drawn last. So faint
+  glass blends twice on PS2 (~55% vs one layer's 33%), which matched the
+  screenshot.
+
+Lesson: measure the screenshot against what the data predicts (sky colour,
+tint, alpha) before tuning anything. Here each data theory (PS2 alpha
+scale, UV tiling, vertex alpha) gave a prediction that didn't fit. See
+`git log --grep="faint glass"`.
