@@ -47,6 +47,7 @@ public:
 	bool8 m_bMusicModeChangeStarted;
 	uint8 m_nMusicModeToBeSet;
 	bool8 m_bEarlyFrontendTrack;
+	bool8 m_bDuckForClockTick; // PS2 MusicManager+0x390: set by the timer tick, cleared each Service()
 	float aListenTimeArray[NUM_RADIOS];
 	float m_nLastTrackServiceTime;
 

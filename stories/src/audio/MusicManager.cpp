@@ -97,6 +97,7 @@ cMusicManager::ResetMusicAfterReload()
 	m_bGameplayAllowsRadio = FALSE;
 	m_bRadioStreamReady = FALSE;
 	nFramesSinceCutsceneEnded = -1;
+	m_bDuckForClockTick = FALSE;
 	m_bUserResumedGame = FALSE;
 	m_bMusicModeChangeStarted = FALSE;
 	m_bEarlyFrontendTrack = FALSE;
@@ -471,6 +472,7 @@ cMusicManager::Service()
 			}
 		}
 	}
+	m_bDuckForClockTick = FALSE;
 }
 
 void
@@ -1118,26 +1120,27 @@ cMusicManager::ServiceTrack(CVehicle *veh, CPed *ped)
 				SampleManager.SetStreamedVolumeAndPan(volume, pan, FALSE);
 			}
 			else if (AudioManager.ShouldDuckMissionAudio(0) || AudioManager.ShouldDuckMissionAudio(1))
-				SampleManager.SetStreamedVolumeAndPan(m_nCurrentVolume, 63, FALSE);
+				SampleManager.SetStreamedVolumeAndPan(m_nCurrentVolume / 4, 63, FALSE);
 			else if (gRetuneCounter != 0)
 				SampleManager.SetStreamedVolumeAndPan(0, 63, FALSE);
 			else
 				SampleManager.SetStreamedVolumeAndPan(m_nCurrentVolume, 63, FALSE);
 		}
 	} else if (AudioManager.ShouldDuckMissionAudio(0) || AudioManager.ShouldDuckMissionAudio(1)) {
-		SampleManager.SetStreamedVolumeAndPan(Min(m_nCurrentVolume, 25), 63, FALSE);
+		SampleManager.SetStreamedVolumeAndPan(Min(m_nCurrentVolume, 31), 63, FALSE);
 		nFramesSinceCutsceneEnded = 0;
 	} else {
 		if (nFramesSinceCutsceneEnded == -1)
 			volume = m_nCurrentVolume;
 		else if (nFramesSinceCutsceneEnded < 20)
 		{
-			volume = Min(m_nCurrentVolume, 25);
+			volume = Min(m_nCurrentVolume, 31);
 			nFramesSinceCutsceneEnded++;
 		}
 		else if (nFramesSinceCutsceneEnded < 40)
 		{
-			volume = Min(m_nCurrentVolume, 3 * (nFramesSinceCutsceneEnded - 20) + 25);
+			// PS2 0x169480: 31 rising to 111, not VC's 25 + 3*(n-20)
+			volume = Min(m_nCurrentVolume, 4 * nFramesSinceCutsceneEnded - 49);
 			nFramesSinceCutsceneEnded++;
 		}
 		else

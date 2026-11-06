@@ -9432,6 +9432,7 @@ cAudioManager::ProcessFrontEnd()
 			break;
 		case SOUND_CLOCK_TICK:
 			m_sQueueSample.m_nSampleIndex = SFX_TIMER;
+			MusicManager.m_bDuckForClockTick = TRUE;
 			break;
 		case SOUND_FRONTEND_RADIO_TURN_OFF:
 		case SOUND_FRONTEND_RADIO_TURN_ON:
@@ -11911,9 +11912,8 @@ cAudioManager::PlayLoadedMissionAudio(uint8 slot)
 bool8
 cAudioManager::ShouldDuckMissionAudio(uint8 slot)
 {
-	//if (IsMissionAudioSamplePlaying(slot))
-	//	return m_nMissionAudioSampleIndex[slot] != STREAMED_SOUND_MISSION_ROK2_01;
-	return FALSE;
+	// PS2 0x1b45b8: only the clock-tick flag ducks; its mission-audio branch is gated by a never-set global
+	return MusicManager.m_bDuckForClockTick;
 }
 
 bool8
