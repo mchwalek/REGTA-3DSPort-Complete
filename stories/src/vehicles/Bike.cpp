@@ -879,7 +879,7 @@ CBike::ProcessControl(void)
 				if(GetStatus() == STATUS_PLAYER)
 					adhesion *= CSurfaceTable::GetWetMultiplier(m_aWheelColPoints[frontLine].surfaceB);
 				if(m_wheelStatus[BIKEWHEEL_FRONT] == WHEEL_STATUS_BURST)
-					adhesion *= 0.4f;
+					adhesion *= 0.6f;
 				WheelState[BIKEWHEEL_FRONT] = m_aWheelState[BIKEWHEEL_FRONT];
 				CVector contactSpeed = GetSpeed(frontContact);
 				ProcessBikeWheel(wheelFwd, wheelRight,
@@ -926,10 +926,10 @@ CBike::ProcessControl(void)
 			}else if(m_doingBurnout){
 				rearBrake = 0.0f;
 				rearTraction = 0.0f;
-				ApplyTurnForce(contactPoints[BIKESUSP_R1], -0.0007f*m_fTurnMass*m_fSteerAngle*GetRight()*CTimer::GetTimeStep());
+				ApplyTurnForce(contactPoints[BIKESUSP_R1], -0.0015f*m_fTurnMass*m_fSteerAngle*GetRight()*CTimer::GetTimeStep());
 			}else if(m_fTireTemperature < 1.0f && m_fGasPedal > 0.75f){
 				rearTraction *= m_fTireTemperature;
-				ApplyTurnForce(contactPoints[BIKESUSP_R1], (1.0f-m_fTireTemperature)*-0.0007f*m_fTurnMass*m_fSteerAngle*GetRight()*CTimer::GetTimeStep());
+				ApplyTurnForce(contactPoints[BIKESUSP_R1], (1.0f-m_fTireTemperature)*-0.0015f*m_fTurnMass*m_fSteerAngle*GetRight()*CTimer::GetTimeStep());
 			}
 
 			if(fThrust > 0.0f && brake > 0.0f)
@@ -951,7 +951,7 @@ CBike::ProcessControl(void)
 			if(GetStatus() == STATUS_PLAYER)
 				adhesion *= CSurfaceTable::GetWetMultiplier(m_aWheelColPoints[rearLine].surfaceB);
 			if(m_wheelStatus[BIKEWHEEL_REAR] == WHEEL_STATUS_BURST)
-				adhesion *= 0.4f;
+				adhesion *= 0.6f;
 			WheelState[BIKEWHEEL_REAR] = m_aWheelState[BIKEWHEEL_REAR];
 			CVector contactSpeed = GetSpeed(rearContact);
 			ProcessBikeWheel(wheelFwd, wheelRight,
@@ -982,12 +982,13 @@ CBike::ProcessControl(void)
 			m_aWheelRotation[BIKEWHEEL_REAR] += m_aWheelSpeed[BIKEWHEEL_REAR];
 		}
 
+		// PS2 (0x157990): burnout wears rear grip 1 -> 0, it recovers once the burnout stops
 		if(m_doingBurnout && m_aWheelState[BIKEWHEEL_REAR] == WHEEL_STATE_SPINNING){
-			m_fTireTemperature += 0.001f*CTimer::GetTimeStep();
-			if(m_fTireTemperature > 3.0f)
-				m_fTireTemperature = 3.0f;
-		}else if(m_fTireTemperature > 1.0f){
-			m_fTireTemperature = (m_fTireTemperature - 1.0f)*Pow(0.995f, CTimer::GetTimeStep()) + 1.0f;
+			m_fTireTemperature -= 0.002f*CTimer::GetTimeStep();
+			if(m_fTireTemperature < 0.0f)
+				m_fTireTemperature = 0.0f;
+		}else if(m_fTireTemperature < 1.0f){
+			m_fTireTemperature += 0.005f*CTimer::GetTimeStep();
 		}
 
 		// Process front wheel - second try
@@ -1023,7 +1024,7 @@ CBike::ProcessControl(void)
 				if(GetStatus() == STATUS_PLAYER)
 					adhesion *= CSurfaceTable::GetWetMultiplier(m_aWheelColPoints[frontLine].surfaceB);
 				if(m_wheelStatus[BIKEWHEEL_FRONT] == WHEEL_STATUS_BURST)
-					adhesion *= 0.4f;
+					adhesion *= 0.6f;
 				WheelState[BIKEWHEEL_FRONT] = m_aWheelState[BIKEWHEEL_FRONT];
 				CVector contactSpeed = GetSpeed(frontContact);
 				ProcessBikeWheel(wheelFwd, wheelRight,
@@ -1062,7 +1063,7 @@ CBike::ProcessControl(void)
 				lean = DotProduct(m_vecMoveSpeed-initialMoveSpeed, m_vecAvgSurfaceRight);
 			lean /= GRAVITY*Max(CTimer::GetTimeStep(), 0.01f);
 			if(m_wheelStatus[BIKEWHEEL_FRONT] == WHEEL_STATUS_BURST)
-				lean = Clamp(lean, -0.4f*pBikeHandling->fMaxLean, 0.4f*pBikeHandling->fMaxLean);
+				lean = Clamp(lean, -0.6f*pBikeHandling->fMaxLean, 0.6f*pBikeHandling->fMaxLean);
 			else
 				lean = Clamp(lean, -pBikeHandling->fMaxLean, pBikeHandling->fMaxLean);
 			float f = Pow(pBikeHandling->fDesLean, CTimer::GetTimeStep());
@@ -1087,11 +1088,11 @@ CBike::ProcessControl(void)
 			if(m_aSuspensionSpringRatio[BIKESUSP_R1] < 1.0f || m_aSuspensionSpringRatio[BIKESUSP_R2] < 1.0f){
 				// BUG: this clamp makes no sense and the arguments seem swapped too
 				ApplyTurnForce(contactPoints[BIKESUSP_R1],
-					m_fTurnMass*Sin(m_fBrakeDestabilization)*Clamp(fwdSpeed, 0.5f, 0.2f)*0.013f*GetRight()*CTimer::GetTimeStep());
+					m_fTurnMass*Sin(m_fBrakeDestabilization)*Clamp(fwdSpeed, 0.5f, 0.2f)*0.015f*GetRight()*CTimer::GetTimeStep());
 			}else{
 				// BUG: this clamp makes no sense and the arguments seem swapped too
 				ApplyTurnForce(contactPoints[BIKESUSP_R1],
-					m_fTurnMass*Sin(m_fBrakeDestabilization)*Clamp(fwdSpeed, 0.5f, 0.2f)*0.003f*GetRight()*CTimer::GetTimeStep());
+					m_fTurnMass*Sin(m_fBrakeDestabilization)*Clamp(fwdSpeed, 0.5f, 0.2f)*0.0035f*GetRight()*CTimer::GetTimeStep());
 			}
 		}else
 			m_fBrakeDestabilization = 0.0f;
@@ -1275,7 +1276,7 @@ CBike::ProcessControl(void)
 					wheelie = Max(0.3f - wheelie, 0.0f);
 				else if(wheelie < -0.08f)
 					// above wheelie angle
-					wheelie = Min(-0.15f - wheelie, 0.0f);
+					wheelie = Min(-0.14f - wheelie, 0.0f);
 				float wheelieStab = pBikeHandling->fWheelieStabMult * Min(m_vecMoveSpeed.Magnitude(), 0.1f) * wheelie;
 				ApplyTurnForce(0.5f*CTimer::GetTimeStep()*wheelieStab*m_fTurnMass*GetUp(), worldCOM+GetForward());
 				ApplyTurnForce(0.5f*CTimer::GetTimeStep()*m_fWheelAngle*pBikeHandling->fWheelieSteer*m_fTurnMass*GetRight(), worldCOM+GetForward());
