@@ -16,6 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 RASTER_CPP = ROOT / "common" / "librw" / "src" / "3ds" / "3dsraster.cpp"
+COMPRESS_CPP = ROOT / "common" / "librw" / "src" / "3ds" / "tex" / "compress.cpp"
 
 
 def extract(source: str, start_marker: str, end_marker: str) -> str:
@@ -62,6 +63,41 @@ int main()
 
 	C3DRaster rgbRas{GPU_RGB8, true};
 	assert(!hasOnlyFaintAlpha(&rgbRas, rgba, sizeof(rgba)));
+	return 0;
+}
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "t.cpp"
+            exe = Path(tmp) / "t"
+            src.write_text(program)
+            subprocess.run(["c++", "-std=c++11", str(src), "-o", str(exe)], check=True)
+            subprocess.run([str(exe)], check=True)
+
+    def test_faint_alpha_rounds_in_etc1a4(self):
+        source = RASTER_CPP.read_text()
+        faint = extract(source, "static bool\nisFaintAlphaSource", "\n#define GX_TRANSFER_FMT_NONE")
+        alpha4 = extract(COMPRESS_CPP.read_text(), "static uint32_t\netc1Alpha4", "\n  \nvoid\netc1_common")
+        program = r"""
+#include <cassert>
+#include <cstdint>
+typedef unsigned char uint8;
+typedef unsigned int uint32;
+""" + faint + alpha4 + r"""
+int main()
+{
+	// izzy_dirtGlass alphas: flooring zeroed 3, 9, 11; rounding keeps 9 and 11.
+	assert(etc1Alpha4(9, false) == 0 && etc1Alpha4(9, true) == 1);
+	assert(etc1Alpha4(43, false) == 2 && etc1Alpha4(43, true) == 3);
+	assert(etc1Alpha4(3, true) == 0 && etc1Alpha4(83, true) == 5);
+	assert(etc1Alpha4(127, true) == 7);                      // stays below the faint limit
+	assert(etc1Alpha4(255, true) == 15 && etc1Alpha4(255, false) == 15);
+
+	uint8 px[2*12] = {};                                     // 2x2 RGBA, stride 12
+	assert(!isFaintAlphaSource(px, 2, 2, 12));               // fully transparent
+	px[3] = 83; px[11] = 200;                                // padding ignored
+	assert(isFaintAlphaSource(px, 2, 2, 12));
+	px[12 + 7] = 128;
+	assert(!isFaintAlphaSource(px, 2, 2, 12));
 	return 0;
 }
 """

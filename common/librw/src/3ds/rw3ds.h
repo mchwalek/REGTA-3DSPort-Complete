@@ -361,6 +361,8 @@ void flushCache(float32 entityOpacity = 1.0f);
 void invalidateFinalRenderStageCache(void);
 void setIm3DBuffered(bool32 enable);
 void resetIm3DFrameBuffers(void);
+// True if any material texture has only faint alpha (dirty window glass).
+bool atomicHasOnlyFaintAlpha(Atomic *atomic);
 #ifdef RESTORIES_3DS_BUILD
 void setPlayerVehicleClump(Clump *clump);
 void setPlayerVehicleReflection(Texture *texture, Frame *captureFrame);

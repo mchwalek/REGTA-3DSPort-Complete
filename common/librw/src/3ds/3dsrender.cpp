@@ -295,6 +295,18 @@ needsBlendedAlphaPass(InstanceData *inst, ProfileDrawClass drawClass)
 		inst->material->color.alpha != 255 || translucentTexture;
 }
 
+bool
+atomicHasOnlyFaintAlpha(Atomic *atomic)
+{
+	MaterialList *ml = &atomic->geometry->matList;
+	for(int32 i = 0; i < ml->numMaterials; i++){
+		Texture *texture = ml->materials[i]->texture;
+		if(texture && texture->raster && GETC3DRASTEREXT(texture->raster)->hasOnlyFaintAlpha)
+			return true;
+	}
+	return false;
+}
+
 // Emulate PS2 GS alpha test FB_ONLY case: failed alpha writes to frame- but not to depth buffer
 void
 drawInst_GSemu(InstanceDataHeader *header, InstanceData *inst, ProfileDrawClass drawClass)
@@ -314,8 +326,16 @@ drawInst_GSemu(InstanceDataHeader *header, InstanceData *inst, ProfileDrawClass 
 				/* Faint glass such as izzy_dirtGlass never reaches the GS
 				 * reference, so the split below would draw it without depth
 				 * and let later geometry paint over it.  PS2 draws world
-				 * geometry with alpha test off: one depth-writing pass. */
+				 * geometry with alpha test off: one depth-writing pass.
+				 * PS2 swap interiors are instanced twice (two building ids,
+				 * same transform), so their glass blends twice; the second
+				 * draw passes the GEQUAL depth test on equal depth.  Alpha
+				 * test off too, so alpha-0 texels (ETC1A4 rounds many down)
+				 * still write depth instead of leaving holes. */
+				SetRenderState(rw::ALPHATESTFUNC, rw::ALPHAALWAYS);
 				drawInst_simple(header, inst, drawClass);
+				drawInst_simple(header, inst, drawClass);
+				SetRenderState(rw::ALPHATESTFUNC, alphafunc);
 				return;
 			}
 			if((stereoRenderActive() || performanceModeActive()) && !needsBlendedAlphaPass(inst, drawClass)){

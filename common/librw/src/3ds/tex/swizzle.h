@@ -25,6 +25,6 @@
 namespace rw {
 namespace c3d {
 void cpuSwizzle(uint8 *src, uint8 *dst, int width, int height, int bpp, bool reverse);
-void etc1_common(uint8 *src, uint8 **dst, int stride, bool alpha);
+void etc1_common(uint8 *src, uint8 **dst, int stride, bool alpha, bool roundAlpha);
 }
 }

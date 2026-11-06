@@ -107,6 +107,20 @@ hasOnlyFaintAlpha(const C3DRaster *natras, const uint8 *data, uint32 size)
 }
   
   
+static bool
+isFaintAlphaSource(const uint8 *pixels, uint32 width, uint32 height, uint32 stride)
+{
+	bool visible = false;
+	for(uint32 y = 0; y < height; y++)
+		for(uint32 x = 0; x < width; x++){
+			uint8 a = pixels[y*stride + x*4 + 3];
+			if(a >= 128)
+				return false;
+			visible |= a != 0;
+		}
+	return visible;
+}
+
 #define GX_TRANSFER_FMT_NONE ((GX_TRANSFER_FORMAT)0xff)
 
 static void
@@ -342,13 +356,15 @@ texCompress(Raster *raster, C3DRaster *natras, int level)
 
 	assert(width >= 8 && height >= 8);
 	assert(natras->bpp == 4);
+
+	bool roundAlpha = alpha && isFaintAlphaSource(src, width, height, stride);
 	
 	int x, y;
 	uint8 *block;
 	for (y = height-8; y >= 0; y-=8){
 			for (x = 0; x < width; x+=8){
 				block = &src[(x * 4) + (y * stride)];
-				etc1_common(block, &dst, stride, alpha);
+				etc1_common(block, &dst, stride, alpha, roundAlpha);
 			}
 	}
 
