@@ -39,6 +39,7 @@
 #include "Messages.h"
 #include "FileLoader.h"
 #include "User.h"
+#include "Zones.h"
 #include "sampman.h"
 
 #ifdef _3DS
@@ -132,12 +133,14 @@ const CRGBA SCROLLBAR_COLOR = LABEL_COLOR;
 #define MAP_SIZE_TO_ALLOW_X_MOVE 297.f
 
 #ifdef _3DS
-// Fixed centre crosshair: let any map point pan under screen centre, in
-// either axis, at any zoom -- matches the 320x220 atlas half-extent used
-// by PrintMap/DrawLCSMenuMap3DS.
-#define MAP_PAN_LIMIT_X(s) ((s) * (320.0f / 220.0f))
-#define MAP_PAN_LIMIT_Y(s) (s)
+// PS2: the map pans until its edge (320x220 atlas half-extent, see PrintMap)
+// meets the screen edge; past that the crosshair moves (MapPan3DS.h).
+#define MAP_PAN_LIMIT_X(s) Max(0.0f, (s) * (320.0f / 220.0f) - SCREEN_WIDTH / 2)
+#define MAP_PAN_LIMIT_Y(s) Max(0.0f, (s) - SCREEN_HEIGHT / 2)
 #define CAN_PAN_X_AT_CURRENT_ZOOM true
+#define MAP_MAX_SIZE_3DS 775.f
+#define MAP_OPEN_TIME_3DS 1200
+#include "../../../common/3ds/MapPan3DS.h"
 #else
 #define MAP_PAN_LIMIT_X(s) ((s) - MENU_X(MAP_MIN_SIZE))
 #define MAP_PAN_LIMIT_Y(s) ((s) - MENU_Y(MAP_MIN_SIZE))
@@ -171,7 +174,7 @@ GetPlatformFrontendText(const char *key)
 	 * releases omit FES_CHE altogether.  Keep the external GXT untouched and
 	 * replace only the save-flow copy on Nintendo 3DS. */
 	static t3DSSaveText saveText[] = {
-		{ "3DS_MPH", "C-PAD: MOVE  ZR/R: ZOOM  L: LEGEND  X: MARKER  B: BACK", {}, false },
+		{ "3DS_MPH", "C-PAD: MOVE  L/R: ZOOM  A: LEGEND  Y: MARKER  B: BACK", {}, false },
 		{ "FES_CHE", "Warning: one or more cheats have been activated. Saving may affect your progress. Select OK to continue.", {}, false },
 		{ "FESZ_QZ", "Save your current progress to this slot?", {}, false },
 		{ "FESZ_QO", "This slot already contains save data. Overwrite it?", {}, false },
@@ -248,6 +251,31 @@ int GetOptionCount(int screen)
 
 #ifdef MAP_ENHANCEMENTS
 CVector2D mapCrosshair;
+#endif
+
+#ifdef _3DS
+static uint32 mapOpenTime3DS;
+static CVector2D mapOpenFrom3DS;
+static bool mapOpenAnim3DS;
+
+// Same atlas registration as CRadar's menu-map transform (Radar.h).
+static CVector2D
+MapScreenToWorld3DS(const CVector2D &screen, float size, float centerX, float centerY)
+{
+	const float scale = size * 2.0f / 220.0f;
+	const float atlasX = (screen.x - (centerX - size * (320.0f / 220.0f))) / scale - LCS_MENU_MAP_X_OFFSET;
+	const float atlasY = (screen.y - (centerY - size)) / scale - LCS_MENU_MAP_Y_OFFSET;
+	const float det = LCS_MENU_MAP_XX * LCS_MENU_MAP_YY - LCS_MENU_MAP_XY * LCS_MENU_MAP_YX;
+	return CVector2D((atlasX * LCS_MENU_MAP_YY - atlasY * LCS_MENU_MAP_XY) / det, (LCS_MENU_MAP_XX * atlasY - LCS_MENU_MAP_YX * atlasX) / det);
+}
+
+static CVector2D
+MapWorldToScreen3DS(const CVector2D &world, float size, float centerX, float centerY)
+{
+	const float scale = size * 2.0f / 220.0f;
+	return CVector2D(centerX - size * (320.0f / 220.0f) + (LCS_MENU_MAP_X_OFFSET + world.x * LCS_MENU_MAP_XX + world.y * LCS_MENU_MAP_XY) * scale,
+	                 centerY - size + (LCS_MENU_MAP_Y_OFFSET + world.x * LCS_MENU_MAP_YX + world.y * LCS_MENU_MAP_YY) * scale);
+}
 #endif
 
 #ifdef CUTSCENE_BORDERS_SWITCH
@@ -601,6 +629,16 @@ CMenuManager::SwitchToNewScreen(int8 screen)
 	    m_nCurrScreen == MENUPAGE_CHOOSE_DELETE_SLOT ||
 	    m_nCurrScreen == MENUPAGE_CHOOSE_SAVE_SLOT)
 		PcSaveHelper.PopulateSlotInfo();
+	if (m_nCurrScreen == MENUPAGE_MAP) {
+		// PS2 0x33f578: every open glides from the default view to the player over 1.2 s
+		m_fMapSize = MENU_Y(MAP_MIN_SIZE);
+		m_fMapCenterX = SCREEN_WIDTH / 2;
+		m_fMapCenterY = SCREEN_HEIGHT / 2;
+		mapCrosshair = CVector2D(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+		mapOpenFrom3DS = MapScreenToWorld3DS(mapCrosshair, m_fMapSize, m_fMapCenterX, m_fMapCenterY);
+		mapOpenTime3DS = CTimer::GetTimeInMillisecondsPauseMode();
+		mapOpenAnim3DS = FindPlayerPed() != nil;
+	}
 #endif
 	SETUP_SCROLLING(m_nCurrScreen)
 	
@@ -3804,6 +3842,68 @@ CMenuManager::AdditionalOptionInput(bool &goBack)
 		{
 			static uint32 lastMapTick = 0;
 
+#ifdef _3DS
+			// PS2 map controls (SLES_541.35 0x33f578): Cross legend, Square marker, R1/L1 zoom,
+			// pan the map until its edge meets the screen edge, then move the crosshair.
+			CPad *pad = CPad::GetPad(0);
+			const uint32 now = CTimer::GetTimeInMillisecondsPauseMode();
+			const float dt = Min(now - lastMapTick, 100u) / 1000.0f;
+			lastMapTick = now;
+
+			auto zoomTo = [this](float newSize) {
+				newSize = Clamp(newSize, MENU_Y(MAP_MIN_SIZE), MENU_Y(MAP_MAX_SIZE_3DS));
+				m_fMapCenterX += (mapCrosshair.x - m_fMapCenterX) * (1.0f - newSize / m_fMapSize);
+				m_fMapCenterY += (mapCrosshair.y - m_fMapCenterY) * (1.0f - newSize / m_fMapSize);
+				m_fMapSize = newSize;
+				m_fMapCenterX = Clamp(m_fMapCenterX, SCREEN_WIDTH / 2 - MAP_PAN_LIMIT_X(m_fMapSize), SCREEN_WIDTH / 2 + MAP_PAN_LIMIT_X(m_fMapSize));
+				m_fMapCenterY = Clamp(m_fMapCenterY, SCREEN_HEIGHT / 2 - MAP_PAN_LIMIT_Y(m_fMapSize), SCREEN_HEIGHT / 2 + MAP_PAN_LIMIT_Y(m_fMapSize));
+			};
+			auto pan = [this](float moveX, float moveY) {
+				float offsetX = mapCrosshair.x - SCREEN_WIDTH / 2;
+				float offsetY = mapCrosshair.y - SCREEN_HEIGHT / 2;
+				MapPan3DS::Pan(moveX, offsetX, m_fMapCenterX, SCREEN_WIDTH / 2, MAP_PAN_LIMIT_X(m_fMapSize), SCREEN_WIDTH / 2);
+				MapPan3DS::Pan(moveY, offsetY, m_fMapCenterY, SCREEN_HEIGHT / 2, MAP_PAN_LIMIT_Y(m_fMapSize), SCREEN_HEIGHT / 2);
+				mapCrosshair.x = SCREEN_WIDTH / 2 + offsetX;
+				mapCrosshair.y = SCREEN_HEIGHT / 2 + offsetY;
+			};
+
+			if (mapOpenAnim3DS) {
+				// PS2 glides the crosshair onto the player while zooming in, smoothstepped.
+				const float u = Min((now - mapOpenTime3DS) / (float)MAP_OPEN_TIME_3DS, 1.0f);
+				const float p = u * u * (3.0f - 2.0f * u);
+				const CVector player = FindPlayerCoors();
+				const CVector2D target = mapOpenFrom3DS + (CVector2D(player.x, player.y) - mapOpenFrom3DS) * p;
+				zoomTo(MENU_Y(258.0f) + (MENU_Y(517.0f) - MENU_Y(258.0f)) * p);
+				const CVector2D screen = MapWorldToScreen3DS(target, m_fMapSize, m_fMapCenterX, m_fMapCenterY);
+				pan(screen.x - mapCrosshair.x, screen.y - mapCrosshair.y);
+				mapOpenAnim3DS = u < 1.0f;
+			}
+
+			if (pad->GetAcceptJustDown())
+				m_PrefsShowLegends = !m_PrefsShowLegends;
+
+			const bool crosshairOnMap = Abs(mapCrosshair.x - m_fMapCenterX) <= m_fMapSize * (320.0f / 220.0f) && Abs(mapCrosshair.y - m_fMapCenterY) <= m_fMapSize;
+			if (m_nMenuFadeAlpha == 255 && crosshairOnMap && pad->GetSquareJustDown()) {
+				const CVector2D world = MapScreenToWorld3DS(mapCrosshair, m_fMapSize, m_fMapCenterX, m_fMapCenterY);
+				CRadar::ToggleTargetMarker(world.x, world.y);
+				DMAudio.PlayFrontEndSound(SOUND_FRONTEND_ENTER_OR_ADJUST, 0);
+			}
+
+			if (pad->GetRightShoulder1() && !pad->GetLeftShoulder1())
+				zoomTo(m_fMapSize + MENU_Y(258.0f) * dt);
+			else if (pad->GetLeftShoulder1() && !pad->GetRightShoulder1())
+				zoomTo(m_fMapSize - MENU_Y(258.0f) * dt);
+
+			// PS2 speeds: D-pad 4 px/frame, stick |axis|/16 px/frame (25 fps, PS2 stick curve).
+			const int16 stickX = CPad::Get3DSPs2StickX();
+			const int16 stickY = CPad::Get3DSPs2StickY();
+			const float dpadX = (pad->NewState.DPadRight != 0) - (pad->NewState.DPadLeft != 0);
+			const float dpadY = (pad->NewState.DPadDown != 0) - (pad->NewState.DPadUp != 0);
+			const float moveX = stickX != 0 ? stickX * MENU_Y(2.94f) : dpadX * MENU_Y(188.0f);
+			const float moveY = stickY != 0 ? stickY * MENU_Y(2.69f) : dpadY * MENU_Y(172.0f);
+			pan(moveX * dt, moveY * dt);
+			break;
+#else
 			// FIX: All those macros were hardcoded values originally.
 
 #ifndef MAP_ENHANCEMENTS
@@ -3839,30 +3939,7 @@ CMenuManager::AdditionalOptionInput(bool &goBack)
 			// Adding marker
 			if (m_nMenuFadeAlpha == 255) {
 				if (CPad::GetPad(0)->GetRightMouseJustDown() ||
-#ifdef _3DS
-					CPad::GetPad(0)->GetTriangleJustDown()) {
-#else
 					CPad::GetPad(0)->GetCrossJustDown()) {
-#endif
-					#ifdef _3DS
-					const float mapHalfWidth = m_fMapSize * (320.0f / 220.0f);
-					if (mapCrosshair.y > m_fMapCenterY - m_fMapSize && mapCrosshair.y < m_fMapCenterY + m_fMapSize &&
-						mapCrosshair.x > m_fMapCenterX - mapHalfWidth && mapCrosshair.x < m_fMapCenterX + mapHalfWidth) {
-						const float sourceScale = m_fMapSize * 2.0f / 220.0f;
-						const float sourceX = (mapCrosshair.x -
-							(m_fMapCenterX - mapHalfWidth)) / sourceScale;
-						const float sourceY = (mapCrosshair.y -
-							(m_fMapCenterY - m_fMapSize)) / sourceScale;
-						const float atlasX = sourceX - LCS_MENU_MAP_X_OFFSET;
-						const float atlasY = sourceY - LCS_MENU_MAP_Y_OFFSET;
-						const float determinant = LCS_MENU_MAP_XX * LCS_MENU_MAP_YY -
-							LCS_MENU_MAP_XY * LCS_MENU_MAP_YX;
-						CRadar::ToggleTargetMarker(
-							(atlasX * LCS_MENU_MAP_YY - atlasY * LCS_MENU_MAP_XY) / determinant,
-							(LCS_MENU_MAP_XX * atlasY - LCS_MENU_MAP_YX * atlasX) / determinant);
-						DMAudio.PlayFrontEndSound(SOUND_FRONTEND_ENTER_OR_ADJUST, 0);
-					}
-					#else
 					if (mapCrosshair.y > m_fMapCenterY - m_fMapSize && mapCrosshair.y < m_fMapCenterY + m_fMapSize &&
 						mapCrosshair.x > m_fMapCenterX - m_fMapSize && mapCrosshair.x < m_fMapCenterX + m_fMapSize) {
 
@@ -3873,7 +3950,6 @@ CMenuManager::AdditionalOptionInput(bool &goBack)
 						CRadar::ToggleTargetMarker(x, y);
 						DMAudio.PlayFrontEndSound(SOUND_FRONTEND_ENTER_OR_ADJUST, 0);
 					}
-					#endif
 				}
 			}
 
@@ -3989,6 +4065,7 @@ CMenuManager::AdditionalOptionInput(bool &goBack)
 				}
 			}
 			break;
+#endif
 		}
 		case MENUPAGE_SOUND_SETTINGS:
 			if (CheckHover(MENU_X_LEFT_ALIGNED(177.f), MENU_X_LEFT_ALIGNED(238.f), MENU_Y(MENURADIO_SELECTOR_START_Y - 13.f), MENU_Y(MENURADIO_SELECTOR_START_Y + MENURADIO_SELECTOR_HEIGHT - 8.f))) {
@@ -4659,7 +4736,13 @@ CMenuManager::UserInput(void)
 				m_bShowMouse = false;
 				optionSelected = true;
 			}
-		} else {
+		}
+#ifdef _3DS
+		else if (m_nCurrScreen == MENUPAGE_MAP) {
+			// A toggles the legend there (AdditionalOptionInput).
+		}
+#endif
+		else {
 			if (CPad::GetPad(0)->GetEnterJustDown() || CPad::GetPad(0)->GetAcceptJustDown()) {
 				m_bShowMouse = false;
 				optionSelected = true;
@@ -6245,6 +6328,7 @@ CMenuManager::PrintMap(void)
 	}
 
 #ifdef MAP_ENHANCEMENTS
+#ifndef _3DS // 3DS: AdditionalOptionInput moves the crosshair
 	if (m_nMenuFadeAlpha != 255 && !m_bShowMouse) {
 		mapCrosshair.x = SCREEN_WIDTH / 2;
 		mapCrosshair.y = SCREEN_HEIGHT / 2;
@@ -6252,6 +6336,7 @@ CMenuManager::PrintMap(void)
 		mapCrosshair.x = m_nMousePosX;
 		mapCrosshair.y = m_nMousePosY;
 	}
+#endif
 
 	CSprite2d::DrawRect(CRect(mapCrosshair.x - MENU_X(1.0f), 0.0f,
 		mapCrosshair.x + MENU_X(1.0f), SCREEN_HEIGHT),
@@ -6260,6 +6345,25 @@ CMenuManager::PrintMap(void)
 		SCREEN_WIDTH, mapCrosshair.y - MENU_X(1.0f)),
 		CRGBA(0, 0, 0, 150));
 
+#ifdef _3DS
+	// PS2 0x339dd8: name of the zone under the crosshair, bottom left.
+	if (m_nMenuFadeAlpha == 255) {
+		const CVector2D world = MapScreenToWorld3DS(mapCrosshair, m_fMapSize, m_fMapCenterX, m_fMapCenterY);
+		CVector pos(world.x, world.y, 25.0f);
+		CZone *zone = CTheZones::PointLiesWithinZone(&pos, CTheZones::GetNavigationZone(0)) ? CTheZones::FindSmallestNavigationZoneForPosition(&pos, true, false) : nil;
+		CFont::SetRightJustifyOff();
+		CFont::SetCentreOff();
+		CFont::SetBackgroundOff();
+		CFont::SetScale(SCREEN_SCALE_X(SMALLESTTEXT_X_SCALE), SCREEN_SCALE_Y(SMALLESTTEXT_Y_SCALE));
+		CFont::SetFontStyle(FONT_LOCALE(FONT_STANDARD));
+		CFont::SetDropShadowPosition(2);
+		CFont::SetDropColor(CRGBA(0, 0, 0, 255));
+		CFont::SetColor(CRGBA(255, 255, 255, 255));
+		CFont::PrintString(MENU_X_LEFT_ALIGNED(MENU_X_MARGIN), SCREEN_SCALE_FROM_BOTTOM(HELPER_TEXT_BOTTOM_MARGIN + 16.0f),
+			zone ? zone->GetTranslatedName() : TheText.Get("CITYZON"));
+		CFont::SetDropShadowPosition(0);
+	}
+#endif
 #endif
 	m_bMenuMapActive = false;
 

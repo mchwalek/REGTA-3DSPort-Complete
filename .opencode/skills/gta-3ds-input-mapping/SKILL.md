@@ -127,6 +127,29 @@ together, check its behavior across all 4 `CURMODE` values, not just the
 default (Mode 0) — a combination that looks like two independent buttons in
 one mode can be the same button in another.
 
+## Pause-menu map (stories, PS2 parity)
+
+The 3DS map input is its own `#ifdef _3DS` block at the top of
+`CMenuManager::AdditionalOptionInput`'s `MENUPAGE_MAP` case (`Frontend.cpp`);
+the PC/mouse code after it is not compiled on 3DS. PS2 reference: input
+`SLES_541.35` `0x33f578` (page 7), draw `0x33da58`, zone name `0x339dd8`.
+
+- A = legend (PS2 Cross), Y = marker at the crosshair (PS2 Square), R/L held =
+  zoom in/out (PS2 R1/L1), B = back (PS2 uses Triangle JustUp; kept B for 3DS
+  consistency). The map page has no "Back" entry on 3DS, and the generic
+  accept path skips `optionSelected` on `MENUPAGE_MAP`, so A never exits.
+- `mapCrosshair` is state on 3DS (`PrintMap` no longer recentres it). Panning
+  moves the map until its edge meets the screen edge, then the crosshair
+  (`common/3ds/MapPan3DS.h`, tested by `scripts/tests/test_3ds_map_pan_limit.py`).
+- The stick reads `CPad::Get3DSPs2StickX/Y()` (PS2 FIX_AXIS 42/128 per-axis
+  dead zone), not `GetAnalogue*`. On 3DS `GetDPadUp()` etc. include the stick
+  in menus (`LegacyDirections3DS::Held`); read `NewState.DPad*` for the
+  physical D-pad only.
+- PS2 `CControllerState` offsets differ from reLCS's: L1 `0x0a`, L2 `0x0c`,
+  R1 `0x0e`, R2 `0x10`, D-pad `0x12-0x18`, Start `0x22`, Select `0x24`,
+  Square `0x26`, Triangle `0x28`, Cross `0x2a`, Circle `0x2c`, L3 `0x2e`,
+  R3 `0x30`; OldState at `+0x30`. Use these when reading any PS2 pad code.
+
 ## Where NOT to look
 
 - `Frontend_PS2.cpp` is dead code (`PC_MENU` is defined, so `PS2_MENU` never
