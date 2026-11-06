@@ -814,6 +814,42 @@ inline bool PutIntoSortedVehicleList(CVehicle *veh)
 		return veh->bTouchingWater;		
 }
 
+#if defined(RW_3DS)
+/* PS2 draws building glass in its TRANSPARENT list after everything else.
+ * The 3DS draws faint glass with depth write (see drawInst_GSemu), so
+ * buildings carrying it must render after peds and vehicles, or they vanish
+ * behind the window. */
+static CEntity *sFaintGlassEntities[16];
+static int sNumFaintGlassEntities;
+
+static bool
+DeferFaintGlassEntity(CEntity *e)
+{
+	static uint8 faintGlassModel[MODELINFOSIZE];	// 0 unknown, 1 no, 2 yes
+	if(e->m_rwObject == nil || RwObjectGetType(e->m_rwObject) != rpATOMIC)
+		return false;
+	uint8 &known = faintGlassModel[e->GetModelIndex()];
+	if(known == 0)
+		known = rw::c3d::atomicHasOnlyFaintAlpha((RpAtomic*)e->m_rwObject) ? 2 : 1;
+	if(known != 2 || sNumFaintGlassEntities == ARRAY_SIZE(sFaintGlassEntities))
+		return false;
+	sFaintGlassEntities[sNumFaintGlassEntities++] = e;
+	return true;
+}
+
+static void
+RenderDeferredFaintGlassEntities(void)
+{
+	RwRenderStateSet(rwRENDERSTATEFOGENABLE, (void*)TRUE);
+	SetCullMode(rwCULLMODECULLBACK);
+	DeActivateDirectional();
+	SetAmbientColours();
+	for(int i = 0; i < sNumFaintGlassEntities; i++)
+		CRenderer::RenderOneNonRoad(sFaintGlassEntities[i]);
+	sNumFaintGlassEntities = 0;
+}
+#endif
+
 // this only renders objects in LCS
 void
 CRenderer::RenderEverythingBarRoads(void)
@@ -826,6 +862,9 @@ CRenderer::RenderEverythingBarRoads(void)
 //	RwRenderStateSet(rwRENDERSTATEVERTEXALPHAENABLE, (void*)TRUE);
 	SetCullMode(rwCULLMODECULLBACK);
 //	gSortedVehiclesAndPeds.Clear();
+#if defined(RW_3DS)
+	sNumFaintGlassEntities = 0;
+#endif
 
 	for(i = 0; i < ms_nNoOfVisibleEntities; i++){
 		e = ms_aVisibleEntityPtrs[i];
@@ -852,7 +891,12 @@ CRenderer::RenderEverythingBarRoads(void)
 				printf("Ran out of space in alpha entity list");
 				RenderOneNonRoad(e);
 			}
-		}else
+		}
+#if defined(RW_3DS)
+		else if(DeferFaintGlassEntity(e))
+			;
+#endif
+		else
 			RenderOneNonRoad(e);
 	}
 	POP_RENDERGROUP();
@@ -953,6 +997,9 @@ CRenderer::RenderVehicles(void)
 		}
 	}
 	CVisibilityPlugins::RenderFadingEntities();
+#if defined(RW_3DS)
+	RenderDeferredFaintGlassEntities();
+#endif
 
 	CFerry::RenderAllRemaning();
 	CPlane::RenderAllRemaning();

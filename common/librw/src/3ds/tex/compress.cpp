@@ -36,9 +36,16 @@ namespace rw {
 namespace c3d {
 
 int gTexQuality = rg_etc1::cLowQuality;
+
+// Faint glass (all alpha < 128) rounds to nearest: flooring zeroes most of its texels.
+static uint32_t
+etc1Alpha4(uint8_t a, bool roundAlpha)
+{
+	return roundAlpha ? (a + 8) / 17 : (1<<4) * a / 256;
+}
   
 void
-etc1_common(uint8_t *src, uint8_t **dst, int stride, bool alpha)
+etc1_common(uint8_t *src, uint8_t **dst, int stride, bool alpha, bool roundAlpha)
 {
 	static bool ready = false;
 
@@ -76,7 +83,7 @@ etc1_common(uint8_t *src, uint8_t **dst, int stride, bool alpha)
 
 					if (alpha)
 					{
-						uint32_t a4 = (1<<4) * pix[3] / 256;
+						uint32_t a4 = etc1Alpha4(pix[3], roundAlpha);
 						// encode 4bpp alpha; X/Y axes are swapped
 						if (y & 1){
 							out_alpha[2 * x + y / 2] |= (a4 << 4);

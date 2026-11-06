@@ -75,8 +75,52 @@ hasIntermediateAlpha(const C3DRaster *natras, const uint8 *data, uint32 size)
 	 * fences and decals.  Glass textures use a translucent floor instead. */
 	return intermediate && !transparent;
 }
+
+/* True when some texel is visible but none reaches the GS alpha reference
+ * (128), e.g. izzy_dirtGlass. The two-pass GS emulation would draw such a
+ * texture only in its no-depth pass, so later geometry paints over it. */
+static bool
+hasOnlyFaintAlpha(const C3DRaster *natras, const uint8 *data, uint32 size)
+{
+	if(!natras->hasAlpha || data == nil)
+		return false;
+
+	bool visible = false;
+	if(natras->format == GPU_ETC1A4){
+		/* Nibble n expands to n*17, so nibbles 8..15 are >= 128. */
+		for(uint32 block = 0; block + 16 <= size; block += 16)
+			for(uint32 i = 0; i < 8; ++i){
+				const uint8 packed = data[block + i];
+				if((packed & 0x88) != 0)
+					return false;
+				visible |= packed != 0;
+			}
+	}else if(natras->format == GPU_RGBA8){
+		/* The upload path stores this format in ABGR byte order. */
+		for(uint32 i = 0; i + 3 < size; i += 4){
+			if(data[i] >= 128)
+				return false;
+			visible |= data[i] != 0;
+		}
+	}
+	return visible;
+}
   
   
+static bool
+isFaintAlphaSource(const uint8 *pixels, uint32 width, uint32 height, uint32 stride)
+{
+	bool visible = false;
+	for(uint32 y = 0; y < height; y++)
+		for(uint32 x = 0; x < width; x++){
+			uint8 a = pixels[y*stride + x*4 + 3];
+			if(a >= 128)
+				return false;
+			visible |= a != 0;
+		}
+	return visible;
+}
+
 #define GX_TRANSFER_FMT_NONE ((GX_TRANSFER_FORMAT)0xff)
 
 static void
@@ -312,13 +356,15 @@ texCompress(Raster *raster, C3DRaster *natras, int level)
 
 	assert(width >= 8 && height >= 8);
 	assert(natras->bpp == 4);
+
+	bool roundAlpha = alpha && isFaintAlphaSource(src, width, height, stride);
 	
 	int x, y;
 	uint8 *block;
 	for (y = height-8; y >= 0; y-=8){
 			for (x = 0; x < width; x+=8){
 				block = &src[(x * 4) + (y * stride)];
-				etc1_common(block, &dst, stride, alpha);
+				etc1_common(block, &dst, stride, alpha, roundAlpha);
 			}
 	}
 
@@ -502,6 +548,7 @@ rasterCreate(Raster *raster)
 	natras->isCompressed = 0;
 	natras->hasAlpha     = 0;
 	natras->hasTranslucentAlpha = 0;
+	natras->hasOnlyFaintAlpha = 0;
 	natras->numLevels    = 1;
 
 	if(raster->width == 0 || raster->height == 0){
@@ -631,6 +678,9 @@ rasterUnlockWrite(Raster *raster, C3DRaster *natras, int level)
 	}else{
 		texSwizzle(raster, natras, level);
 	}
+	if(level == 0)
+		natras->hasOnlyFaintAlpha = hasOnlyFaintAlpha(natras, getImagePtr(natras->tex, 0),
+		                                              C3D_TexCalcLevelSize(natras->tex->size, 0));
 }
 
 void
@@ -1098,6 +1148,7 @@ readNativeTexture(Stream *stream)
 		stream->read8(data, size);
 	}
 	natras->hasTranslucentAlpha = hasIntermediateAlpha(natras, (const uint8*)data, size);
+	natras->hasOnlyFaintAlpha = hasOnlyFaintAlpha(natras, (const uint8*)data, size);
 
 	return tex;
 }
