@@ -978,9 +978,9 @@ void CRadar::DrawRadarSection(int32 x, int32 y)
 
 #if defined(_3DS) && defined(ENABLE_3DS_BOTTOM_RADAR)
 /* Draw the 128x128 radar tiles over the 320x220 menu atlas once zoomed in far
- * enough for them to be sharper (the atlas is ~39 px per tile).  PS2 only draws
- * its single low-res map texture here; this is a 3DS-port enhancement.  Tiles
- * requested here are released by StreamRadarSections once gameplay resumes. */
+ * enough for them to be sharper (the atlas is ~39 px per tile).  PS2 draws one
+ * map texture here, but at radar-tile resolution.  Tiles requested here are
+ * released by StreamRadarSections once gameplay resumes. */
 void CRadar::DrawMenuMapSections3DS()
 {
 	CVector2D world[4], radar, screen[4], tex[4];
@@ -997,6 +997,7 @@ void CRadar::DrawMenuMapSections3DS()
 	RwRenderStateSet(rwRENDERSTATEVERTEXALPHAENABLE, (void*)TRUE);
 	RwRenderStateSet(rwRENDERSTATETEXTUREADDRESS, (void*)rwTEXTUREADDRESSCLAMP);
 
+	bool requested = false;
 	for (int32 y = 0; y < RADAR_NUM_TILES; y++)
 		for (int32 x = 0; x < RADAR_NUM_TILES; x++) {
 			GetTextureCorners(x, y, world);
@@ -1016,14 +1017,20 @@ void CRadar::DrawMenuMapSections3DS()
 			RwTexDictionary *txd = CTxdStore::GetSlot(gRadarTxdIds[x + RADAR_NUM_TILES * y])->texDict;
 			RwTexture *texture = txd ? GetFirstTexture(txd) : nil;
 			if (texture == nil) {
-				if (!CStreaming::ms_disableStreaming)
+				if (!CStreaming::ms_disableStreaming) {
 					RequestMapSection(x, y);
+					requested = true;
+				}
 				continue;
 			}
 			RwRenderStateSet(rwRENDERSTATETEXTURERASTER, RwTextureGetRaster(texture));
 			CSprite2d::SetVertices(4, (float*)screen, (float*)tex, CRGBA(255, 255, 255, 255));
 			RwIm2DRenderPrimitive(rwPRIMTYPETRIFAN, CSprite2d::GetVertices(), 4);
 		}
+
+	// CStreaming::Update returns before loading anything while the pause menu has the timer paused
+	if (requested && CTimer::GetIsPaused() && CStreaming::ms_channelError == -1)
+		CStreaming::LoadRequestedModels();
 }
 #endif
 
