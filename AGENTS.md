@@ -662,7 +662,10 @@ not mistake for a failed transfer.
     (`u_prelightScale` in the vertex shaders, halved `u_ambLight`, TEV
     stage 0 RGB scale 2 in `defaultRenderCB`). III/miami never set the flag.
     A new building render path must keep the flag set or that geometry goes
-    dark again. See `git log --grep="building lighting"`.
+    dark again. Confirmed in `SLES_541.35`: the multiply is a VU1 prelight
+    module (`0x2075c0`), fed by the world loop `0x200fb0`, and PS2 scales the
+    prelight term by 255/248 too (see the ps2-lcs-decompilation skill).
+    See `git log --grep="building lighting"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 

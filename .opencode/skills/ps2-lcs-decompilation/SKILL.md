@@ -81,6 +81,22 @@ colour constant". It only catches the `lui $rt,HI16` + (`addiu`|`ori`|load/store
 different scan (grep disassembly output for `($gp)` near the byte offset you
 computed from `target - gp`) since there's no `lui` to anchor on.
 
+### `scripts/vudis.py` — disassemble VU1 microcode embedded in `.text`
+
+Ghidra's EE language and capstone can't decode VU micro mode. The vertex
+pipelines (lighting, prelight, the main transform/clip program) are 8-byte
+upper/lower pairs stored in `.text` and DMA'd to VU1 at pipeline creation.
+
+```sh
+cd .opencode/skills/ps2-lcs-decompilation/scripts
+python3 vudis.py . $WORKSPACE_ROOT/sre/SLES_541.35 0x2075c0 0x207770
+```
+
+Columns: instruction index (what branch targets and `jalr` tables count
+in), EE VA, upper op, lower op (`loi` immediates decoded as floats). Find
+the microcode range from the pipeline creator's `a1`/`a2` arguments (see
+the building-prelight case study below).
+
 ### `scripts/scm_disasm.py` — disassemble `main.scm`
 
 Parses the opcode table straight from `stories/src/control/ScriptDebug.cpp`'s
@@ -1311,7 +1327,52 @@ colour, which GS modulate reads with 128 = 1.0. So the scorched 0.1 ambient
 shows as 0.2 x texture x paint. A PS2 screenshot agrees: hood pixel
 `(40,30,5)` for taxi paint `(255,182,16)`, i.e. a body texture of ~0.8.
 Ghidra's EE language can't decode VU micro mode; a small decoder of the
-upper/lower 32-bit pairs was enough to read it.
+upper/lower 32-bit pairs was enough to read it (now `scripts/vudis.py`).
+
+## Case study: building prelight — the value with no EE reader lives in a VU1 pipeline
+
+3DS buildings were about half as bright as PS2 (the view out of Toni's
+safehouse window). Desktop reLCS's Leeds world pipe says the building colour
+is `prelight * Ambient + Ambient_Bl * 0.5`, doubled on textured texels.
+Checking that on the disc first looked like a refutation: a scan of every
+`.text` instruction with an immediate in `0x2b00-0x2b08` (`Ambient` inside
+the timecycle object at `0x40d720`; `+0x2b0c` `Ambient_Obj`, `+0x2b18`
+`Ambient_Bl`, `+0x2b24` `Ambient_Obj_Bl`, `+0x2b30` `Directional`) found no
+building code, only effects (`0x1d6794` particles, `0x17ef50`/`0x17f05c`/
+`0x193680` sprites) and the light setup `0x18427c`, whose non-Bl branch is
+dead (USEBLURCOLORS flag `DAT_003d1050` = 1, so the world ambient light
+`0x40a370` is `Ambient_Bl * LightsMult`). The one remaining reader,
+`FUN_00200fb0`, looked like water (86.6/100 m hex walk). It is the Leeds
+world render loop, and the multiply happens on VU1.
+
+How the pipelines fit together: `FUN_00151290(obj, ucodeStart, ucodeEnd,
+vudataStart, vudataEnd, routineTable, callbacks...)` creates every VU1
+pipeline; `a1`/`a2` are the microcode's EE VAs, so `find_addr_refs` on a
+`.text` address that disassembles as garbage MIPS finds its creator. The
+main vertex program (`0x24b660-0x24dd60`, created in `0x151060`, routine
+table `0x398b38`) is modular: qword 47 holds the stream pointers (x
+position, y normal, z UV, w colour), 51 the per-batch material colour, 53
+the fog params, and qwords 34-41 the subroutine addresses the stages
+`jalr` into. The world prelight module (`FUN_0023e648`, microcode
+`0x2075c0-0x207770`, `.vudata` `0x3a0d90/0x3a0dc0`, table `0x3d66b0`) is 54
+instructions: `out = ftoi0(min(vf31, itof0(prelight) * vf01 + vf02))`,
+with vf01/vf02/vf31 a 48-byte block the EE callback `0x23e6c0` uploads
+(VIF UNPACK `0x6c03`). Its setters on the pipe object are small and easy to
+read: `0x23e490(obj, r, g, b, flag)` scale = byte/255, times `0x3f839ce7` =
+255/248 if `flag`; `0x23e5a0` scale.w = a/255; `0x23e530(obj, r, g, b)`
+offset = byte * 0.5; `0x23e5e0` the clamp. `0x200fb0` calls `0x23e490` at
+`0x20106c` with `int(Ambient * 255)` and flag 1, and `0x23e530` at
+`0x201098` with `DAT_003d9930`, which `0x1841d0` (called from `0x18427c`)
+packs each frame from the world ambient light colour. So PS2 buildings are
+`min(1, prelight * Ambient * 255/248 + Ambient_Bl * LightsMult * 0.5)`,
+alpha = prelight alpha, and GS modulate (128 = 1.0) doubles the texels. The
+desktop pipe was right except for the 255/248.
+
+**Lesson:** when a timecycle value has no plausible EE reader, don't
+conclude it's unused. Find the VU1 pipeline that consumes the vertex
+stream, read its parameter setters (they're one-store functions with the
+unit conversion inline), and trace their callers; that's where the value
+enters. Fix on 3DS: AGENTS.md landmine #39.
 
 ## Case study: island load screens on the water — same data, different lookup
 
