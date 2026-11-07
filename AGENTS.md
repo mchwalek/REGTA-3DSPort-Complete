@@ -659,6 +659,19 @@ not mistake for a failed transfer.
     SD's DFF/TXD files come prebuilt with `reLCSAssetConverter.exe`, not
     converted from the PS2 disc, so compare against the disc's Leeds data
     (see the `ps2-lcs-decompilation` skill). See `git log --grep="faint glass"`.
+37. **3DS audio comes out ~2.3% sharp if OpenAL's mix rate isn't the NDSP
+    rate. The fix is in shared `common/openal-soft-ctr`, so it covers all
+    three trees.** `sampman_oal.cpp` opens the context with
+    `ALC_FREQUENCY = 32000`. The `ctr.c` backend plays its buffers at
+    `NDSP_SAMPLE_RATE` (~32728 Hz), so 32 kHz output played fast. It was
+    easiest to hear on the intro movie and Toni's voice. `ctr_reset_playback`
+    now forces `device->Frequency = SAMPLERATE`. Before blaming asset data
+    for a pitch problem, check this first. The data matches PS2: the 3DS
+    `sfx.sdt` rates equal PS2's `SFX*_PS.SDT` (speech 12 kHz), and
+    `GTAtitles.pcm` matches `DMP.PSS` (48 kHz PCM) in pitch and length. Toni
+    and ped lines vary by ±750 Hz (`RandomDisplacement(750)`, ~±6%) on PS2
+    too (`0x1b1468`), so don't remove that. See
+    `git log --grep="NDSP rate"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 
