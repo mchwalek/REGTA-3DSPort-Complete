@@ -653,6 +653,21 @@ not mistake for a failed transfer.
     SD's DFF/TXD files come prebuilt with `reLCSAssetConverter.exe`, not
     converted from the PS2 disc, so compare against the disc's Leeds data
     (see the `ps2-lcs-decompilation` skill). See `git log --grep="faint glass"`.
+36. **The 3DS pause-menu map is not the VC `fronten2` 3x3 sprites. It is a
+    320x220 atlas (`stories/src/core/bottom_menu_map.bin`, drawn by
+    `DrawLCSMenuMap3DS`), placed with the affine in `Radar.h`
+    (`LCS_MENU_MAP_*`). Stories only.** Anything drawn on that map (blips,
+    zone names, radar tiles) must go through the same affine, i.e.
+    `CRadar::TransformRadarPointToScreenSpace` while `m_bMenuMapActive`
+    (with `InitFrontEndMap`'s `m_radarRange = 2000`), or `MapWorldToScreen3DS`
+    in `Frontend.cpp`. The atlas is only ~39 px per 500-unit radar tile, so
+    zoomed in, `CRadar::DrawMenuMapSections3DS` draws the 128x128 `radarNN`
+    tiles over it (alpha sea, so the atlas shows through). PS2 draws a single
+    low-res sprite here (`0x33da58`), so the tiles are a port addition.
+    `CStreaming::Update` keeps running while paused, so TXDs requested from
+    a menu stream in. Tiles requested from the menu are never freed there:
+    the in-game radar's `StreamRadarSections` drops all but the player's 3x3
+    after unpausing. See `git log --grep="pause-menu map"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 

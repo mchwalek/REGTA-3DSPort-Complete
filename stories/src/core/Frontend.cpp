@@ -6231,6 +6231,7 @@ CMenuManager::PrintMap(void)
 	DrawLCSMenuMap3DS(CRect(
 		m_fMapCenterX - lcsMapHalfWidth, m_fMapCenterY - m_fMapSize,
 		m_fMapCenterX + lcsMapHalfWidth, m_fMapCenterY + m_fMapSize));
+	CRadar::DrawMenuMapSections3DS();
 #else
 	if (SCREEN_WIDTH >= m_fMapCenterX - m_fMapSize || SCREEN_HEIGHT >= m_fMapCenterY - m_fMapSize) {
 		m_aFrontEndSprites[MENUSPRITE_MAPTOP01].Draw(CRect(m_fMapCenterX - m_fMapSize, m_fMapCenterY - m_fMapSize,

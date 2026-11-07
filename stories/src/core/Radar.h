@@ -335,6 +335,9 @@ public:
 	static void DrawRadarMap();
 	static void DrawRadarMask();
 	static void DrawRadarSection(int32 x, int32 y);
+#if defined(_3DS) && defined(ENABLE_3DS_BOTTOM_RADAR)
+	static void DrawMenuMapSections3DS();
+#endif
 	static void DrawRadarSprite(uint16 sprite, float x, float y, uint8 alpha);
 	static void DrawRadarSprite(uint16 sprite, float x, float y, const CRGBA &colour, const CRGBA &legendColour);
 	static void DrawRotatingRadarSprite(CSprite2d* sprite, float x, float y, float angle, int32 alpha);
