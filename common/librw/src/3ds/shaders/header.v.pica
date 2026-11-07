@@ -37,6 +37,8 @@
 .fvec u_ambLight
 .fvec u_matColor
 .fvec u_surfProps
+; Per-channel prelight multiplier (1 except reLCS PS2-style building lighting).
+.fvec u_prelightScale
 
 
 .alias surfAmbient  u_surfProps.x

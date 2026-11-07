@@ -172,6 +172,7 @@ struct LCSPS2BuildingRenderScope {
 		rw::c3d::EntityRenderStyle style = previous;
 		style.opacity *= LCSPS2BuildingOpacity(ent);
 		style.worldBuilding = ent->IsBuilding();
+		style.leedsBuildingLighting = ent->IsBuilding();
 		style.worldSkyline = rw::c3d::ps2GraphicsEnabled() && IsLCSIslandLodModel(ent->GetModelIndex());
 		rw::c3d::setEntityRenderStyle(style);
 	}
