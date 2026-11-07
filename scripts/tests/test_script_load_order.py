@@ -14,78 +14,20 @@ load: descending CRunningScript::m_nId (a global, strictly-increasing
 creation counter), which matches PS2's fresh-boot order. This test exercises
 the real SortScriptListByCreationOrder() extracted from Script5.cpp.
 """
-import os
-from pathlib import Path
-import subprocess
-import tempfile
 import unittest
 
-ROOT = Path(__file__).resolve().parents[2]
-
-
-def function(source, signature):
-    start = source.index(signature)
-    end = source.index('\n}', start) + 2
-    return source[start:end]
+from cpptest import compile_and_run, extract_function, harness, read_source
 
 
 class ScriptLoadOrder(unittest.TestCase):
     def _run(self, main_body):
-        source = (ROOT / 'stories/src/control/Script5.cpp').read_text()
-        sort_fn = function(source, 'static CRunningScript *SortScriptListByCreationOrder')
-
-        stub = r'''
-#include <cassert>
-#include <cstdio>
-typedef int int32;
-#define nil 0
-struct CRunningScript {
-	CRunningScript *next;
-	CRunningScript *prev;
-	int32 m_nId;
-};
-'''
-        helpers = r'''
-static CRunningScript *build(int32 *ids, int n) {
-	CRunningScript *nodes = new CRunningScript[n];
-	for (int i = 0; i < n; i++) {
-		nodes[i].m_nId = ids[i];
-		nodes[i].next = (i + 1 < n) ? &nodes[i + 1] : (CRunningScript*)nil;
-		nodes[i].prev = (i > 0) ? &nodes[i - 1] : (CRunningScript*)nil;
-	}
-	return n > 0 ? nodes : (CRunningScript*)nil;
-}
-
-static void check_consistent(CRunningScript *list) {
-	CRunningScript *prev = (CRunningScript*)nil;
-	while (list != nil) {
-		assert(list->prev == prev);
-		prev = list;
-		list = list->next;
-	}
-}
-
-static void expect_ids(CRunningScript *list, int32 *expected, int n) {
-	for (int i = 0; i < n; i++) {
-		assert(list != nil);
-		assert(list->m_nId == expected[i]);
-		list = list->next;
-	}
-	assert(list == nil);
-}
-'''
-        main = 'int main() {\n' + main_body + '\n}\n'
-
-        with tempfile.TemporaryDirectory(prefix='regta-scriptorder-test-') as tmp:
-            path, binary = Path(tmp) / 'test.cpp', Path(tmp) / 'test'
-            path.write_text(stub + sort_fn + helpers + main)
-            subprocess.run(['c++', '-std=c++11', '-fsanitize=address,undefined',
-                            str(path), '-o', str(binary)], check=True)
-            # ponytail: test helper intentionally leaks its `new[]` node
-            # array (freeing a singly-linked-list-turned-array is fiddly and
-            # the process exits right after); silence LeakSanitizer for it.
-            env = dict(os.environ, ASAN_OPTIONS='detect_leaks=0')
-            subprocess.run([str(binary)], check=True, env=env)
+        source = read_source('stories/src/control/Script5.cpp')
+        sort_fn = extract_function(source, 'static CRunningScript *SortScriptListByCreationOrder')
+        # ponytail: test helper intentionally leaks its `new[]` node
+        # array (freeing a singly-linked-list-turned-array is fiddly and
+        # the process exits right after); silence LeakSanitizer for it.
+        compile_and_run(harness('script_load_order.cpp', FUNCTION=sort_fn, MAIN_BODY=main_body),
+                        env={'ASAN_OPTIONS': 'detect_leaks=0'})
 
     def test_reverses_ascending_save_order_into_descending(self):
         # The user's actual failing save: 75 scripts recorded in ascending

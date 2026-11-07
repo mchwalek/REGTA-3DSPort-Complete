@@ -8,17 +8,17 @@ at animLoopStart (t=0.1) while the player kept moving, so the fire frame
 0x1bc498) has no such block and never reads m_fMoveSpeed.
 """
 import unittest
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-PEDFIGHT_CPP = ROOT / "stories" / "src" / "peds" / "PedFight.cpp"
+from cpptest import extract_function, read_source
+
+
+def attack_body():
+    return extract_function(read_source("stories/src/peds/PedFight.cpp"), "\nCPed::Attack(void)")
 
 
 class TestRunningPunchNoPause(unittest.TestCase):
     def test_attack_does_not_pause_melee_start_anim(self):
-        source = PEDFIGHT_CPP.read_text()
-        start = source.index("\nCPed::Attack(void)")
-        body = source[start:source.index("\n}\n", start)]
+        body = attack_body()
         self.assertNotIn("m_fMoveSpeed", body)
         self.assertNotIn("meleeAttackStarted && IsPlayer()", body)
 
@@ -26,9 +26,7 @@ class TestRunningPunchNoPause(unittest.TestCase):
         # FIGHTppunch (ANIM_MELEE_ATTACK_START, unarmed) is 0.2333 s; the anim
         # finishing clears the attack in UpdateAnim before Attack() runs, so the
         # fire delay must leave more than one 30 fps frame before the end.
-        source = PEDFIGHT_CPP.read_text()
-        start = source.index("\nCPed::Attack(void)")
-        body = source[start:source.index("\n}\n", start)]
+        body = attack_body()
         self.assertIn("m_AnimToPlay == ASSOCGRP_UNARMED)\n\t\t\t\t\t\t\tdelayBetweenAnimAndFire = 0.15f;", body)
 
 
