@@ -1461,3 +1461,21 @@ Lesson: measure the screenshot against what the data predicts (sky colour,
 tint, alpha) before tuning anything. Here each data theory (PS2 alpha
 scale, UV tiling, vertex alpha) gave a prediction that didn't fit. See
 `git log --grep="faint glass"`.
+
+## Reference: audio sample rates and pitch (sound "too high" on 3DS)
+
+Found while checking a report that 3DS audio was sharp. The cause was the
+OpenAL mix rate, not the data (AGENTS.md landmine #37).
+- PS2 `SET*/SFX*_PS.SDT` holds 12-byte `{offset, size, rate}` entries for
+  VAG data (16 bytes = 28 samples). The 3DS `sfx.sdt` uses 20-byte
+  `{offset, size, freq, loopStart, loopEnd}` entries for PCM16. Rates match
+  PS2 (speech 12000 Hz), and total speech length matches within 1%.
+- `GetSampleBaseFrequency` = `0x114a38`, `RandomDisplacement` = `0x238f80`.
+  Ped comments, including Toni's, use base + `RandomDisplacement(750)`
+  (`0x1b1468`), the same as reLCS `cPedComments::Process`. To find other
+  pitch-randomising sites, scan `.text` for `addiu $a1,$zero,<seed>` before
+  `jal 0x238f80`.
+- `MOVIES/DMP.PSS` audio is an `SShd` type 1 stream: PCM s16le, 48 kHz
+  stereo, 512-byte L/R interleave. To check a converted track's pitch,
+  resample both to the same rate and compare duration and the spectral
+  scale (best ratio should be 1.000).
