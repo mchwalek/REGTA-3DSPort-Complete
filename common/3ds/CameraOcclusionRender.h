@@ -12,6 +12,10 @@ struct RenderScope {
 		auto style = previous;
 		// Unlit 3DS paths ignore the scorched lighting set by SetupLighting.
 		style.scorched = entity->bRenderScorched;
+#ifdef RESTORIES_3DS_BUILD
+		// LCS PS2 building pipe: prelight scaled by timecycle ambient.
+		style.leedsBuildingLighting = entity->IsBuilding();
+#endif
 		const float alpha = Alpha(entity);
 		if(alpha < 1.f) {
 			if(style.opacity > alpha) style.opacity = alpha;

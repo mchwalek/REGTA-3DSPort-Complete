@@ -63,6 +63,9 @@ SetLightsWithTimeOfDayColour(RpWorld *)
 			AmbientLightColourForFrame_PedsCarsAndObjects.blue = 1.0f;
 		}
 		RpLightSetColor(pAmbient, &AmbientLightColourForFrame);
+#ifdef _3DS
+		rw::c3d::setLeedsBuildingAmbient(CTimeCycle::GetAmbientRed(), CTimeCycle::GetAmbientGreen(), CTimeCycle::GetAmbientBlue());
+#endif
 	}
 
 	if(pDirect){
