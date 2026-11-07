@@ -653,6 +653,16 @@ not mistake for a failed transfer.
     SD's DFF/TXD files come prebuilt with `reLCSAssetConverter.exe`, not
     converted from the PS2 disc, so compare against the disc's Leeds data
     (see the `ps2-lcs-decompilation` skill). See `git log --grep="faint glass"`.
+39. **LCS buildings are lit as `prelight * Ambient + Ambient_Bl/2`, then
+    doubled on textured texels (PS2 GS: 128 = 1.0). VC's `prelight +
+    ambient` is wrong for stories. Stories only; librw code is shared.**
+    Desktop reLCS does it in the `EXTENDED_PIPELINES` Leeds world pipe,
+    which `_3DS` undefines, so 3DS buildings were ~half as bright as PS2.
+    On 3DS it runs through `EntityRenderStyle::leedsBuildingLighting`
+    (`u_prelightScale` in the vertex shaders, halved `u_ambLight`, TEV
+    stage 0 RGB scale 2 in `defaultRenderCB`). III/miami never set the flag.
+    A new building render path must keep the flag set or that geometry goes
+    dark again. See `git log --grep="building lighting"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 
