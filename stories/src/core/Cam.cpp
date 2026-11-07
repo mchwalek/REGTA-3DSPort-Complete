@@ -4930,16 +4930,21 @@ ClearNearPlaneOfGeometry3DS(const CVector &Source, const CVector &Front, const C
 // Auto-rotate-behind-ped step, proportional to the remaining angle:
 // min(1, 0.1*dt*|pedSpeed|) * delta, capped at +-0.02*dt, off at >=170deg.
 // While the force-behind latch is held: speed-independent, cap doubled, no cutoff.
+// While firing a two-handed gun (PS2 f31 = 2.5): latched rates, both scaled by 2.5.
 float
-PS2FollowPedAutoRotateStep(float betaDelta, float pedSpeed, float dt, bool latched)
+PS2FollowPedAutoRotateStep(float betaDelta, float pedSpeed, float dt, bool latched, bool shooting)
 {
-	if(!latched && Abs(betaDelta) >= DEGTORAD(170.0f))
+	if(!latched && !shooting && Abs(betaDelta) >= DEGTORAD(170.0f))
 		return 0.0f;
 	float cap = 0.02f * dt;
 	float k = Min(1.0f, 0.1f * dt * Abs(pedSpeed));
-	if(latched){
+	if(latched || shooting){
 		k = Min(1.0f, 0.1f * dt);
 		cap *= 2.0f;
+	}
+	if(shooting){
+		k *= 2.5f;
+		cap *= 2.5f;
 	}
 	float step = k * betaDelta;
 	if(step > cap)
@@ -5084,12 +5089,20 @@ CCam::Process_FollowPed_Rotation(const CVector &CameraTarget, float TargetOrient
 	float betaDelta = behindBeta - stringBeta;
 	while(betaDelta >= PI) betaDelta -= 2.0f*PI;
 	while(betaDelta < -PI) betaDelta += 2.0f*PI;
+	// PS2 0x282a98: firing a two-handed instant-hit gun (or the flamethrower) also
+	// centres the camera behind him and sets the latch. reLCS's IsType2Handed lacks the minigun.
+	CWeapon *weapon = ((CPed*)CamTargetEntity)->GetWeapon();
+	eWeaponFire fireType = CWeaponInfo::GetWeaponInfo(weapon->m_eWeaponType)->m_eWeaponFire;
+	bool shooting = (fireType == WEAPON_FIRE_INSTANT_HIT || weapon->m_eWeaponType == WEAPONTYPE_FLAMETHROWER) &&
+	                (weapon->IsType2Handed() || weapon->m_eWeaponType == WEAPONTYPE_MINIGUN) && CPad::GetPad(0)->GetWeapon();
+	if(shooting)
+		ps2FollowPedBehindLatch = true;
 	// Force-behind latch (PS2 gp-0x34): set while held, released once he moves or the camera is behind.
 	if(forceBehind)
 		ps2FollowPedBehindLatch = true;
 	else if(ps2FollowPedBehindLatch && (SQR(pedSpeed) > 0.001f || Abs(betaDelta) < 0.01f))
 		ps2FollowPedBehindLatch = false;
-	float betaGoal = stringBeta + PS2FollowPedAutoRotateStep(betaDelta, pedSpeed, dt, ps2FollowPedBehindLatch) - Beta;
+	float betaGoal = stringBeta + PS2FollowPedAutoRotateStep(betaDelta, pedSpeed, dt, ps2FollowPedBehindLatch, shooting) - Beta;
 	while(betaGoal >= PI) betaGoal -= 2.0f*PI;
 	while(betaGoal < -PI) betaGoal += 2.0f*PI;
 	BetaSpeed = PS2FollowPedSpeedStep(betaGoal/Max(dt, 1.0f) + PS2FollowPedStickTarget(stickX, 1.0f/1120.0f, FOV), BetaSpeed, dt);
