@@ -15,15 +15,22 @@ PS2, and the overall look differs.
   `worldRenderCB` + `shaders/leedsBuilding.vert`/`scale.frag`, default
   `WORLDPIPE_PS2`) does:
   `clamp(prelight * Ambient + Ambient_Bl * 0.5) * texture * 255/128`
+  (PS2 additionally scales the prelight term by 255/248, see below)
   (`Ambient` = TIMECYC column 1, `Ambient_Bl` = the "EMISSION" column that
   drives the world ambient light).
 - `config.h` undefines `EXTENDED_PIPELINES` for `_3DS`, so 3DS buildings ran
   through the default librw pipe: `clamp(prelight + Ambient_Bl) * texture`.
   At 10:30 sunny `Ambient` is ~0.9, so PS2 buildings come out ~1.8x brighter
   than 3DS. That is the "much darker" world.
-- The Leeds pipe was taken from aap's desktop reimplementation (known PS2
-  RE work). The building pipe itself was not separately disassembled in
-  `SLES_541.35` (PS2 does it in VU1 microcode); my call.
+- Confirmed in `SLES_541.35`. The building colour is a VU1 module
+  (microcode `0x2075c0-0x207770`): `min(clamp, prelight * SCALE + OFFSET)`,
+  then GS modulate with 128 = 1.0. The world render loop (`FUN_00200fb0`)
+  sets SCALE = `Ambient * 255/248` (`0x23e490` at `0x20106c`) and OFFSET =
+  world ambient light colour `* 0.5` (`0x23e530` at `0x201098`; the colour
+  is `Ambient_Bl * LightsMult`, packed by `0x1841d0` from
+  `SetLightsWithTimeOfDayColour` `0x18427c`). Alpha is the prelight alpha.
+  So the desktop pipe is right, except for the 255/248 on the prelight
+  term, which the 3DS now applies too.
 
 ## Change
 
