@@ -149,24 +149,28 @@ int main(){
         driver = r"""
 int main(){
 	// Stopped ped: no auto-rotate.
-	assert(Abs(PS2FollowPedAutoRotateStep(1.0f, 0.0f, 1.0f, false)) < 0.0001f);
+	assert(Abs(PS2FollowPedAutoRotateStep(1.0f, 0.0f, 1.0f, false, false)) < 0.0001f);
 	// Already behind: no auto-rotate.
-	assert(Abs(PS2FollowPedAutoRotateStep(0.0f, 5.0f, 1.0f, false)) < 0.0001f);
+	assert(Abs(PS2FollowPedAutoRotateStep(0.0f, 5.0f, 1.0f, false, false)) < 0.0001f);
 	// Fast-moving ped, big delta: capped at 0.02*dt.
-	float step = PS2FollowPedAutoRotateStep(1.0f, 10.0f, 1.0f, false);
+	float step = PS2FollowPedAutoRotateStep(1.0f, 10.0f, 1.0f, false, false);
 	assert(Abs(step - 0.02f) < 0.0001f);
 	// Sign follows betaDelta.
-	float negStep = PS2FollowPedAutoRotateStep(-1.0f, 10.0f, 1.0f, false);
+	float negStep = PS2FollowPedAutoRotateStep(-1.0f, 10.0f, 1.0f, false, false);
 	assert(Abs(negStep + 0.02f) < 0.0001f);
 	// Small delta: proportional, so it settles instead of overshooting.
-	assert(Abs(PS2FollowPedAutoRotateStep(0.01f, 10.0f, 1.0f, false) - 0.01f) < 0.0001f);
-	assert(Abs(PS2FollowPedAutoRotateStep(0.01f, 2.0f, 1.0f, false) - 0.002f) < 0.0001f);
+	assert(Abs(PS2FollowPedAutoRotateStep(0.01f, 10.0f, 1.0f, false, false) - 0.01f) < 0.0001f);
+	assert(Abs(PS2FollowPedAutoRotateStep(0.01f, 2.0f, 1.0f, false, false) - 0.002f) < 0.0001f);
 	// Ped walking at the camera (>=170deg): no auto-rotate.
-	assert(PS2FollowPedAutoRotateStep(DEGTORAD(171.0f), 10.0f, 1.0f, false) == 0.0f);
+	assert(PS2FollowPedAutoRotateStep(DEGTORAD(171.0f), 10.0f, 1.0f, false, false) == 0.0f);
 	// Force-behind latch: ignores ped speed, doubles the cap, no 170deg cutoff.
-	assert(Abs(PS2FollowPedAutoRotateStep(1.0f, 0.0f, 1.0f, true) - 0.04f) < 0.0001f);
-	assert(Abs(PS2FollowPedAutoRotateStep(0.2f, 0.0f, 1.0f, true) - 0.02f) < 0.0001f);
-	assert(Abs(PS2FollowPedAutoRotateStep(DEGTORAD(171.0f), 0.0f, 1.0f, true) - 0.04f) < 0.0001f);
+	assert(Abs(PS2FollowPedAutoRotateStep(1.0f, 0.0f, 1.0f, true, false) - 0.04f) < 0.0001f);
+	assert(Abs(PS2FollowPedAutoRotateStep(0.2f, 0.0f, 1.0f, true, false) - 0.02f) < 0.0001f);
+	assert(Abs(PS2FollowPedAutoRotateStep(DEGTORAD(171.0f), 0.0f, 1.0f, true, false) - 0.04f) < 0.0001f);
+	// Firing a two-handed gun: latched rates x2.5, no 170deg cutoff, even unlatched.
+	assert(Abs(PS2FollowPedAutoRotateStep(1.0f, 0.0f, 1.0f, false, true) - 0.1f) < 0.0001f);
+	assert(Abs(PS2FollowPedAutoRotateStep(0.2f, 0.0f, 1.0f, true, true) - 0.05f) < 0.0001f);
+	assert(Abs(PS2FollowPedAutoRotateStep(-DEGTORAD(171.0f), 0.0f, 1.0f, false, true) + 0.1f) < 0.0001f);
 	printf("ok\n");
 	return 0;
 }

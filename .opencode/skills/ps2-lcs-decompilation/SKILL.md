@@ -1143,9 +1143,18 @@ details in `docs/superpowers/specs/2026-10-17-ps2-follow-cam-parity-fixes-design
   `bIsStanding` (`0x194` bit0) pitch levels toward 0 with cap `0.16*dt`.
   Clears when moving or `|Δ|<0.01`. EE `0x46020028`-style words are
   `max.s`/`min.s` (MMI-ish COP1 ops capstone can't decode).
+- **Shooting also sets the latch** (`0x282a98`, before the button check):
+  `(GetWeaponInfo(type)` `0x34f4d0` `->m_eWeaponFire == INSTANT_HIT ||
+  type == FLAMETHROWER) && 0x2af250(weapon) && GetWeapon()` (`0x171a20`) sets
+  `gp-0x34` and a boost `f31 = 2.5` (reset to 0 each call at `0x282554`).
+  `0x2af250` is `IsType2Handed` **plus `MINIGUN`** (reLCS's
+  `CWeapon::IsType2Handed` lacks it). The boost multiplies both k and cap
+  after the `min(1,..)`, and also bypasses the 170° gate. Pitch levelling
+  reads only the latch. Pistols, SMGs, the rocket launcher and melee never
+  recentre. This is the PS2 form of old `Process_FollowPed`'s `Shooting`.
 
 **Lesson:** a mode-function replacement drops every input the old function
-read (here `ForceCameraBehindPlayer`) — grep the replaced function's `CPad`
+read (here `ForceCameraBehindPlayer`, and later the `Shooting` fire check) — grep the replaced function's `CPad`
 calls. And separately-found 3DS port code can mask parity issues: the D-pad
 was dead in-game because port hotkeys zeroed it, not because of camera code.
 
