@@ -976,6 +976,57 @@ void CRadar::DrawRadarSection(int32 x, int32 y)
 	RwIm2DRenderPrimitive(rwPRIMTYPETRIFAN, CSprite2d::GetVertices(), numVertices);
 }
 
+#if defined(_3DS) && defined(ENABLE_3DS_BOTTOM_RADAR)
+/* Draw the 128x128 radar tiles over the 320x220 menu atlas once zoomed in far
+ * enough for them to be sharper (the atlas is ~39 px per tile).  PS2 only draws
+ * its single low-res map texture here; this is a 3DS-port enhancement.  Tiles
+ * requested here are released by StreamRadarSections once gameplay resumes. */
+void CRadar::DrawMenuMapSections3DS()
+{
+	CVector2D world[4], radar, screen[4], tex[4];
+	GetTextureCorners(0, 0, world);
+	TransformRadarPointToScreenSpace(screen[0], world[0] / m_radarRange);
+	TransformRadarPointToScreenSpace(screen[1], world[1] / m_radarRange);
+	if ((screen[1] - screen[0]).Magnitude() < 64.0f)
+		return;
+
+	RwRenderStateSet(rwRENDERSTATEFOGENABLE, (void*)FALSE);
+	RwRenderStateSet(rwRENDERSTATESRCBLEND, (void*)rwBLENDSRCALPHA);
+	RwRenderStateSet(rwRENDERSTATEDESTBLEND, (void*)rwBLENDINVSRCALPHA);
+	RwRenderStateSet(rwRENDERSTATETEXTUREFILTER, (void*)rwFILTERLINEAR);
+	RwRenderStateSet(rwRENDERSTATEVERTEXALPHAENABLE, (void*)TRUE);
+	RwRenderStateSet(rwRENDERSTATETEXTUREADDRESS, (void*)rwTEXTUREADDRESSCLAMP);
+
+	for (int32 y = 0; y < RADAR_NUM_TILES; y++)
+		for (int32 x = 0; x < RADAR_NUM_TILES; x++) {
+			GetTextureCorners(x, y, world);
+			float minX = SCREEN_WIDTH, maxX = 0.0f, minY = SCREEN_HEIGHT, maxY = 0.0f;
+			for (int i = 0; i < 4; i++) {
+				radar = world[i] / m_radarRange;
+				TransformRadarPointToScreenSpace(screen[i], radar);
+				TransformRealWorldToTexCoordSpace(tex[i], world[i], x, y);
+				minX = Min(minX, screen[i].x);
+				maxX = Max(maxX, screen[i].x);
+				minY = Min(minY, screen[i].y);
+				maxY = Max(maxY, screen[i].y);
+			}
+			if (maxX < 0.0f || minX > SCREEN_WIDTH || maxY < 0.0f || minY > SCREEN_HEIGHT)
+				continue;
+
+			RwTexDictionary *txd = CTxdStore::GetSlot(gRadarTxdIds[x + RADAR_NUM_TILES * y])->texDict;
+			RwTexture *texture = txd ? GetFirstTexture(txd) : nil;
+			if (texture == nil) {
+				if (!CStreaming::ms_disableStreaming)
+					RequestMapSection(x, y);
+				continue;
+			}
+			RwRenderStateSet(rwRENDERSTATETEXTURERASTER, RwTextureGetRaster(texture));
+			CSprite2d::SetVertices(4, (float*)screen, (float*)tex, CRGBA(255, 255, 255, 255));
+			RwIm2DRenderPrimitive(rwPRIMTYPETRIFAN, CSprite2d::GetVertices(), 4);
+		}
+}
+#endif
+
 void CRadar::DrawRadarSprite(uint16 sprite, float x, float y, uint8 alpha)
 {
 	DrawRadarSprite(sprite, x, y, CRGBA(255, 255, 255, alpha), CRGBA(255, 255, 255, 255));
