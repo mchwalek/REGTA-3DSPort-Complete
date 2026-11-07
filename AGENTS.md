@@ -663,9 +663,12 @@ not mistake for a failed transfer.
     in `Frontend.cpp`. The atlas is only ~39 px per 500-unit radar tile, so
     zoomed in, `CRadar::DrawMenuMapSections3DS` draws the 128x128 `radarNN`
     tiles over it (alpha sea, so the atlas shows through). PS2 draws a single
-    low-res sprite here (`0x33da58`), so the tiles are a port addition.
-    `CStreaming::Update` keeps running while paused, so TXDs requested from
-    a menu stream in. Tiles requested from the menu are never freed there:
+    sprite here (`0x33da58`), but a max-zoom PS2 screenshot matches the radar
+    tiles pixel for pixel, so the tiles are what PS2 shows. `CStreaming::Update`
+    returns before loading anything while `CTimer::GetIsPaused()` (the pause
+    menu), so a menu that requests models must call
+    `CStreaming::LoadRequestedModels()` itself, or nothing arrives until the
+    game resumes. Tiles requested from the menu are never freed there:
     the in-game radar's `StreamRadarSections` drops all but the player's 3x3
     after unpausing. See `git log --grep="pause-menu map"`.
 
