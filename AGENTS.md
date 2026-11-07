@@ -672,6 +672,25 @@ not mistake for a failed transfer.
     and ped lines vary by ±750 Hz (`RandomDisplacement(750)`, ~±6%) on PS2
     too (`0x1b1468`), so don't remove that. See
     `git log --grep="NDSP rate"`.
+38. **"Faint alpha" textures (no texel >= 128) are mostly ground decals and
+    shadows, not glass — shared librw 3DS code, so a change hits all three
+    trees.** Of 44 faint textures in LCS's `gta3.img`, only 4 are glass
+    (`izzy_dirtGlass`, `izzy_Glass_smk`, `dr_glass`, `jm_kioskwindow`); the
+    rest are `crackedgroundb`, `skidmark_64`, `blackshadow2`, `BuildDirt_64`,
+    `helipadblack`, graffiti, etc., and some sit in the same atomic as a road
+    surface (`rd_road1a*` in `generic.ide`, decal 9 mm above the road). The
+    Portland dirty-glass fix (`5ba76ad`) made every faint texture write depth
+    with alpha test off in `drawInst_GSemu`
+    (`common/librw/src/3ds/3dsrender.cpp`), so a decal's alpha-0 texels hid
+    road pieces drawn after it ("missing road textures near the Staunton bike
+    shop"). `isFaintGlassTexture` now limits that path (and the deferral in
+    `stories/src/renderer/Renderer.cpp` `DeferFaintGlassEntity`) to textures
+    named `*glass*`/`*window*`; other faint textures keep the GS split. Don't
+    key render behaviour on an alpha histogram alone: list which textures
+    match first. PS2 doesn't help here: it has ATE=0 everywhere and no
+    transparent-building list (see the `ps2-lcs-decompilation` skill, "world
+    render pass order"), so the 3DS glass deferral is a port invention. See
+    `git log --grep="road decals"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 
