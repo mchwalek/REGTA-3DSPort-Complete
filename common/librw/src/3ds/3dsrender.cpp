@@ -295,15 +295,23 @@ needsBlendedAlphaPass(InstanceData *inst, ProfileDrawClass drawClass)
 		inst->material->color.alpha != 255 || translucentTexture;
 }
 
+// Only glass gets the depth-writing faint path. Faint decals (road cracks,
+// ground shadows, dirt, blood) sit just above other surfaces and would hide
+// geometry drawn after them, e.g. an overlapping road piece.
+static bool
+isFaintGlassTexture(Texture *texture)
+{
+	return texture && texture->raster && GETC3DRASTEREXT(texture->raster)->hasOnlyFaintAlpha &&
+		(textureNameContains(texture, "glass") || textureNameContains(texture, "window"));
+}
+
 bool
 atomicHasOnlyFaintAlpha(Atomic *atomic)
 {
 	MaterialList *ml = &atomic->geometry->matList;
-	for(int32 i = 0; i < ml->numMaterials; i++){
-		Texture *texture = ml->materials[i]->texture;
-		if(texture && texture->raster && GETC3DRASTEREXT(texture->raster)->hasOnlyFaintAlpha)
+	for(int32 i = 0; i < ml->numMaterials; i++)
+		if(isFaintGlassTexture(ml->materials[i]->texture))
 			return true;
-	}
 	return false;
 }
 
@@ -321,8 +329,7 @@ drawInst_GSemu(InstanceDataHeader *header, InstanceData *inst, ProfileDrawClass 
 		if(zwrite){
 			alpharef = rw::GetRenderState(rw::ALPHATESTREF);
 			gsalpharef = rw::GetRenderState(rw::GSALPHATESTREF);
-			Texture *texture = inst->material->texture;
-			if(texture && texture->raster && GETC3DRASTEREXT(texture->raster)->hasOnlyFaintAlpha){
+			if(isFaintGlassTexture(inst->material->texture)){
 				/* Faint glass such as izzy_dirtGlass never reaches the GS
 				 * reference, so the split below would draw it without depth
 				 * and let later geometry paint over it.  PS2 draws world
