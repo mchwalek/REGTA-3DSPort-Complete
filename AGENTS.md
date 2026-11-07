@@ -429,10 +429,16 @@ not mistake for a failed transfer.
     replaces `Process_FollowPed` entirely, so every input the old function
     read must be re-ported by hand.** `ForceCameraBehindPlayer()` (L in
     CURMODE 0/1) was silently dead after the switch until PS2 `0x281f50`'s
-    force-behind latch was ported. Before adding a `_3DS` camera-mode
-    replacement, grep the replaced function for every `CPad` query and port
-    or consciously drop each one. PS2 reference for the follow cam:
-    `docs/superpowers/specs/2026-10-17-ps2-follow-cam-parity-fixes-design.md`.
+    force-behind latch was ported. The old function's `Shooting` term
+    (`GetWeapon()` also centres the camera) was dropped the same way and
+    ported later from PS2 `0x282a98`. PS2 only does it for two-handed
+    instant-hit guns (incl. the minigun) and the flamethrower. Before
+    adding a `_3DS` camera-mode replacement, grep the replaced function for
+    every `CPad` query and port or consciously drop each one. PS2 reference
+    for the follow cam:
+    `docs/superpowers/specs/2026-10-17-ps2-follow-cam-parity-fixes-design.md`,
+    plus the `ps2-lcs-decompilation` skill. See `git log --grep="firing
+    two-handed"`.
 22. **`CAutomobile::IsOpenTopCar()` alone does not mean "roofless right now" —
     stories (and miami/VC) call sites must pair it with `CarHasRoof()` where
     PS2 does.** It returns true for every `MI_STINGER` and for a Stallion with
