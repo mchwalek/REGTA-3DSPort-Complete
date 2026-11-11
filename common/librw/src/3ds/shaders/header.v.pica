@@ -1,5 +1,6 @@
 	;; Typical constants
-.constf const  (0.0, 1.0, 2.0, 1.0/255.0)
+; picasso does not evaluate expressions: 1.0/255.0 compiles to 1.0.
+.constf const  (0.0, 1.0, 2.0, 0.00392156863)
 .alias  zeros  const.xxxx
 .alias  ones   const.yyyy
 .alias  fixclr const.wwww

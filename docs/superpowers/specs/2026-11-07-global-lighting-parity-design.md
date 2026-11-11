@@ -47,6 +47,11 @@ PS2, and the overall look differs.
   librw (`rw::c3d::setLeedsBuildingAmbient`).
 - Applies whether or not the "PS2 graphics" option is on: it is base
   lighting, not the optional fog/colour grade (my call).
+- Shader constant fix, found on device: `fixclr` (1/255) was written as
+  `1.0/255.0`, which picasso compiles to 1.0. Prelight was used raw
+  (0..255), so every lit vertex saturated and buildings showed the bare
+  texture whatever the lighting. Written as a literal now. This also changes
+  III and miami (prelight and vertex alpha now take effect there too).
 
 ## Not covered (my calls)
 
