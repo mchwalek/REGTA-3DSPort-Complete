@@ -661,8 +661,13 @@ not mistake for a failed transfer.
     `CRadar::TransformRadarPointToScreenSpace` while `m_bMenuMapActive`
     (with `InitFrontEndMap`'s `m_radarRange = 2000`), or `MapWorldToScreen3DS`
     in `Frontend.cpp`. The atlas is only ~39 px per 500-unit radar tile, so
-    zoomed in, `CRadar::DrawMenuMapSections3DS` draws the 128x128 `radarNN`
-    tiles over it (alpha sea, so the atlas shows through). PS2 draws a single
+    `CRadar::DrawMenuMapSections3DS` draws the 128x128 `radarNN` tiles over
+    it at every zoom (alpha sea, so the atlas shows through; switching at a
+    zoom threshold was a visible jump, the two art styles differ). Draw the
+    tiles with the 8-float `CSprite2d::Draw` the atlas uses: the first
+    version used the n-vertex `SetVertices` + raw `RwIm2DRenderPrimitive`
+    path like the in-game radar, and nothing appeared on the top screen,
+    cause never pinned down. PS2 draws a single
     sprite here (`0x33da58`), but a max-zoom PS2 screenshot matches the radar
     tiles pixel for pixel, so the tiles are what PS2 shows. `CStreaming::Update`
     returns before loading anything while `CTimer::GetIsPaused()` (the pause
