@@ -798,6 +798,18 @@ for `test_3ds_world_and_menus.py::test_compiled_menus`, which does (export
 `DEVKITARM` first). `verify-layout.sh` checks that all vendored-library
 symlinks under `*/vendor/` are intact.
 
+To write a new compiled test, copy an existing pair such as
+`test_3ds_free_aim_point.py` + `cpp/free_aim_point.cpp`. Put the C++ in a
+harness under `scripts/tests/cpp/`, include `stubs.h` (shared fake engine
+types) and `scenarios.h` (one named scenario per test, so the harness
+compiles once), and leave `/*@KEY@*/` markers for the extracted code. The
+Python side uses `scripts/tests/cpptest.py`: `read_source`,
+`extract_function`/`between` to pull real code from the game tree,
+`harness(name, KEY=...)` to fill the markers, then `Program` or
+`compile_and_run` (ASan/UBSan on by default). Don't keep private copies of
+these helpers in a test file. `/scripts/tests/` is gitignored, so new
+files there need `git add -f <path>`. Name each path; never `-f` a directory.
+
 For anything touching 3DS button/menu semantics or the packaging/build
 scripts, load the matching project skill (`.opencode/skills/`) — they carry
 exact commands and known-good reference hashes.
