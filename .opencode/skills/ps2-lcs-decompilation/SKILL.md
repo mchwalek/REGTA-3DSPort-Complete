@@ -1377,11 +1377,41 @@ packs each frame from the world ambient light colour. So PS2 buildings are
 alpha = prelight alpha, and GS modulate (128 = 1.0) doubles the texels. The
 desktop pipe was right except for the 255/248.
 
+`0x18427c` calls `0x1841d0` *before* its brightness > 256 block, so the
+brightness setting never boosts the building offset, while it does boost
+peds, vehicles and objects. reLCS's `AmbientLightColourForFrame` is the
+boosted value, so 3DS passes the pre-boost copy separately (at max
+brightness the boost is 1.9x).
+
 **Lesson:** when a timecycle value has no plausible EE reader, don't
 conclude it's unused. Find the VU1 pipeline that consumes the vertex
 stream, read its parameter setters (they're one-store functions with the
 unit conversion inline), and trace their callers; that's where the value
 enters. Fix on 3DS: AGENTS.md landmine #39.
+
+**Inputs that turned out to match PS2** (rule these out quickly next time):
+- `DATA/TIMECYC.DAT` equals PS2's table in decompressed `GAME.DTZ` at
+  `0xb40`: `uint8 [24 hours][8 weathers]` per field, one 192-byte block per
+  field in file column order (amb, ambObj, ambBl, ambObjBl, dir, ...).
+  PS2 stores interpolated values where the text file has `-1`. Only two
+  CLOUDY emission cells differ.
+- Interiors are not lit by the weather rows. main.scm's interior swap
+  blocks call `SET_EXTRA_COLOURS` (`0x4fe`, row = id - 1 of the
+  `EXTRACOLOURS` section; ids 1-3 are the three safehouses) and
+  `CLEAR_EXTRA_COLOURS` on exit, on both platforms.
+- The SD DFF prelights are in PS2 range (128 = 1.0 after the GS doubling),
+  not pre-doubled: the safehouse glass mesh is max 144 on the disc (5-bit,
+  expanded `x<<3|x>>2`) and 148 in the SD DFF.
+
+**Method that found the real 3DS bug** (AGENTS.md landmine #40): divide
+screenshot pixels by the average texel of the same surface (decode the SD
+TXD; D3D8 platform 8 888 rasters are plain BGRA). PS2 gave ~0.45x texel,
+consistent with the formula. 3DS gave exactly 1.0x with the old lighting and
+2.0x with the new one, whatever the uploaded uniforms were. A temporary
+Select+D-pad hotkey on hardware that cycled lighting modes (normal, no 2x,
+scale 1, old, forced black, prelight only) proved the path was taken (black
+worked) and that the prelight term saturated (scale 0.37 still gave 1.0x).
+That pointed at the shader constant, not the lighting maths.
 
 ## Case study: island load screens on the water — same data, different lookup
 

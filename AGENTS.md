@@ -726,7 +726,12 @@ not mistake for a failed transfer.
     dark again. Confirmed in `SLES_541.35`: the multiply is a VU1 prelight
     module (`0x2075c0`), fed by the world loop `0x200fb0`, and PS2 scales the
     prelight term by 255/248 too (see the ps2-lcs-decompilation skill).
-    See `git log --grep="building lighting"`.
+    The `Ambient_Bl/2` term is the world ambient *before* the brightness
+    > 256 boost (`0x18427c` packs it first); `AmbientLightColourForFrame`
+    is already boosted, so don't feed that to buildings. Interiors use the
+    `EXTRACOLOURS` timecycle rows (main.scm `SET_EXTRA_COLOURS`), not the
+    weather rows. See `git log --grep="building lighting"` and
+    `--grep="brightness boost"`.
 40. **picasso (the 3DS shader assembler) doesn't evaluate expressions in
     `.constf`. All three trees share these shaders.** `.constf const (0.0,
     1.0, 2.0, 1.0/255.0)` in `common/librw/src/3ds/shaders/header.v.pica`
