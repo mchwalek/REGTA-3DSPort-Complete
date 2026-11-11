@@ -83,7 +83,8 @@ default_ambient_only:
 	mul	r0, surfDiffuse, r0
 	mov	r1, u_ambLight
 	mad	r0.rgb, r1.rgb, surfAmbient.rgb, r0.rgb
-	mad	r0, in_color, fixclr, r0
+	mul	r1, fixclr, in_color
+	mad	r0, r1, u_prelightScale, r0
 	max	r0, zeros, r0
 	min	r0, ones, r0
 	mul	r0, u_matColor, r0

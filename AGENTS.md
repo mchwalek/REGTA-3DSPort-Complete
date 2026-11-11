@@ -714,6 +714,35 @@ not mistake for a failed transfer.
     transparent-building list (see the `ps2-lcs-decompilation` skill, "world
     render pass order"), so the 3DS glass deferral is a port invention. See
     `git log --grep="road decals"`.
+39. **LCS buildings are lit as `prelight * Ambient + Ambient_Bl/2`, then
+    doubled on textured texels (PS2 GS: 128 = 1.0). VC's `prelight +
+    ambient` is wrong for stories. Stories only; librw code is shared.**
+    Desktop reLCS does it in the `EXTENDED_PIPELINES` Leeds world pipe,
+    which `_3DS` undefines, so 3DS buildings never matched PS2.
+    On 3DS it runs through `EntityRenderStyle::leedsBuildingLighting`
+    (`u_prelightScale` in the vertex shaders, halved `u_ambLight`, TEV
+    stage 0 RGB scale 2 in `defaultRenderCB`). III/miami never set the flag.
+    A new building render path must keep the flag set or that geometry goes
+    dark again. Confirmed in `SLES_541.35`: the multiply is a VU1 prelight
+    module (`0x2075c0`), fed by the world loop `0x200fb0`, and PS2 scales the
+    prelight term by 255/248 too (see the ps2-lcs-decompilation skill).
+    The `Ambient_Bl/2` term is the world ambient *before* the brightness
+    > 256 boost (`0x18427c` packs it first); `AmbientLightColourForFrame`
+    is already boosted, so don't feed that to buildings. Interiors use the
+    `EXTRACOLOURS` timecycle rows (main.scm `SET_EXTRA_COLOURS`), not the
+    weather rows. See `git log --grep="building lighting"` and
+    `--grep="brightness boost"`.
+40. **picasso (the 3DS shader assembler) doesn't evaluate expressions in
+    `.constf`. All three trees share these shaders.** `.constf const (0.0,
+    1.0, 2.0, 1.0/255.0)` in `common/librw/src/3ds/shaders/header.v.pica`
+    compiled to `w = 1.0`, with no warning. That is `fixclr`, which turns
+    the raw `GPU_UNSIGNED_BYTE` prelight/vertex alpha into 0..1 (PICA
+    doesn't normalize). Every prelit vertex with any light saturated to 1.0,
+    so buildings showed their bare texture, day or night, interior or
+    exterior, and no lighting change had any effect on them. Write constants
+    as literals, and check the result in the built `.shbin`: the DVLE
+    constant table holds `u16 type (2 = fvec), u16 reg, 4 x float24` entries.
+    See `git log --grep="picasso"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 

@@ -642,6 +642,8 @@ defaultRenderCB(Atomic *atomic, InstanceDataHeader *header)
 		silhouetteCombiner();
 	}else
 		defaultShader->use();
+	// PS2 GS modulate treats 128 as 1.0: LCS buildings double textured texels.
+	const bool leedsScale = silhouette <= 0.0f && getEntityRenderStyle().leedsBuildingLighting;
 
 	while(n--){
 		m = inst->material;
@@ -668,6 +670,8 @@ defaultRenderCB(Atomic *atomic, InstanceDataHeader *header)
 		setTexture(0, silhouette >= 1.0f ? nil : m->texture);
 		if(silhouette >= 1.0f) C3D_TexBind(0, nil);
 		rw::SetRenderState(VERTEXALPHA, inst->vertexAlpha || color.alpha != 0xFF);
+		if(leedsScale)
+			C3D_TexEnvScale(C3D_GetTexEnv(0), C3D_RGB, m->texture ? GPU_TEVSCALE_2 : GPU_TEVSCALE_1);
 		drawVehicleMesh(header, inst, PROFILE_DRAW_WORLD, atomic, decalDepthOffset);
 		if(canopy){
 			SetRenderState(ZWRITEENABLE,oldZWrite);
@@ -676,6 +680,8 @@ defaultRenderCB(Atomic *atomic, InstanceDataHeader *header)
 		}
 		inst++;
 	}
+	if(leedsScale)
+		C3D_TexEnvScale(C3D_GetTexEnv(0), C3D_RGB, GPU_TEVSCALE_1);
 	if(silhouette > 0.0f){
 		setPS2SilhouetteWeight(0.0f);
 		// Restore the cached null-texture binding for subsequent immediate draws.

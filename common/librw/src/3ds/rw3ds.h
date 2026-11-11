@@ -328,9 +328,13 @@ struct EntityRenderStyle {
 	bool worldBuilding;
 	bool worldSkyline;
 	bool scorched;
+	bool leedsBuildingLighting;
 };
 EntityRenderStyle getEntityRenderStyle(void);
 void setEntityRenderStyle(EntityRenderStyle style);
+// Timecycle ambient that multiplies building prelight in leedsBuildingLighting,
+// and the emission (world ambient without the brightness boost) added to it.
+void setLeedsBuildingAmbient(float32 r, float32 g, float32 b, float32 er, float32 eg, float32 eb);
 // Select the five contiguous Shoreside Vale tower-light index ranges.  The
 // default mask leaves every ordinary mesh untouched.
 void setWorldLightClusterMask(uint32 mask);
