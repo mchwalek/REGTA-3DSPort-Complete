@@ -977,18 +977,14 @@ void CRadar::DrawRadarSection(int32 x, int32 y)
 }
 
 #if defined(_3DS) && defined(ENABLE_3DS_BOTTOM_RADAR)
-/* Draw the 128x128 radar tiles over the 320x220 menu atlas once zoomed in far
- * enough for them to be sharper (the atlas is ~39 px per tile).  PS2 draws one
- * map texture here, but at radar-tile resolution.  Tiles requested here are
- * released by StreamRadarSections once gameplay resumes. */
+/* Draw the 128x128 radar tiles over the 320x220 menu atlas at every zoom (the
+ * atlas is only ~39 px per tile, and switching between the two at some zoom
+ * level is a visible jump).  PS2 draws one map texture here, but at radar-tile
+ * resolution.  The atlas only shows while tiles stream in.  Tiles requested
+ * here are released by StreamRadarSections once gameplay resumes. */
 void CRadar::DrawMenuMapSections3DS()
 {
-	CVector2D world[4], radar, screen[4], tex[4];
-	GetTextureCorners(0, 0, world);
-	TransformRadarPointToScreenSpace(screen[0], world[0] / m_radarRange);
-	TransformRadarPointToScreenSpace(screen[1], world[1] / m_radarRange);
-	if ((screen[1] - screen[0]).Magnitude() < 64.0f)
-		return;
+	CVector2D world[4], screen[4];
 
 	RwRenderStateSet(rwRENDERSTATEFOGENABLE, (void*)FALSE);
 	RwRenderStateSet(rwRENDERSTATESRCBLEND, (void*)rwBLENDSRCALPHA);
@@ -996,6 +992,8 @@ void CRadar::DrawMenuMapSections3DS()
 	RwRenderStateSet(rwRENDERSTATETEXTUREFILTER, (void*)rwFILTERLINEAR);
 	RwRenderStateSet(rwRENDERSTATEVERTEXALPHAENABLE, (void*)TRUE);
 	RwRenderStateSet(rwRENDERSTATETEXTUREADDRESS, (void*)rwTEXTUREADDRESSCLAMP);
+	RwRenderStateSet(rwRENDERSTATECULLMODE, (void*)rwCULLMODECULLNONE);
+	RwRenderStateSet(rwRENDERSTATEZTESTENABLE, (void*)FALSE);
 
 	bool requested = false;
 	for (int32 y = 0; y < RADAR_NUM_TILES; y++)
@@ -1003,9 +1001,7 @@ void CRadar::DrawMenuMapSections3DS()
 			GetTextureCorners(x, y, world);
 			float minX = SCREEN_WIDTH, maxX = 0.0f, minY = SCREEN_HEIGHT, maxY = 0.0f;
 			for (int i = 0; i < 4; i++) {
-				radar = world[i] / m_radarRange;
-				TransformRadarPointToScreenSpace(screen[i], radar);
-				TransformRealWorldToTexCoordSpace(tex[i], world[i], x, y);
+				TransformRadarPointToScreenSpace(screen[i], world[i] / m_radarRange);
 				minX = Min(minX, screen[i].x);
 				maxX = Max(maxX, screen[i].x);
 				minY = Min(minY, screen[i].y);
@@ -1017,15 +1013,16 @@ void CRadar::DrawMenuMapSections3DS()
 			RwTexDictionary *txd = CTxdStore::GetSlot(gRadarTxdIds[x + RADAR_NUM_TILES * y])->texDict;
 			RwTexture *texture = txd ? GetFirstTexture(txd) : nil;
 			if (texture == nil) {
-				if (!CStreaming::ms_disableStreaming) {
-					RequestMapSection(x, y);
-					requested = true;
-				}
+				RequestMapSection(x, y);
+				requested = true;
 				continue;
 			}
-			RwRenderStateSet(rwRENDERSTATETEXTURERASTER, RwTextureGetRaster(texture));
-			CSprite2d::SetVertices(4, (float*)screen, (float*)tex, CRGBA(255, 255, 255, 255));
-			RwIm2DRenderPrimitive(rwPRIMTYPETRIFAN, CSprite2d::GetVertices(), 4);
+			// same vertex order, depth and UVs as the atlas sprite: x1 BL, x2 BR, x3 TL, x4 TR
+			CSprite2d tile;
+			tile.m_pTexture = texture;
+			tile.Draw(screen[0].x, screen[0].y, screen[1].x, screen[1].y, screen[3].x, screen[3].y, screen[2].x, screen[2].y,
+			          CRGBA(255, 255, 255, 255));
+			tile.m_pTexture = nil;
 		}
 
 	// CStreaming::Update returns before loading anything while the pause menu has the timer paused
