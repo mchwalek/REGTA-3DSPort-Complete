@@ -1223,12 +1223,16 @@ setWorldMatrix(Matrix *mat, float positionScale)
 
 static EntityRenderStyle entityRenderStyle = {1.f, 1.f, false, false, false, false};
 static RGBAf leedsBuildingAmbient = {1.f, 1.f, 1.f, 1.f};
+static RGBAf leedsBuildingEmission = {0.f, 0.f, 0.f, 0.f};
 static bool leedsLightingUploaded = false;
 static RGBAf uploadedPrelightScale = {0.f, 0.f, 0.f, 0.f};
-void setLeedsBuildingAmbient(float32 r, float32 g, float32 b)
+void setLeedsBuildingAmbient(float32 r, float32 g, float32 b, float32 er, float32 eg, float32 eb)
 {
-	if(leedsBuildingAmbient.red != r || leedsBuildingAmbient.green != g || leedsBuildingAmbient.blue != b){
-		leedsBuildingAmbient = {r, g, b, 1.f};
+	const RGBAf amb = {r, g, b, 1.f};
+	const RGBAf emiss = {er, eg, eb, 0.f};
+	if(memcmp(&amb, &leedsBuildingAmbient, sizeof(amb)) != 0 || memcmp(&emiss, &leedsBuildingEmission, sizeof(emiss)) != 0){
+		leedsBuildingAmbient = amb;
+		leedsBuildingEmission = emiss;
 		if(entityRenderStyle.leedsBuildingLighting) lightingDirty = 1;
 	}
 }
@@ -1352,7 +1356,8 @@ flushCache(float32 entityOpacity)
 	}
 
 	// LCS PS2 buildings: prelight * timecycle ambient + half the emission
-	// (world ambient light); the textured TEV stage doubles the result.
+	// (world ambient before the brightness boost); the textured TEV stage
+	// doubles the result.
 	const bool leeds = entityRenderStyle.leedsBuildingLighting;
 	if(leeds != leedsLightingUploaded){
 		lightingDirty = 1;
@@ -1367,9 +1372,9 @@ flushCache(float32 entityOpacity)
 	if(lightingDirty && (currentShader == nil || currentShader->usesLighting)){
 		RGBAf amb = uniformObject.ambLight;
 		if(leeds){
-			amb.red *= 0.5f;
-			amb.green *= 0.5f;
-			amb.blue *= 0.5f;
+			amb.red = leedsBuildingEmission.red * 0.5f;
+			amb.green = leedsBuildingEmission.green * 0.5f;
+			amb.blue = leedsBuildingEmission.blue * 0.5f;
 		}
 		c3dUniform4fv(U(u_ambLight), 1, (float*)&amb);
 

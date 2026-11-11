@@ -64,10 +64,12 @@ SetLightsWithTimeOfDayColour(RpWorld *)
 		}
 		RpLightSetColor(pAmbient, &AmbientLightColourForFrame);
 #ifdef _3DS
-		// PS2 scales the building prelight by Ambient*255/248 (SLES_541.35 0x23e490, flag set at 0x20106c)
+		// PS2 scales the building prelight by Ambient*255/248 (SLES_541.35 0x23e490, flag set at 0x20106c).
+		// Its building emission is packed here too (0x1841d0), before the brightness boost below.
 		const float ps2PrelightGain = 255.0f / 248.0f;
 		rw::c3d::setLeedsBuildingAmbient(CTimeCycle::GetAmbientRed() * ps2PrelightGain, CTimeCycle::GetAmbientGreen() * ps2PrelightGain,
-		    CTimeCycle::GetAmbientBlue() * ps2PrelightGain);
+		    CTimeCycle::GetAmbientBlue() * ps2PrelightGain, AmbientLightColourForFrame.red, AmbientLightColourForFrame.green,
+		    AmbientLightColourForFrame.blue);
 #endif
 	}
 
