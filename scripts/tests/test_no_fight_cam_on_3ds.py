@@ -8,17 +8,14 @@ Process_Fight_Cam swings the camera on every strike, so every fight-cam
 request in CamControl must be compiled out on _3DS (kept for non-_3DS).
 """
 import unittest
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-CAMERA_CPP = ROOT / "stories" / "src" / "core" / "Camera.cpp"
+from cpptest import between, read_source
 
 
 class TestNoFightCamOn3ds(unittest.TestCase):
     def test_fight_cam_request_is_not_3ds(self):
-        source = CAMERA_CPP.read_text()
-        start = source.index("CCamera::CamControl(")
-        lines = source[start:source.index("\n}\n", start)].splitlines()
+        source = read_source("stories/src/core/Camera.cpp")
+        lines = between(source, "CCamera::CamControl(", "\n}\n").splitlines()
         requests = [i for i, line in enumerate(lines) if "ReqMode = CCam::MODE_FIGHT_CAM;" in line]
         self.assertTrue(requests)
         for i in requests:

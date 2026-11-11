@@ -11,22 +11,14 @@ checks) or the two horizontal-pan gate call sites regress back to the raw
 `m_fMapSize - MENU_X/Y(MAP_MIN_SIZE)` / `m_fMapSize > MENU_X
 (MAP_SIZE_TO_ALLOW_X_MOVE)` expressions, this test fails.
 """
-from pathlib import Path
 import unittest
 
-ROOT = Path(__file__).resolve().parents[2]
-FRONTEND_CPP = ROOT / "stories" / "src" / "core" / "Frontend.cpp"
-
-
-def extract(source: str, start_marker: str, end_marker: str) -> str:
-    start = source.index(start_marker)
-    end = source.index(end_marker, start)
-    return source[start:end]
+from cpptest import between, read_source
 
 
 class Test3DSMapPanWiring(unittest.TestCase):
     def test_map_enhancements_branch_uses_new_macros(self):
-        source = FRONTEND_CPP.read_text()
+        source = read_source("stories/src/core/Frontend.cpp")
         # Two regions make up the live (MAP_ENHANCEMENTS-defined) pan/zoom
         # code: the ZOOM macro definition itself, and the switch-case body
         # from the "Adding marker" block through the end of the D-pad
@@ -36,14 +28,8 @@ class Test3DSMapPanWiring(unittest.TestCase):
         # legacy movement code, which is dead on 3DS (MAP_ENHANCEMENTS is
         # always defined there) and intentionally untouched by this fix,
         # so it's excluded here rather than polluting the counts below.
-        zoom_macro = extract(
-            source, "#define ZOOM(x, y, in)", "// Handles Map, Audio and Stats"
-        )
-        pan_block = extract(
-            source,
-            "// Adding marker",
-            "lastMapTick = CTimer::GetTimeInMillisecondsPauseMode();",
-        )
+        zoom_macro = between(source, "#define ZOOM(x, y, in)", "// Handles Map, Audio and Stats")
+        pan_block = between(source, "// Adding marker", "lastMapTick = CTimer::GetTimeInMillisecondsPauseMode();")
         block = zoom_macro + pan_block
 
         # Each of the two clamp call sites (ZOOM macro, mouse-drag) uses

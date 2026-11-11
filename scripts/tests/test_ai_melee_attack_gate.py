@@ -11,17 +11,13 @@ out to them, shuffled back, and looped forever. For fists within 5m of the
 player PS2 gates on a distance of 0, so they attack instead of seeking forever.
 """
 import unittest
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-PEDAI_CPP = ROOT / "stories" / "src" / "peds" / "PedAI.cpp"
+from cpptest import extract_function, read_source
 
 
 class TestAiMeleeAttackGate(unittest.TestCase):
     def setUp(self):
-        source = PEDAI_CPP.read_text()
-        start = source.index("CPed::KillCharOnFootMelee(")
-        self.body = source[start:source.index("\n}\n", start)]
+        self.body = extract_function(read_source("stories/src/peds/PedAI.cpp"), "CPed::KillCharOnFootMelee(")
 
     def test_attack_has_no_reachability_gate(self):
         self.assertIn("\n\t\tSetAttack(m_pedInObjective);", self.body)

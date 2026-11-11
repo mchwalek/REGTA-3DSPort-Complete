@@ -7,17 +7,15 @@ JUMP_CUT); only zoom 1-3 changes use StartTransition. The 3DS preset blend in
 CCamera::Process must not glide, pull in or fade the car on those changes.
 """
 import unittest
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-CAMERA_CPP = ROOT / "stories" / "src" / "core" / "Camera.cpp"
+from cpptest import between, read_source
 
 
 class TestCarViewJumpCut3ds(unittest.TestCase):
     def test_special_car_view_change_skips_blend(self):
-        source = CAMERA_CPP.read_text()
+        source = read_source("stories/src/core/Camera.cpp")
         snap = source.index("const bool snapPreset3DS=")
-        condition = source[snap:source.index(";", snap)]
+        condition = between(source, "const bool snapPreset3DS=", ";")
         for term in ("vehicleView3DS", "!exitPreset3DS", "specialView3DS", "presetKey3DS!=presetTransition3DS.key"):
             self.assertIn(term, condition)
         reset = source.index("if(snapPreset3DS){presetTransition3DS.Reset();", snap)
