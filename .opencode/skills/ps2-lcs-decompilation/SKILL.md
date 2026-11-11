@@ -1143,9 +1143,18 @@ details in `docs/superpowers/specs/2026-10-17-ps2-follow-cam-parity-fixes-design
   `bIsStanding` (`0x194` bit0) pitch levels toward 0 with cap `0.16*dt`.
   Clears when moving or `|Δ|<0.01`. EE `0x46020028`-style words are
   `max.s`/`min.s` (MMI-ish COP1 ops capstone can't decode).
+- **Shooting also sets the latch** (`0x282a98`, before the button check):
+  `(GetWeaponInfo(type)` `0x34f4d0` `->m_eWeaponFire == INSTANT_HIT ||
+  type == FLAMETHROWER) && 0x2af250(weapon) && GetWeapon()` (`0x171a20`) sets
+  `gp-0x34` and a boost `f31 = 2.5` (reset to 0 each call at `0x282554`).
+  `0x2af250` is `IsType2Handed` **plus `MINIGUN`** (reLCS's
+  `CWeapon::IsType2Handed` lacks it). The boost multiplies both k and cap
+  after the `min(1,..)`, and also bypasses the 170° gate. Pitch levelling
+  reads only the latch. Pistols, SMGs, the rocket launcher and melee never
+  recentre. This is the PS2 form of old `Process_FollowPed`'s `Shooting`.
 
 **Lesson:** a mode-function replacement drops every input the old function
-read (here `ForceCameraBehindPlayer`) — grep the replaced function's `CPad`
+read (here `ForceCameraBehindPlayer`, and later the `Shooting` fire check) — grep the replaced function's `CPad`
 calls. And separately-found 3DS port code can mask parity issues: the D-pad
 was dead in-game because port hotkeys zeroed it, not because of camera code.
 
@@ -1461,3 +1470,55 @@ Lesson: measure the screenshot against what the data predicts (sky colour,
 tint, alpha) before tuning anything. Here each data theory (PS2 alpha
 scale, UV tiling, vertex alpha) gave a prediction that didn't fit. See
 `git log --grep="faint glass"`.
+
+## Reference: audio sample rates and pitch (sound "too high" on 3DS)
+
+Found while checking a report that 3DS audio was sharp. The cause was the
+OpenAL mix rate, not the data (AGENTS.md landmine #37).
+- PS2 `SET*/SFX*_PS.SDT` holds 12-byte `{offset, size, rate}` entries for
+  VAG data (16 bytes = 28 samples). The 3DS `sfx.sdt` uses 20-byte
+  `{offset, size, freq, loopStart, loopEnd}` entries for PCM16. Rates match
+  PS2 (speech 12000 Hz), and total speech length matches within 1%.
+- `GetSampleBaseFrequency` = `0x114a38`, `RandomDisplacement` = `0x238f80`.
+  Ped comments, including Toni's, use base + `RandomDisplacement(750)`
+  (`0x1b1468`), the same as reLCS `cPedComments::Process`. To find other
+  pitch-randomising sites, scan `.text` for `addiu $a1,$zero,<seed>` before
+  `jal 0x238f80`.
+- `MOVIES/DMP.PSS` audio is an `SShd` type 1 stream: PCM s16le, 48 kHz
+  stereo, 512-byte L/R interleave. To check a converted track's pitch,
+  resample both to the same rate and compare duration and the spectral
+  scale (best ratio should be 1.000).
+
+## Reference: world render pass order and alpha test (no transparent list)
+
+Checked for the "missing road textures" card. `SLES_541.35`:
+
+- `RenderScene` (~`0x1126b0`) calls `0x2c9068` = `RenderRoads` (buildings
+  with modelinfo `+0x36 & 4` = `m_wetRoadReflection`), `0x2c9198` =
+  `RenderEverythingBarRoads`, water `0x2ba300`, then `0x2c9160` →
+  `0x2d7cd8` = `CVisibilityPlugins::RenderFadingEntities`. Same order as
+  reLCS `stories/src/renderer/Renderer.cpp`.
+- `RenderEverythingBarRoads` draws buildings in scan order via
+  `RenderOneNonRoad` `0x2c9d58`; only peds with `GetClumpAlpha != 255` go to
+  the sorted list (`InsertEntityIntoSortedList` `0x2d7b70`, string "Ran out
+  of space in alpha entity list" at `0x3bd990`). `SetupEntityVisibility`
+  `0x2cb460` defers only `m_alpha != 255` (modelinfo `+0x35`) and
+  `m_drawLast`/`bDrawLast` (modelinfo `+0x36 & 0x40`, entity `+0x48 & 0x20`).
+  There is no transparent-building pass; alpha materials are not split out.
+- Per-atomic render `0x2e8860` switches on pipeline id (geometry `+0x14`:
+  7, 0xd, 0x17, 0x27, 0x47). `0x2e84d8` (id 0x47) draws meshes in geometry
+  order; its second loop is an env-map pass keyed on material flag bit 2,
+  not an alpha split.
+- Alpha test is off everywhere: the only GS `TEST_1` (reg `0x47`) writers are
+  the render-state setter `0x144bc4` (toggles ZTST only, values
+  `0x30000`/`0x50000`) and static VU1 packets at `0x387430`/`0x3875d0`/
+  `0x387840`/`0x387950` (all `0x30000`). A full A+D packet scan found no
+  other value. Every texel, including alpha-0 decal texels, writes depth.
+- TXD alpha is full-range 0-255 (702 textures peak at 255, 44 peak below
+  128), so "faint" textures are genuinely faint.
+
+Why PS2 shows no hole where a faint decal overlaps a road can't be settled
+from the ELF: PS2 road geometry is compiled into `GAME.DTZ`, not the DFFs the
+3DS converts. The 3DS fix (`isFaintGlassTexture`, AGENTS.md landmine 38)
+therefore restores the pre-glass-fix GS split for non-glass faint textures
+instead of imitating PS2.

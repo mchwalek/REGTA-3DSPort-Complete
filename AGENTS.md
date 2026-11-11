@@ -429,10 +429,16 @@ not mistake for a failed transfer.
     replaces `Process_FollowPed` entirely, so every input the old function
     read must be re-ported by hand.** `ForceCameraBehindPlayer()` (L in
     CURMODE 0/1) was silently dead after the switch until PS2 `0x281f50`'s
-    force-behind latch was ported. Before adding a `_3DS` camera-mode
-    replacement, grep the replaced function for every `CPad` query and port
-    or consciously drop each one. PS2 reference for the follow cam:
-    `docs/superpowers/specs/2026-10-17-ps2-follow-cam-parity-fixes-design.md`.
+    force-behind latch was ported. The old function's `Shooting` term
+    (`GetWeapon()` also centres the camera) was dropped the same way and
+    ported later from PS2 `0x282a98`. PS2 only does it for two-handed
+    instant-hit guns (incl. the minigun) and the flamethrower. Before
+    adding a `_3DS` camera-mode replacement, grep the replaced function for
+    every `CPad` query and port or consciously drop each one. PS2 reference
+    for the follow cam:
+    `docs/superpowers/specs/2026-10-17-ps2-follow-cam-parity-fixes-design.md`,
+    plus the `ps2-lcs-decompilation` skill. See `git log --grep="firing
+    two-handed"`.
 22. **`CAutomobile::IsOpenTopCar()` alone does not mean "roofless right now" —
     stories (and miami/VC) call sites must pair it with `CarHasRoof()` where
     PS2 does.** It returns true for every `MI_STINGER` and for a Stallion with
@@ -676,6 +682,38 @@ not mistake for a failed transfer.
     game resumes. Tiles requested from the menu are never freed there:
     the in-game radar's `StreamRadarSections` drops all but the player's 3x3
     after unpausing. See `git log --grep="pause-menu map"`.
+37. **3DS audio comes out ~2.3% sharp if OpenAL's mix rate isn't the NDSP
+    rate. The fix is in shared `common/openal-soft-ctr`, so it covers all
+    three trees.** `sampman_oal.cpp` opens the context with
+    `ALC_FREQUENCY = 32000`. The `ctr.c` backend plays its buffers at
+    `NDSP_SAMPLE_RATE` (~32728 Hz), so 32 kHz output played fast. It was
+    easiest to hear on the intro movie and Toni's voice. `ctr_reset_playback`
+    now forces `device->Frequency = SAMPLERATE`. Before blaming asset data
+    for a pitch problem, check this first. The data matches PS2: the 3DS
+    `sfx.sdt` rates equal PS2's `SFX*_PS.SDT` (speech 12 kHz), and
+    `GTAtitles.pcm` matches `DMP.PSS` (48 kHz PCM) in pitch and length. Toni
+    and ped lines vary by ±750 Hz (`RandomDisplacement(750)`, ~±6%) on PS2
+    too (`0x1b1468`), so don't remove that. See
+    `git log --grep="NDSP rate"`.
+38. **"Faint alpha" textures (no texel >= 128) are mostly ground decals and
+    shadows, not glass — shared librw 3DS code, so a change hits all three
+    trees.** Of 44 faint textures in LCS's `gta3.img`, only 4 are glass
+    (`izzy_dirtGlass`, `izzy_Glass_smk`, `dr_glass`, `jm_kioskwindow`); the
+    rest are `crackedgroundb`, `skidmark_64`, `blackshadow2`, `BuildDirt_64`,
+    `helipadblack`, graffiti, etc., and some sit in the same atomic as a road
+    surface (`rd_road1a*` in `generic.ide`, decal 9 mm above the road). The
+    Portland dirty-glass fix (`5ba76ad`) made every faint texture write depth
+    with alpha test off in `drawInst_GSemu`
+    (`common/librw/src/3ds/3dsrender.cpp`), so a decal's alpha-0 texels hid
+    road pieces drawn after it ("missing road textures near the Staunton bike
+    shop"). `isFaintGlassTexture` now limits that path (and the deferral in
+    `stories/src/renderer/Renderer.cpp` `DeferFaintGlassEntity`) to textures
+    named `*glass*`/`*window*`; other faint textures keep the GS split. Don't
+    key render behaviour on an alpha histogram alone: list which textures
+    match first. PS2 doesn't help here: it has ATE=0 everywhere and no
+    transparent-building list (see the `ps2-lcs-decompilation` skill, "world
+    render pass order"), so the 3DS glass deferral is a port invention. See
+    `git log --grep="road decals"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 

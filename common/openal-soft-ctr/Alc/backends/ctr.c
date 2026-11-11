@@ -142,6 +142,11 @@ static void ctr_close_playback(ALCdevice *device)
 
 static ALCboolean ctr_reset_playback(ALCdevice *device)
 {
+    /* NDSP channel 0 always plays at SAMPLERATE. The games request
+     * ALC_FREQUENCY 32000; mixing at that rate made all audio ~2.3% sharp
+     * and fast, so keep the mixer at the DSP rate. */
+    device->Frequency  = SAMPLERATE;
+    device->UpdateSize = SAMPLES_PER_BUF;
     SetDefaultWFXChannelOrder(device);
     return ALC_TRUE;
 }
