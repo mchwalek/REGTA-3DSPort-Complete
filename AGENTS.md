@@ -659,6 +659,29 @@ not mistake for a failed transfer.
     SD's DFF/TXD files come prebuilt with `reLCSAssetConverter.exe`, not
     converted from the PS2 disc, so compare against the disc's Leeds data
     (see the `ps2-lcs-decompilation` skill). See `git log --grep="faint glass"`.
+36. **The 3DS pause-menu map is not the VC `fronten2` 3x3 sprites. It is a
+    320x220 atlas (`stories/src/core/bottom_menu_map.bin`, drawn by
+    `DrawLCSMenuMap3DS`), placed with the affine in `Radar.h`
+    (`LCS_MENU_MAP_*`). Stories only.** Anything drawn on that map (blips,
+    zone names, radar tiles) must go through the same affine, i.e.
+    `CRadar::TransformRadarPointToScreenSpace` while `m_bMenuMapActive`
+    (with `InitFrontEndMap`'s `m_radarRange = 2000`), or `MapWorldToScreen3DS`
+    in `Frontend.cpp`. The atlas is only ~39 px per 500-unit radar tile, so
+    `CRadar::DrawMenuMapSections3DS` draws the 128x128 `radarNN` tiles over
+    it at every zoom (alpha sea, so the atlas shows through; switching at a
+    zoom threshold was a visible jump, the two art styles differ). Draw the
+    tiles with the 8-float `CSprite2d::Draw` the atlas uses: the first
+    version used the n-vertex `SetVertices` + raw `RwIm2DRenderPrimitive`
+    path like the in-game radar, and nothing appeared on the top screen,
+    cause never pinned down. PS2 draws a single
+    sprite here (`0x33da58`), but a max-zoom PS2 screenshot matches the radar
+    tiles pixel for pixel, so the tiles are what PS2 shows. `CStreaming::Update`
+    returns before loading anything while `CTimer::GetIsPaused()` (the pause
+    menu), so a menu that requests models must call
+    `CStreaming::LoadRequestedModels()` itself, or nothing arrives until the
+    game resumes. Tiles requested from the menu are never freed there:
+    the in-game radar's `StreamRadarSections` drops all but the player's 3x3
+    after unpausing. See `git log --grep="pause-menu map"`.
 37. **3DS audio comes out ~2.3% sharp if OpenAL's mix rate isn't the NDSP
     rate. The fix is in shared `common/openal-soft-ctr`, so it covers all
     three trees.** `sampman_oal.cpp` opens the context with
