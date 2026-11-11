@@ -976,6 +976,61 @@ void CRadar::DrawRadarSection(int32 x, int32 y)
 	RwIm2DRenderPrimitive(rwPRIMTYPETRIFAN, CSprite2d::GetVertices(), numVertices);
 }
 
+#if defined(_3DS) && defined(ENABLE_3DS_BOTTOM_RADAR)
+/* Draw the 128x128 radar tiles over the 320x220 menu atlas at every zoom (the
+ * atlas is only ~39 px per tile, and switching between the two at some zoom
+ * level is a visible jump).  PS2 draws one map texture here, but at radar-tile
+ * resolution.  The atlas only shows while tiles stream in.  Tiles requested
+ * here are released by StreamRadarSections once gameplay resumes. */
+void CRadar::DrawMenuMapSections3DS()
+{
+	CVector2D world[4], screen[4];
+
+	RwRenderStateSet(rwRENDERSTATEFOGENABLE, (void*)FALSE);
+	RwRenderStateSet(rwRENDERSTATESRCBLEND, (void*)rwBLENDSRCALPHA);
+	RwRenderStateSet(rwRENDERSTATEDESTBLEND, (void*)rwBLENDINVSRCALPHA);
+	RwRenderStateSet(rwRENDERSTATETEXTUREFILTER, (void*)rwFILTERLINEAR);
+	RwRenderStateSet(rwRENDERSTATEVERTEXALPHAENABLE, (void*)TRUE);
+	RwRenderStateSet(rwRENDERSTATETEXTUREADDRESS, (void*)rwTEXTUREADDRESSCLAMP);
+	RwRenderStateSet(rwRENDERSTATECULLMODE, (void*)rwCULLMODECULLNONE);
+	RwRenderStateSet(rwRENDERSTATEZTESTENABLE, (void*)FALSE);
+
+	bool requested = false;
+	for (int32 y = 0; y < RADAR_NUM_TILES; y++)
+		for (int32 x = 0; x < RADAR_NUM_TILES; x++) {
+			GetTextureCorners(x, y, world);
+			float minX = SCREEN_WIDTH, maxX = 0.0f, minY = SCREEN_HEIGHT, maxY = 0.0f;
+			for (int i = 0; i < 4; i++) {
+				TransformRadarPointToScreenSpace(screen[i], world[i] / m_radarRange);
+				minX = Min(minX, screen[i].x);
+				maxX = Max(maxX, screen[i].x);
+				minY = Min(minY, screen[i].y);
+				maxY = Max(maxY, screen[i].y);
+			}
+			if (maxX < 0.0f || minX > SCREEN_WIDTH || maxY < 0.0f || minY > SCREEN_HEIGHT)
+				continue;
+
+			RwTexDictionary *txd = CTxdStore::GetSlot(gRadarTxdIds[x + RADAR_NUM_TILES * y])->texDict;
+			RwTexture *texture = txd ? GetFirstTexture(txd) : nil;
+			if (texture == nil) {
+				RequestMapSection(x, y);
+				requested = true;
+				continue;
+			}
+			// same vertex order, depth and UVs as the atlas sprite: x1 BL, x2 BR, x3 TL, x4 TR
+			CSprite2d tile;
+			tile.m_pTexture = texture;
+			tile.Draw(screen[0].x, screen[0].y, screen[1].x, screen[1].y, screen[3].x, screen[3].y, screen[2].x, screen[2].y,
+			          CRGBA(255, 255, 255, 255));
+			tile.m_pTexture = nil;
+		}
+
+	// CStreaming::Update returns before loading anything while the pause menu has the timer paused
+	if (requested && CTimer::GetIsPaused() && CStreaming::ms_channelError == -1)
+		CStreaming::LoadRequestedModels();
+}
+#endif
+
 void CRadar::DrawRadarSprite(uint16 sprite, float x, float y, uint8 alpha)
 {
 	DrawRadarSprite(sprite, x, y, CRGBA(255, 255, 255, alpha), CRGBA(255, 255, 255, 255));

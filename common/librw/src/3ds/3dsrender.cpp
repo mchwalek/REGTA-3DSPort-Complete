@@ -295,15 +295,23 @@ needsBlendedAlphaPass(InstanceData *inst, ProfileDrawClass drawClass)
 		inst->material->color.alpha != 255 || translucentTexture;
 }
 
+// Only glass gets the depth-writing faint path. Faint decals (road cracks,
+// ground shadows, dirt, blood) sit just above other surfaces and would hide
+// geometry drawn after them, e.g. an overlapping road piece.
+static bool
+isFaintGlassTexture(Texture *texture)
+{
+	return texture && texture->raster && GETC3DRASTEREXT(texture->raster)->hasOnlyFaintAlpha &&
+		(textureNameContains(texture, "glass") || textureNameContains(texture, "window"));
+}
+
 bool
 atomicHasOnlyFaintAlpha(Atomic *atomic)
 {
 	MaterialList *ml = &atomic->geometry->matList;
-	for(int32 i = 0; i < ml->numMaterials; i++){
-		Texture *texture = ml->materials[i]->texture;
-		if(texture && texture->raster && GETC3DRASTEREXT(texture->raster)->hasOnlyFaintAlpha)
+	for(int32 i = 0; i < ml->numMaterials; i++)
+		if(isFaintGlassTexture(ml->materials[i]->texture))
 			return true;
-	}
 	return false;
 }
 
@@ -321,8 +329,7 @@ drawInst_GSemu(InstanceDataHeader *header, InstanceData *inst, ProfileDrawClass 
 		if(zwrite){
 			alpharef = rw::GetRenderState(rw::ALPHATESTREF);
 			gsalpharef = rw::GetRenderState(rw::GSALPHATESTREF);
-			Texture *texture = inst->material->texture;
-			if(texture && texture->raster && GETC3DRASTEREXT(texture->raster)->hasOnlyFaintAlpha){
+			if(isFaintGlassTexture(inst->material->texture)){
 				/* Faint glass such as izzy_dirtGlass never reaches the GS
 				 * reference, so the split below would draw it without depth
 				 * and let later geometry paint over it.  PS2 draws world
@@ -635,6 +642,8 @@ defaultRenderCB(Atomic *atomic, InstanceDataHeader *header)
 		silhouetteCombiner();
 	}else
 		defaultShader->use();
+	// PS2 GS modulate treats 128 as 1.0: LCS buildings double textured texels.
+	const bool leedsScale = silhouette <= 0.0f && getEntityRenderStyle().leedsBuildingLighting;
 
 	while(n--){
 		m = inst->material;
@@ -661,6 +670,8 @@ defaultRenderCB(Atomic *atomic, InstanceDataHeader *header)
 		setTexture(0, silhouette >= 1.0f ? nil : m->texture);
 		if(silhouette >= 1.0f) C3D_TexBind(0, nil);
 		rw::SetRenderState(VERTEXALPHA, inst->vertexAlpha || color.alpha != 0xFF);
+		if(leedsScale)
+			C3D_TexEnvScale(C3D_GetTexEnv(0), C3D_RGB, m->texture ? GPU_TEVSCALE_2 : GPU_TEVSCALE_1);
 		drawVehicleMesh(header, inst, PROFILE_DRAW_WORLD, atomic, decalDepthOffset);
 		if(canopy){
 			SetRenderState(ZWRITEENABLE,oldZWrite);
@@ -669,6 +680,8 @@ defaultRenderCB(Atomic *atomic, InstanceDataHeader *header)
 		}
 		inst++;
 	}
+	if(leedsScale)
+		C3D_TexEnvScale(C3D_GetTexEnv(0), C3D_RGB, GPU_TEVSCALE_1);
 	if(silhouette > 0.0f){
 		setPS2SilhouetteWeight(0.0f);
 		// Restore the cached null-texture binding for subsequent immediate draws.

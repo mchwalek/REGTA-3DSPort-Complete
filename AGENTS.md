@@ -659,6 +659,29 @@ not mistake for a failed transfer.
     SD's DFF/TXD files come prebuilt with `reLCSAssetConverter.exe`, not
     converted from the PS2 disc, so compare against the disc's Leeds data
     (see the `ps2-lcs-decompilation` skill). See `git log --grep="faint glass"`.
+36. **The 3DS pause-menu map is not the VC `fronten2` 3x3 sprites. It is a
+    320x220 atlas (`stories/src/core/bottom_menu_map.bin`, drawn by
+    `DrawLCSMenuMap3DS`), placed with the affine in `Radar.h`
+    (`LCS_MENU_MAP_*`). Stories only.** Anything drawn on that map (blips,
+    zone names, radar tiles) must go through the same affine, i.e.
+    `CRadar::TransformRadarPointToScreenSpace` while `m_bMenuMapActive`
+    (with `InitFrontEndMap`'s `m_radarRange = 2000`), or `MapWorldToScreen3DS`
+    in `Frontend.cpp`. The atlas is only ~39 px per 500-unit radar tile, so
+    `CRadar::DrawMenuMapSections3DS` draws the 128x128 `radarNN` tiles over
+    it at every zoom (alpha sea, so the atlas shows through; switching at a
+    zoom threshold was a visible jump, the two art styles differ). Draw the
+    tiles with the 8-float `CSprite2d::Draw` the atlas uses: the first
+    version used the n-vertex `SetVertices` + raw `RwIm2DRenderPrimitive`
+    path like the in-game radar, and nothing appeared on the top screen,
+    cause never pinned down. PS2 draws a single
+    sprite here (`0x33da58`), but a max-zoom PS2 screenshot matches the radar
+    tiles pixel for pixel, so the tiles are what PS2 shows. `CStreaming::Update`
+    returns before loading anything while `CTimer::GetIsPaused()` (the pause
+    menu), so a menu that requests models must call
+    `CStreaming::LoadRequestedModels()` itself, or nothing arrives until the
+    game resumes. Tiles requested from the menu are never freed there:
+    the in-game radar's `StreamRadarSections` drops all but the player's 3x3
+    after unpausing. See `git log --grep="pause-menu map"`.
 37. **3DS audio comes out ~2.3% sharp if OpenAL's mix rate isn't the NDSP
     rate. The fix is in shared `common/openal-soft-ctr`, so it covers all
     three trees.** `sampman_oal.cpp` opens the context with
@@ -672,6 +695,54 @@ not mistake for a failed transfer.
     and ped lines vary by ±750 Hz (`RandomDisplacement(750)`, ~±6%) on PS2
     too (`0x1b1468`), so don't remove that. See
     `git log --grep="NDSP rate"`.
+38. **"Faint alpha" textures (no texel >= 128) are mostly ground decals and
+    shadows, not glass — shared librw 3DS code, so a change hits all three
+    trees.** Of 44 faint textures in LCS's `gta3.img`, only 4 are glass
+    (`izzy_dirtGlass`, `izzy_Glass_smk`, `dr_glass`, `jm_kioskwindow`); the
+    rest are `crackedgroundb`, `skidmark_64`, `blackshadow2`, `BuildDirt_64`,
+    `helipadblack`, graffiti, etc., and some sit in the same atomic as a road
+    surface (`rd_road1a*` in `generic.ide`, decal 9 mm above the road). The
+    Portland dirty-glass fix (`5ba76ad`) made every faint texture write depth
+    with alpha test off in `drawInst_GSemu`
+    (`common/librw/src/3ds/3dsrender.cpp`), so a decal's alpha-0 texels hid
+    road pieces drawn after it ("missing road textures near the Staunton bike
+    shop"). `isFaintGlassTexture` now limits that path (and the deferral in
+    `stories/src/renderer/Renderer.cpp` `DeferFaintGlassEntity`) to textures
+    named `*glass*`/`*window*`; other faint textures keep the GS split. Don't
+    key render behaviour on an alpha histogram alone: list which textures
+    match first. PS2 doesn't help here: it has ATE=0 everywhere and no
+    transparent-building list (see the `ps2-lcs-decompilation` skill, "world
+    render pass order"), so the 3DS glass deferral is a port invention. See
+    `git log --grep="road decals"`.
+39. **LCS buildings are lit as `prelight * Ambient + Ambient_Bl/2`, then
+    doubled on textured texels (PS2 GS: 128 = 1.0). VC's `prelight +
+    ambient` is wrong for stories. Stories only; librw code is shared.**
+    Desktop reLCS does it in the `EXTENDED_PIPELINES` Leeds world pipe,
+    which `_3DS` undefines, so 3DS buildings never matched PS2.
+    On 3DS it runs through `EntityRenderStyle::leedsBuildingLighting`
+    (`u_prelightScale` in the vertex shaders, halved `u_ambLight`, TEV
+    stage 0 RGB scale 2 in `defaultRenderCB`). III/miami never set the flag.
+    A new building render path must keep the flag set or that geometry goes
+    dark again. Confirmed in `SLES_541.35`: the multiply is a VU1 prelight
+    module (`0x2075c0`), fed by the world loop `0x200fb0`, and PS2 scales the
+    prelight term by 255/248 too (see the ps2-lcs-decompilation skill).
+    The `Ambient_Bl/2` term is the world ambient *before* the brightness
+    > 256 boost (`0x18427c` packs it first); `AmbientLightColourForFrame`
+    is already boosted, so don't feed that to buildings. Interiors use the
+    `EXTRACOLOURS` timecycle rows (main.scm `SET_EXTRA_COLOURS`), not the
+    weather rows. See `git log --grep="building lighting"` and
+    `--grep="brightness boost"`.
+40. **picasso (the 3DS shader assembler) doesn't evaluate expressions in
+    `.constf`. All three trees share these shaders.** `.constf const (0.0,
+    1.0, 2.0, 1.0/255.0)` in `common/librw/src/3ds/shaders/header.v.pica`
+    compiled to `w = 1.0`, with no warning. That is `fixclr`, which turns
+    the raw `GPU_UNSIGNED_BYTE` prelight/vertex alpha into 0..1 (PICA
+    doesn't normalize). Every prelit vertex with any light saturated to 1.0,
+    so buildings showed their bare texture, day or night, interior or
+    exterior, and no lighting change had any effect on them. Write constants
+    as literals, and check the result in the built `.shbin`: the DVLE
+    constant table holds `u16 type (2 = fvec), u16 reg, 4 x float24` entries.
+    See `git log --grep="picasso"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 
