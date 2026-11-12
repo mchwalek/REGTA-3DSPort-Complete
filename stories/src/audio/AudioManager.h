@@ -150,6 +150,7 @@ class CEntity;
 class CPlane;
 class CVehicle;
 class CPed;
+struct tPedVoiceLine;
 
 class cPedParams
 {
@@ -461,6 +462,7 @@ public:
 	uint32 GetGrdAng2TalkSfx(CPed *ped, uint16 sound);
 	uint32 GetGenericMaleTalkSfx(CPed *ped, uint16 sound);   // inlined in vc
 	uint32 GetGenericFemaleTalkSfx(CPed *ped, uint16 sound); // inlined in vc
+	uint32 GetVoiceTalkSfx(CPed *ped, uint16 sound, const tPedVoiceLine *voice, bool8 female);
 	uint32 GetDefaultTalkSfx(CPed *ped, uint16 sound);
 	uint32 GetCopTalkSfx(CPed *ped, uint16 sound);
 	uint32 GetSwatTalkSfx(CPed *ped, uint16 sound);
