@@ -766,6 +766,17 @@ not mistake for a failed transfer.
     VC's (polygon box, black text, centred heading) until it was ported
     from `0x33d2b0`; check other `Frontend.cpp` pages against the PS2 page
     before enlarging their VC layout. See `git log --grep="stats screen"`.
+43. **The `FREE_CAM` / `m_bUseMouse3rdPerson` paths are re3 PC mouse-cam
+    code, but they run on 3DS during free aim. Stories only.**
+    `Update3DSFreeAim` (`Pad.cpp`) sets `CCamera::m_bUseMouse3rdPerson` and
+    `bFreeCam` on entry, so the `FREE_CAM` block in
+    `CPlayerPed::ProcessPlayerWeapon` is live. It had a PC hack for guns
+    without `CANAIM_WITHARM` (shotgun, AK, M16): on `WeaponJustDown` it moved
+    `m_fRotationCur` halfway to the aim heading in one frame, so Toni's body
+    snapped on the first shot. PS2 (`0x34b100`) never writes the heading
+    there; the block is now `#ifndef _3DS`. Before blaming anim code for a
+    snap, note the shot anim path (`SetAttack`/`Attack`/`PointGunAt`/
+    `FinishedAttackCB`) matches PS2. See `git log --grep="first free-aim shot"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 

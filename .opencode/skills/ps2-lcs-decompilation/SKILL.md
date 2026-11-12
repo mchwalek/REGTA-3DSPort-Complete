@@ -229,7 +229,8 @@ the repo — it holds copyrighted game binaries, never copy it in):
 ```js
 await tools.rea.open_binary({ path: "<$WORKSPACE_ROOT>/sre/SLES_541.35", provider_id: "ghidra" });
 const r = await tools.rea.procedure_pseudo_code({ procedure: "0x1ba618" });
-r.normalized_result   // pseudocode string; cite r.evidence_id
+r.raw_result.value    // pseudocode string (normalized_result may lack it); cite r.evidence_id
+// tools.rea.resolve_containing_procedure({ address: "0x..." }) finds the entry of a mid-function VA
 // ... tools.rea.procedure_assembly, xrefs, batch_decompile, etc.
 await tools.rea.close_binary({});
 ```
@@ -247,7 +248,9 @@ min); it does not use `sre/ghidra_proj`. CLI equivalent:
 ```
 
 `scripts/Decomp.java` prints the language ID and decompiles each address
-argument (creating a function there if none exists). To rebuild the project
+argument (creating a function there if none exists, so a mid-function VA
+decompiles as a bogus fragment, not its containing function; pass true
+entries, or use REA's `resolve_containing_procedure`). To rebuild the project
 from scratch: `-import $WORKSPACE_ROOT/sre/SLES_541.35 -processor
 r5900:LE:32:default` instead of `-process … -noanalysis`. Three
 "Invalid GIF data" analyser errors during import are benign.
@@ -729,6 +732,22 @@ in `CPlayerPed::ProcessPlayerWeapon` (`0x34b100`), which
   guns without `CANAIM_WITHARM`. reLCS doesn't do this.
 - Ped flags bit 34 (`0x400000000` at `ped+0x190`) is `bIsAttacking`, not a
   free-aim flag.
+- The gun shot anim path matches reLCS line for line: `SetAttack`
+  (`0x1babe0`), `Attack` (`0x1bc498`), `PointGunAt` (`0x1ba8f8`),
+  `ClearAttack`, `FinishedAttackCB` (group 7 = `ASSOCGRP_UNARMED`).
+  `PointGunAt`'s jump to `animLoopStart` once past `loopStart*0.4` is PS2 too.
+  `0x34b100` never writes the ped heading on fire, so a body-yaw snap on a
+  shot is port code (see the shotgun case below).
+- Weapon anims are streamed IFP blocks inside `models/gta3.img`
+  (`shotgun.ifp`, `buddy.ifp`, `rifle.ifp`, ...), loaded with the weapon
+  model, not part of `ped.ifp`. `shotgun_fire` is 1.533 s.
+
+**Shotgun first-shot snap** (Trello "animation snap on initial shot"): the
+`FREE_CAM` block of `ProcessPlayerWeapon` runs on 3DS whenever free aim is
+on, and still carried re3's PC mouse-cam hack "anim. fix for shotgun, ak47
+and m16": on `WeaponJustDown` it moved `m_fRotationCur` halfway to the aim
+heading in one frame. Now `#ifndef _3DS`. Other code in that block may be
+PC-only in the same way; check it against `0x34b100` before trusting it.
 
 reLCS models free aim differently: a `CVector` aim point
 (`s3DSFreeAimPoint` in `Cam.cpp`) plus the PC mouse-cam paths
