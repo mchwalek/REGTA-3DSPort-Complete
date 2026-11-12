@@ -1613,3 +1613,22 @@ from the ELF: PS2 road geometry is compiled into `GAME.DTZ`, not the DFFs the
 3DS converts. The 3DS fix (`isFaintGlassTexture`, AGENTS.md landmine 38)
 therefore restores the pre-glass-fix GS split for non-glass faint textures
 instead of imitating PS2.
+
+## Reference: frontend pages and `CFont` (stats screen)
+
+Found while porting the stats screen (`git log --grep="stats screen"`).
+PS2 menu pages use PSP 480x272 coordinates (reLCS `PSP_SCREEN_SCALE_X/Y`).
+
+- Page dispatcher `0x33a1b0`, page field `+0x588`: 0 = stats `0x33d2b0`,
+  2 = map `0x33e690`. It draws no list background box.
+- Stats `0x33d2b0`: scale 0.3834/0.71 (0.34506 x for narrow languages),
+  rows 15 apart from y 196 - scroll, wrapped over `(count+9)*15`, drawn for
+  52 < y < 196 with fades; label x 21 left, value x 460 right, white.
+  Header row y 40, colour (118,176,220): `CRIMRA` left at x 21, `(%d)` right
+  at 460, rating name right-aligned at `450 - width("(N)")`. Anchor: the
+  `"CRIMRA"` string at `0x3d9080`.
+- `CFontDetails` at `0x4085b0` (+4/+8 scale, +0x38 style, +0x40 drop shadow).
+  Setters: `SetScale` `0x166a48`, `SetColor` `0x166a88`, `SetCentreOff`
+  `0x166b70`, `SetRightJustifyOn` `0x166c48`, `SetJustifyOn` `0x166c68`,
+  `SetPropOn` `0x166c90`, `SetDropColor` `0x166d28`; `PrintString`
+  `0x1658f0`, `GetStringWidth` `0x166298`, `TheText.Get` `0x333038`.
