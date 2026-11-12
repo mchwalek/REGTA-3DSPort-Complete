@@ -1344,7 +1344,11 @@ void CHud::Draw()
 				
 				if (FrontEndMenuManager.m_PrefsShowSubtitles || !CCutsceneMgr::IsRunning()) {
 					CFont::SetCentreSize(SCREEN_WIDTH - SCREEN_SCALE_X(60.0f));
+#ifdef _3DS
+					CFont::SetScale(SCREEN_SCALE_X(0.64f), SCREEN_SCALE_Y(1.32f));
+#else
 					CFont::SetScale(SCREEN_SCALE_X(0.58f), SCREEN_SCALE_Y(1.2f));
+#endif
 					CFont::PrintString(SCREEN_WIDTH / 2.f, SCREEN_SCALE_FROM_BOTTOM(80.0f), m_Message);
 				}
 			} else {
@@ -1355,9 +1359,18 @@ void CHud::Draw()
 				CFont::DrawFonts();
 				CFont::SetDropShadowPosition(0);
 				CFont::SetDropColor(CRGBA(0, 0, 0, 255));
+#ifdef _3DS
+				CFont::SetScale(SCREEN_SCALE_X(0.64f), SCREEN_SCALE_Y(1.34f));
+#else
 				CFont::SetScale(SCREEN_SCALE_X(0.58f), SCREEN_SCALE_Y(1.22f));
+#endif
 
+#ifdef ENABLE_3DS_BOTTOM_RADAR
+				// The radar is on the bottom screen, so centre on the whole width.
+				float radarBulge = SCREEN_SCALE_X(8.0f);
+#else
 				float radarBulge = SCREEN_SCALE_X(140.0f) + SCREEN_SCALE_X(8.0f);
+#endif
 				float rectWidth = SCREEN_WIDTH - SCREEN_SCALE_X(20.0f) - SCREEN_SCALE_X(8.0f) - radarBulge;
 				CFont::SetCentreSize(rectWidth);
 
@@ -1449,14 +1462,20 @@ void CHud::Draw()
 					CFont::SetCentreOff();
 					CFont::SetPropOn();
 
+#ifdef _3DS
+					// PS2 sizes come out ~half size on the 400x240 top screen.
+					const float helpScaleX = 0.62f, helpScaleY = 1.3f, helpWrapx = 300.0f;
+#else
+					const float helpScaleX = 0.52f, helpScaleY = 1.1f, helpWrapx = 200.0f + 34.0f - 4.0f;
+#endif
 					if (CGame::germanGame)
-						CFont::SetScale(SCREEN_SCALE_X(0.52f * 0.85f), SCREEN_SCALE_Y(1.1f * 0.85f));
+						CFont::SetScale(SCREEN_SCALE_X(helpScaleX * 0.85f), SCREEN_SCALE_Y(helpScaleY * 0.85f));
 #ifdef MORE_LANGUAGES
 					else if (CFont::IsJapanese())
-						CFont::SetScale(SCREEN_SCALE_X(0.52f) * 1.35f, SCREEN_SCALE_Y(1.1f) * 1.25f);
+						CFont::SetScale(SCREEN_SCALE_X(helpScaleX) * 1.35f, SCREEN_SCALE_Y(helpScaleY) * 1.25f);
 #endif
 					else
-						CFont::SetScale(SCREEN_SCALE_X(0.52f), SCREEN_SCALE_Y(1.1f));
+						CFont::SetScale(SCREEN_SCALE_X(helpScaleX), SCREEN_SCALE_Y(helpScaleY));
 
 					CFont::DrawFonts();
 					CFont::SetColor(CRGBA(175, 175, 175, 255));
@@ -1466,7 +1485,7 @@ void CHud::Draw()
 						CFont::SetWrapx(SCREEN_SCALE_X(229.0f + 34.0f - 4.0f));
 					else
 #endif
-						CFont::SetWrapx(SCREEN_SCALE_X(200.0f + 34.0f - 4.0f));
+						CFont::SetWrapx(SCREEN_SCALE_X(helpWrapx));
 					CFont::SetFontStyle(FONT_LOCALE(FONT_STANDARD));
 					CFont::SetBackgroundOn();
 					CFont::SetBackGroundOnlyTextOff();
@@ -1476,7 +1495,7 @@ void CHud::Draw()
 #ifdef _3DS
 					if(!ProfileHintLayout3DS::Draw(m_HelpMessageToPrint, SCREEN_SCALE_X(34.0f), SCREEN_SCALE_Y(28.0f + (150.0f - PagerXOffset) * 0.6f),
 						SCREEN_WIDTH - SCREEN_SCALE_X(16.0f), SCREEN_SCALE_X(8.0f),
-						SCREEN_SCALE_X(0.52f), SCREEN_SCALE_Y(1.1f), fAlpha))
+						SCREEN_SCALE_X(helpScaleX), SCREEN_SCALE_Y(helpScaleY), fAlpha))
 #endif
 					CFont::PrintString(SCREEN_SCALE_X(34.0f), SCREEN_SCALE_Y(28.0f + (150.0f - PagerXOffset) * 0.6f), m_HelpMessageToPrint);
 					CFont::SetAlphaFade(255.0f);
