@@ -1548,6 +1548,10 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
 					changedHeadingRate = 2;
 					m_headingRate = 12.5f;
 
+#ifndef _3DS
+					/* PC mouse-cam hack: jumps the body halfway to the aim heading
+					 * on the first shot. PS2 never does this (0x34b100 writes no
+					 * heading); on 3DS free aim it snapped the shotgun pose. */
 					// Anim. fix for shotgun, ak47 and m16 (we must finish rot. it quickly)
 					if (weaponInfo->IsFlagSet(WEAPONFLAG_CANAIM) && padUsed->WeaponJustDown()) {
 						m_fRotationCur = CGeneral::LimitRadianAngle(m_fRotationCur);
@@ -1561,6 +1565,7 @@ CPlayerPed::ProcessPlayerWeapon(CPad *padUsed)
 
 						m_fRotationCur += (limitedRotDest - m_fRotationCur) / 2;
 					}
+#endif
 				}
 			}
 		}
