@@ -743,6 +743,20 @@ not mistake for a failed transfer.
     as literals, and check the result in the built `.shbin`: the DVLE
     constant table holds `u16 type (2 = fvec), u16 reg, 4 x float24` entries.
     See `git log --grep="picasso"`.
+41. **The 3DS HOME button only works where something calls `aptMainLoop()`.
+    Stories only.** libctru jumps to HOME only inside `aptMainLoop()`
+    (`common/libctru/source/services/apt.c`), and the main loop in
+    `stories/src/skel/3ds/3ds.cpp` calls it once per frame. Boot and loading
+    code never get back to that loop, so HOME did nothing until the main
+    menu appeared. They now call `Poll3DSHomeMenu()` (`LoadingScreen`,
+    `ConvertingTexturesScreen`, `CGame::InitialiseOnceAfterRW`, the movie
+    loops in `3dsmovie.cpp`). A new long blocking step (loader, movie, error
+    screen) must poll too, outside a citro3d frame. If "Close" is picked in
+    HOME, `Poll3DSHomeMenu()` cleans up and `_exit(0)`s on the spot, so never
+    poll while a file the next boot trusts is half written (the texture-cache
+    rebuild is safe: `CAPS.DAT` is written last). A loop timed against a
+    start time must push it forward by the time spent in HOME, or it races to
+    catch up on return (`MoviePollHome`). See `git log --grep="HOME menu"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 
