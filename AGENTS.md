@@ -743,6 +743,17 @@ not mistake for a failed transfer.
     as literals, and check the result in the built `.shbin`: the DVLE
     constant table holds `u16 type (2 = fvec), u16 reg, 4 x float24` entries.
     See `git log --grep="picasso"`.
+41. **The `FREE_CAM` / `m_bUseMouse3rdPerson` paths are re3 PC mouse-cam
+    code, but they run on 3DS during free aim. Stories only.**
+    `Update3DSFreeAim` (`Pad.cpp`) sets `CCamera::m_bUseMouse3rdPerson` and
+    `bFreeCam` on entry, so the `FREE_CAM` block in
+    `CPlayerPed::ProcessPlayerWeapon` is live. It had a PC hack for guns
+    without `CANAIM_WITHARM` (shotgun, AK, M16): on `WeaponJustDown` it moved
+    `m_fRotationCur` halfway to the aim heading in one frame, so Toni's body
+    snapped on the first shot. PS2 (`0x34b100`) never writes the heading
+    there; the block is now `#ifndef _3DS`. Before blaming anim code for a
+    snap, note the shot anim path (`SetAttack`/`Attack`/`PointGunAt`/
+    `FinishedAttackCB`) matches PS2. See `git log --grep="first free-aim shot"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 
