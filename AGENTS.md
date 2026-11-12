@@ -756,7 +756,17 @@ not mistake for a failed transfer.
     (`DeferFaintGlassEntity`, `Renderer.cpp`). Don't key this on the DFF's
     `zbias` mask name: about 600 DFFs use it, including wall+decal models. See
     `git log --grep="see-through graffiti"`.
-42. **The 3DS HOME button only works where something calls `aptMainLoop()`.
+42. **PS2-sized text comes out about half size on the 3DS top screen
+    (400x240). Stories only.** `SCREEN_SCALE_X/Y` scale from the 640x448 PS2
+    basis (x0.5 with the 4:3 correction, y0.536), so a `CFont::SetScale`
+    copied from VC or PC renders glyphs ~6-7 px high. PS2 LCS's frontend
+    (stats `0x33d2b0`, map `0x33e690`, page dispatcher `0x33a1b0`) lays out
+    in the PSP 480x272 space, so ported PS2 menu code belongs in
+    `PSP_SCREEN_SCALE_X/Y` (x0.833) and is readable as is. `PrintStats` was
+    VC's (polygon box, black text, centred heading) until it was ported
+    from `0x33d2b0`; check other `Frontend.cpp` pages against the PS2 page
+    before enlarging their VC layout. See `git log --grep="stats screen"`.
+43. **The 3DS HOME button only works where something calls `aptMainLoop()`.
     Stories only.** libctru jumps to HOME only inside `aptMainLoop()`
     (`common/libctru/source/services/apt.c`), and the main loop in
     `stories/src/skel/3ds/3ds.cpp` calls it once per frame. Boot and loading
