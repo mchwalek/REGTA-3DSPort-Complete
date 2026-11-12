@@ -766,7 +766,32 @@ not mistake for a failed transfer.
     VC's (polygon box, black text, centred heading) until it was ported
     from `0x33d2b0`; check other `Frontend.cpp` pages against the PS2 page
     before enlarging their VC layout. See `git log --grep="stats screen"`.
-43. **Ped voices are picked by model in `cAudioManager::GetPedCommentSfx`,
+43. **The `FREE_CAM` / `m_bUseMouse3rdPerson` paths are re3 PC mouse-cam
+    code, but they run on 3DS during free aim. Stories only.**
+    `Update3DSFreeAim` (`Pad.cpp`) sets `CCamera::m_bUseMouse3rdPerson` and
+    `bFreeCam` on entry, so the `FREE_CAM` block in
+    `CPlayerPed::ProcessPlayerWeapon` is live. It had a PC hack for guns
+    without `CANAIM_WITHARM` (shotgun, AK, M16): on `WeaponJustDown` it moved
+    `m_fRotationCur` halfway to the aim heading in one frame, so Toni's body
+    snapped on the first shot. PS2 (`0x34b100`) never writes the heading
+    there; the block is now `#ifndef _3DS`. Before blaming anim code for a
+    snap, note the shot anim path (`SetAttack`/`Attack`/`PointGunAt`/
+    `FinishedAttackCB`) matches PS2. See `git log --grep="first free-aim shot"`.
+44. **The 3DS HOME button only works where something calls `aptMainLoop()`.
+    Stories only.** libctru jumps to HOME only inside `aptMainLoop()`
+    (`common/libctru/source/services/apt.c`), and the main loop in
+    `stories/src/skel/3ds/3ds.cpp` calls it once per frame. Boot and loading
+    code never get back to that loop, so HOME did nothing until the main
+    menu appeared. They now call `Poll3DSHomeMenu()` (`LoadingScreen`,
+    `ConvertingTexturesScreen`, `CGame::InitialiseOnceAfterRW`, the movie
+    loops in `3dsmovie.cpp`). A new long blocking step (loader, movie, error
+    screen) must poll too, outside a citro3d frame. If "Close" is picked in
+    HOME, `Poll3DSHomeMenu()` cleans up and `_exit(0)`s on the spot, so never
+    poll while a file the next boot trusts is half written (the texture-cache
+    rebuild is safe: `CAPS.DAT` is written last). A loop timed against a
+    start time must push it forward by the time spent in HOME, or it races to
+    catch up on return (`MoviePollHome`). See `git log --grep="HOME menu"`.
+45. **Ped voices are picked by model in `cAudioManager::GetPedCommentSfx`,
     and an unmapped model falls to the generic *male* lines (death, pain,
     fire, panic only). Stories only.** The LCS civilian and gang mappings
     were commented out (`LCS: removed for now`), so only `MI_MALE01` (the

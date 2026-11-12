@@ -59,6 +59,9 @@ void DestroySplashScreen(void);
 #if defined(RW_3DS) && defined(RESTORIES_3DS_BUILD)
 void ShutdownPlayerVehicleReflection3DS(void);
 #endif
+#ifdef RW_3DS
+void Poll3DSHomeMenu(void);
+#endif
 Const char *GetLevelSplashScreen(int level);
 Const char *GetRandomSplashScreen(void);
 void LittleTest(void);

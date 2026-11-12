@@ -38,6 +38,17 @@ MovieSkipPressed(void)
 		KEY_L | KEY_R | KEY_ZL | KEY_ZR)) != 0;
 }
 
+// Lets HOME work during the movies. Time spent suspended moves the clock so
+// playback resumes where it stopped instead of fast-forwarding.
+static bool
+MoviePollHome(u64 *startTime)
+{
+	const u64 before = osGetTime();
+	const bool running = aptMainLoop();
+	*startTime += osGetTime() - before;
+	return running;
+}
+
 class MovieAudio {
 	FILE *file;
 	ALuint source;
@@ -233,7 +244,7 @@ Play3DSMovie(const char *videoPath, const char *audioPath)
 				((u64)frameNumber * 1000ULL * header.fpsDenominator) / header.fpsNumerator;
 			while(osGetTime() < target) {
 				audio.Pump();
-				if(MovieSkipPressed()) {
+				if(!MoviePollHome(&startTime) || MovieSkipPressed()) {
 					skipped = true;
 					break;
 				}
@@ -253,7 +264,7 @@ Play3DSMovie(const char *videoPath, const char *audioPath)
 		gfxScreenSwapBuffers(GFX_BOTTOM, false);
 		frameNumber++;
 		audio.Pump();
-		if(MovieSkipPressed())
+		if(!MoviePollHome(&startTime) || MovieSkipPressed())
 			skipped = true;
 	}
 
@@ -270,5 +281,7 @@ void
 Play3DSStartupMovies(void)
 {
 	Play3DSMovie("movies/Logo.3mv", "movies/Logo.pcm");
-	Play3DSMovie("movies/GTAtitles.3mv", "movies/GTAtitles.pcm");
+	// A close from HOME stops the movie; the main loop's aptMainLoop() then exits.
+	if(!aptShouldClose())
+		Play3DSMovie("movies/GTAtitles.3mv", "movies/GTAtitles.pcm");
 }
