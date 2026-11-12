@@ -1506,9 +1506,11 @@ shop greeting samples `SFX_AMMU_AA/AB`.
   `0x1b2a90`. `ProcessFrontEnd` is `0x1b32f8`. `cAudioManager` lives at
   `0x42d2a0` and `PlayOneShot` at `0x238458`. `cDMAudio::PlayOneShot` is
   `0x2a1f40` (130 callers; scan its `jal`s to find who emits an eSound id).
-- **PS2 sample indices equal reLCS `AudioSamples.h` values exactly.**
-  Check them by compiling the enum (`printf("%d", SFX_X)`). Don't count
-  lines: the awk line-count method was wrong here.
+- **PS2 sample indices equal reLCS `AudioSamples.h` values only below
+  322.** From there on reLCS is 146 higher (PS2 = reLCS - 146); see "ped
+  voices" below. Check values by compiling the enum
+  (`printf("%d", SFX_X)`). Don't count lines: the awk line-count method was
+  wrong here.
 - LCS one-shot layout: ids 0-51 match VC. 52-54 are AMMU_AA/AB/AC, 55-61
   C_OR_D_UNK, 62/63 DOCK_BA/BB, 64/65 COLT45, 66 PIZZA_THROW, 67 R_OR_S_UNK1,
   68/69 GATE_START/STOP_CLU and 70/71 frontend. VC's 52-67 tail
@@ -1527,6 +1529,31 @@ ids, `main.scm` literals) can be wrong past some point even when every C++
 use is fine. Get the PS2 handler's case list before trusting the enum. See
 `docs/superpowers/specs/2026-10-24-lcs-script-sound-ids-design.md` and
 `git log --grep="script-sound"`.
+
+## Case study: ped voices — one driver line, no women
+
+Report: peds barely talk, one driver keeps saying "I'm late for my swinger
+party" (`SFX_MALE01_DRIVER_BLOCKED_2`), women sound like men. reLCS's
+`GetPedCommentSfx` had every civilian/gang model case commented out, so
+only `MI_MALE01` (the fallback driver model `AddPedInCar` uses) had a voice.
+
+- PS2 `GetPedCommentSfx` ~`0x1a88d0`: state gating, `IsPlayer` (`0x1ead68`)
+  → Toni `0x1a9230`, else `lh model,0x58(ped)` and a 130-entry jump table at
+  `0x3af170`. GetPhrase is `0x1b5090` (`a3` = sample base, `t0` = count).
+  Generic male `0x1aa258`, generic female `0x1aa328`, NO_SAMPLE `0x161e`.
+- Each voice function is `switch(sound - lo)` through its own jump table;
+  every case is `a3`/`t0` + `jal 0x1b5090`, or `v0 = 0x161e`. Default goes
+  to generic male or female (27 voices are female). JFOTO/JMOTO
+  (`0x1af368`/`0x1af370`) always return NO_SAMPLE.
+- Sample numbers: PS2 lacks 146 entries that reLCS has in 322-463 (car
+  accel, footsteps, ambulance voice). Add 146 to a PS2 base ≥ 322 to get the
+  reLCS name. MALE01 (`0x1aa410`) and generic male decoded this way match
+  reLCS's hand-written functions exactly, which is the check.
+- Sample names can skip a number (`SFX_CONST1_CHAT_1, _3, _4` is 3 samples).
+  Trust the count, not the name suffix.
+
+The decoded tables live in `AudioLogic.cpp` (`aXxxVoice`). See AGENTS.md
+landmine #45 and `git log --grep="ped voices"`.
 
 ## Case study: faint safehouse glass — reading PS2 world data (Leeds sectors)
 

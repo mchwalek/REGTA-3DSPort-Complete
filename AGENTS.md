@@ -791,6 +791,18 @@ not mistake for a failed transfer.
     rebuild is safe: `CAPS.DAT` is written last). A loop timed against a
     start time must push it forward by the time spent in HOME, or it races to
     catch up on return (`MoviePollHome`). See `git log --grep="HOME menu"`.
+45. **Ped voices are picked by model in `cAudioManager::GetPedCommentSfx`,
+    and an unmapped model falls to the generic *male* lines (death, pain,
+    fire, panic only). Stories only.** The LCS civilian and gang mappings
+    were commented out (`LCS: removed for now`), so only `MI_MALE01` (the
+    fallback car driver) talked, women got male screams, and players heard
+    one driver line over and over. They are now data tables decoded from PS2
+    (`aXxxVoice`, `tPedVoiceLine`, `AudioLogic.cpp`); each row's count picks
+    from `base..base+count-1`, so a wrong count plays another voice's line
+    (`test_lcs_ped_voices.py` checks this). The VC `Get*TalkSfx` bodies left
+    commented out below use VC sample names; don't revive them. See the
+    `ps2-lcs-decompilation` skill ("ped voices") and
+    `git log --grep="ped voices"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 
