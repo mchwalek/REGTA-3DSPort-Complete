@@ -93,11 +93,26 @@
 #define PLAYERSETUP_LIST_BODY_TOP 77
 #define PLAYERSETUP_ROW_HEIGHT 9
 
+#ifdef _3DS
+// The 400x240 top screen halves PS2-sized text; bigger rows need a wider, taller list.
+#define STATS_ROW_HEIGHT 24.0f
+#define STATS_ROW_LEFT_MARGIN 30.0f
+#define STATS_ROW_RIGHT_MARGIN 33.0f
+#define STATS_ROW_X_SCALE 0.60f
+#define STATS_ROW_X_SCALE_NARROW 0.52f // non-American languages
+#define STATS_ROW_Y_SCALE 1.10f
+#define STATS_TOP_Y 135.0f // Just faded in
+#define STATS_BOTTOM_Y 330.0f // Starts to fade out after that
+#else
 #define STATS_ROW_HEIGHT 17.0f
 #define STATS_ROW_LEFT_MARGIN 110.0f
 #define STATS_ROW_RIGHT_MARGIN 113.0f
+#define STATS_ROW_X_SCALE 0.43f
+#define STATS_ROW_X_SCALE_NARROW 0.37f
+#define STATS_ROW_Y_SCALE 0.75f
 #define STATS_TOP_Y 135.0f // Just faded in
 #define STATS_BOTTOM_Y 300.0f // Starts to fade out after that
+#endif
 #define STATS_FADING_AREA_LENGTH 50.0f
 #define STATS_VISIBLE_START_Y (STATS_TOP_Y - 10.f)
 #define STATS_VISIBLE_END_Y (STATS_BOTTOM_Y + 21.f)

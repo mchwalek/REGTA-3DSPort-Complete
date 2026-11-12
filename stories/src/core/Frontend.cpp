@@ -1009,7 +1009,11 @@ CMenuManager::DisplayHelperText(char *text)
 	int32 alpha = 255;
 
 	CFont::SetRightJustifyOn();
+#ifdef _3DS
+	CFont::SetScale(SCREEN_SCALE_X(SMALLTEXT_X_SCALE), SCREEN_SCALE_Y(SMALLTEXT_Y_SCALE));
+#else
 	CFont::SetScale(SCREEN_SCALE_X(SMALLESTTEXT_X_SCALE), SCREEN_SCALE_Y(SMALLESTTEXT_Y_SCALE));
+#endif
 	CFont::SetFontStyle(FONT_LOCALE(FONT_STANDARD));
 	CFont::SetDropShadowPosition(0);
 
@@ -3610,20 +3614,33 @@ CMenuManager::SmallMessageScreen(const char* text)
 	CFont::SetBackGroundOnlyTextOn();
 	CSprite2d::DrawRect(CRect(SCREEN_STRETCH_X(95.0f), SCREEN_SCALE_FROM_BOTTOM(165.0f), SCREEN_STRETCH_FROM_RIGHT(95.0f), SCREEN_SCALE_Y(115.0f)), CRGBA(50, 50, 50, FadeIn(210)));
 	CFont::SetFontStyle(FONT_LOCALE(FONT_STANDARD));
+#ifdef _3DS
+	CFont::SetCentreSize(SCREEN_SCALE_X(470.0f));
+#else
 	CFont::SetCentreSize(SCREEN_SCALE_X(430.0f));
+#endif
 	CFont::SetCentreOn();
 	CFont::SetColor(CRGBA(LABEL_COLOR.r, LABEL_COLOR.g, LABEL_COLOR.b, FadeIn(255)));
 	CFont::SetDropShadowPosition(2);
 	CFont::SetDropColor(CRGBA(0, 0, 0, 255));
+#ifdef _3DS
+	CFont::SetScale(SCREEN_SCALE_X(0.62f), SCREEN_SCALE_Y(1.35f));
+#else
 	CFont::SetScale(SCREEN_SCALE_X(SMALLTEXT_X_SCALE), SCREEN_SCALE_Y(SMALLTEXT_Y_SCALE));
+#endif
 	
 	wchar *message = GetPlatformFrontendText(text);
 	int numOfLines = CFont::GetNumberLines(SCREEN_WIDTH / 2.f, SCREEN_SCALE_Y(135.f), message);
 	float y;
+#ifdef _3DS
+	// Centre the block in the box (115..283); one line advances 18 * 1.35 units.
+	y = SCREEN_SCALE_Y(199.f - numOfLines * 12.f);
+#else
 	if (numOfLines > 1)
 		y = SCREEN_SCALE_Y(192.f) - numOfLines * SCREEN_SCALE_Y(8.f);
 	else
 		y = SCREEN_SCALE_Y(182.f);
+#endif
 
 	CFont::PrintString(SCREEN_WIDTH / 2.f, y, message);
 }
@@ -3668,10 +3685,17 @@ CMenuManager::PrintStats()
 	static float scrollY = 0;
 
 	int rowNum = CStats::ConstructStatLine(99999);
+#ifdef _3DS
+	CSprite2d::Draw2DPolygon(MENU_X_LEFT_ALIGNED(10.0f), MENU_Y(142.0f),
+		MENU_X_LEFT_ALIGNED(623.0f), MENU_Y(142.f),
+		MENU_X_LEFT_ALIGNED(27.0f), MENU_Y(346.f),
+		MENU_X_LEFT_ALIGNED(611.f), MENU_Y(329.f), CRGBA(LIST_BACKGROUND_COLOR.r, LIST_BACKGROUND_COLOR.g, LIST_BACKGROUND_COLOR.b, FadeIn(LIST_BACKGROUND_COLOR.a)));
+#else
 	CSprite2d::Draw2DPolygon(MENU_X_LEFT_ALIGNED(90.0f), MENU_Y(142.0f),
 		MENU_X_LEFT_ALIGNED(543.0f), MENU_Y(142.f),
 		MENU_X_LEFT_ALIGNED(107.0f), MENU_Y(316.f),
 		MENU_X_LEFT_ALIGNED(531.f), MENU_Y(299.f), CRGBA(LIST_BACKGROUND_COLOR.r, LIST_BACKGROUND_COLOR.g, LIST_BACKGROUND_COLOR.b, FadeIn(LIST_BACKGROUND_COLOR.a)));
+#endif
 
 	CFont::SetFontStyle(FONT_LOCALE(FONT_STANDARD));
 	CFont::SetPropOn();
@@ -3686,9 +3710,9 @@ CMenuManager::PrintStats()
 #endif
 
 	if (m_PrefsLanguage == LANGUAGE_AMERICAN)
-		CFont::SetScale(MENU_X(0.43f), MENU_Y(0.75f));
+		CFont::SetScale(MENU_X(STATS_ROW_X_SCALE), MENU_Y(STATS_ROW_Y_SCALE));
 	else
-		CFont::SetScale(MENU_X(0.37f), MENU_Y(0.75f));
+		CFont::SetScale(MENU_X(STATS_ROW_X_SCALE_NARROW), MENU_Y(STATS_ROW_Y_SCALE));
 
 	static uint32 lastCheck = 0;
 
@@ -3755,7 +3779,11 @@ CMenuManager::PrintStats()
 	CFont::SetDropColor(CRGBA(0, 0, 0, FadeIn(255)));
 	CFont::SetCentreOn();
 	CFont::SetFontStyle(FONT_LOCALE(FONT_HEADING));
+#ifdef _3DS
+	CFont::SetScale(MENU_X(0.85f), MENU_Y(1.35f));
+#else
 	CFont::SetScale(MENU_X(0.65f), MENU_Y(1.05f));
+#endif
 	CFont::PrintString(MENU_X_LEFT_ALIGNED(STATS_RATING_X), MENU_Y(STATS_RATING_Y_1), TheText.Get("CRIMRA"));
 
 	CFont::SetCentreOff();
@@ -3770,7 +3798,9 @@ CMenuManager::PrintStats()
 	UnicodeStrcat(gUString2, gUString);
 
 	CFont::SetFontStyle(FONT_LOCALE(FONT_STANDARD));
-#ifndef FIX_BUGS
+#if defined(_3DS)
+	CFont::SetScale(MENU_X(0.62f), MENU_Y(1.3f));
+#elif !defined(FIX_BUGS)
 	CFont::SetScale(MENU_X(0.5f), MENU_Y(0.9f));
 #else
 	CFont::SetScale(MENU_X(SMALLTEXT_X_SCALE), MENU_Y(SMALLTEXT_Y_SCALE));
@@ -6281,7 +6311,11 @@ CMenuManager::PrintMap(void)
 
 	CRadar::DrawBlips();
 	if (m_PrefsShowLegends) {
+#ifdef _3DS
+		CFont::SetWrapx(MENU_X_RIGHT_ALIGNED(-60.0f));
+#else
 		CFont::SetWrapx(MENU_X_RIGHT_ALIGNED(40.0f));
+#endif
 		CFont::SetRightJustifyWrap(MENU_X_LEFT_ALIGNED(84.0f));
 		CFont::SetBackGroundOnlyTextOff();
 		CFont::SetColor(CRGBA(LABEL_COLOR.r, LABEL_COLOR.g, LABEL_COLOR.b, FadeIn(255)));
@@ -6289,41 +6323,53 @@ CMenuManager::PrintMap(void)
 		CFont::SetDropColor(CRGBA(0, 0, 0, FadeIn(255)));
 		CFont::SetCentreOn();
 		CFont::SetFontStyle(FONT_LOCALE(FONT_HEADING));
-		CFont::SetScale(SCREEN_SCALE_X(0.65f), SCREEN_SCALE_Y(0.95f));
 
 		int secondColumnStart = (CRadar::MapLegendCounter - 1) / 2;
-		int boxBottom = MENU_Y(100.0f);
+#ifdef _3DS
+		// Bigger text on the 400x240 top screen: wider box, taller rows, shrunk only if the list would leave the screen.
+		CFont::SetScale(SCREEN_SCALE_X(0.85f), SCREEN_SCALE_Y(1.25f));
+		const float boxTop = 70.0f, boxLeft = -60.0f, boxRight = 700.0f;
+		const float column1 = -40.0f, column2 = 330.0f;
+		const float rowStep = Min(24.0f, (440.0f - boxTop) / (secondColumnStart + 3));
+		const float legendXScale = m_PrefsLanguage == LANGUAGE_AMERICAN ? 0.75f : 0.65f;
+		const float legendYScale = Min(0.95f, rowStep / 24.0f * 0.95f);
+#else
+		CFont::SetScale(SCREEN_SCALE_X(0.65f), SCREEN_SCALE_Y(0.95f));
+		const float boxTop = 100.0f, boxLeft = 95.0f, boxRight = 555.0f;
+		const float column1 = 160.0f, column2 = 350.0f;
+		const float rowStep = 19.0f;
+		const float legendXScale = m_PrefsLanguage == LANGUAGE_AMERICAN ? 0.55f : 0.45f;
+		const float legendYScale = 0.55f;
+#endif
+		int boxBottom = MENU_Y(boxTop);
 
-		// + 3, because we want 19*3 px padding
+		// + 3, because we want 3 rows of padding
 		for (int i = 0; i < secondColumnStart + 3; i++) {
-			boxBottom += MENU_Y(19.f);
+			boxBottom += MENU_Y(rowStep);
 		}
 
-		CSprite2d::DrawRect(CRect(MENU_X_LEFT_ALIGNED(95.0f), MENU_Y(100.0f), MENU_X_LEFT_ALIGNED(555.f), boxBottom),
+		CSprite2d::DrawRect(CRect(MENU_X_LEFT_ALIGNED(boxLeft), MENU_Y(boxTop), MENU_X_LEFT_ALIGNED(boxRight), boxBottom),
 			CRGBA(0, 0, 0, FadeIn(190)));
 
-		CFont::PrintString(MENU_X_LEFT_ALIGNED(320.0f), MENU_Y(102.0f), TheText.Get("FE_MLG"));
+		CFont::PrintString(MENU_X_LEFT_ALIGNED(320.0f), MENU_Y(boxTop + 2.0f), TheText.Get("FE_MLG"));
 		CFont::SetRightJustifyOff();
 		CFont::SetFontStyle(FONT_LOCALE(FONT_STANDARD));
-		if (m_PrefsLanguage == LANGUAGE_AMERICAN)
-			CFont::SetScale(SCREEN_SCALE_X(0.55f), SCREEN_SCALE_Y(0.55f));
-		else
-			CFont::SetScale(SCREEN_SCALE_X(0.45f), SCREEN_SCALE_Y(0.55f));
+		CFont::SetScale(SCREEN_SCALE_X(legendXScale), SCREEN_SCALE_Y(legendYScale));
 
 		CFont::SetColor(CRGBA(225, 225, 225, FadeIn(255)));
 		CFont::SetDropShadowPosition(0);
 
-		int y = MENU_Y(127.0f);
-		int x = MENU_X_LEFT_ALIGNED(160.0f);
+		int y = MENU_Y(boxTop + 27.0f);
+		int x = MENU_X_LEFT_ALIGNED(column1);
 
 		for (int16 i = 0; i < CRadar::MapLegendCounter; i++) {
 			CRadar::DrawLegend(x, y, CRadar::MapLegendList[i], CRadar::MapLegendColours[i]);
 
 			if (i == secondColumnStart) {
-				x = MENU_X_LEFT_ALIGNED(350.0f);
-				y = MENU_Y(127.0f);
+				x = MENU_X_LEFT_ALIGNED(column2);
+				y = MENU_Y(boxTop + 27.0f);
 			} else {
-				y += MENU_Y(19.0f);
+				y += MENU_Y(rowStep);
 			}
 		}
 	}
@@ -6355,12 +6401,13 @@ CMenuManager::PrintMap(void)
 		CFont::SetRightJustifyOff();
 		CFont::SetCentreOff();
 		CFont::SetBackgroundOff();
-		CFont::SetScale(SCREEN_SCALE_X(SMALLESTTEXT_X_SCALE), SCREEN_SCALE_Y(SMALLESTTEXT_Y_SCALE));
+		CFont::SetScale(SCREEN_SCALE_X(MEDIUMTEXT_X_SCALE), SCREEN_SCALE_Y(MEDIUMTEXT_Y_SCALE));
 		CFont::SetFontStyle(FONT_LOCALE(FONT_STANDARD));
 		CFont::SetDropShadowPosition(2);
 		CFont::SetDropColor(CRGBA(0, 0, 0, 255));
 		CFont::SetColor(CRGBA(255, 255, 255, 255));
-		CFont::PrintString(MENU_X_LEFT_ALIGNED(MENU_X_MARGIN), SCREEN_SCALE_FROM_BOTTOM(HELPER_TEXT_BOTTOM_MARGIN + 16.0f),
+		// Sits above the (3DS-enlarged) 3DS_MPH helper row.
+		CFont::PrintString(MENU_X_LEFT_ALIGNED(MENU_X_MARGIN), SCREEN_SCALE_FROM_BOTTOM(HELPER_TEXT_BOTTOM_MARGIN + 26.0f),
 			zone ? zone->GetTranslatedName() : TheText.Get("CITYZON"));
 		CFont::SetDropShadowPosition(0);
 	}
