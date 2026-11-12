@@ -743,7 +743,20 @@ not mistake for a failed transfer.
     as literals, and check the result in the built `.shbin`: the DVLE
     constant table holds `u16 type (2 = fvec), u16 reg, 4 x float24` entries.
     See `git log --grep="picasso"`.
-41. **PS2-sized text comes out about half size on the 3DS top screen
+41. **LCS graffiti is usually its own building model, separate from the wall
+    under it, so 3DS draw order decides whether it works. Stories only; the
+    librw flag is shared.** The renderer draws buildings in scan order. If the
+    decal (e.g. `pmgraff90`, `pmcomgraff.txd`) comes first, its texels with
+    alpha >= 128 write depth (the GS emulation's pass 1), the wall is
+    depth-rejected there, and the scene behind shows through the graffiti.
+    PS2 splits alpha meshes into its distance-sorted TRANSPARENT sector list
+    (`*.LVZ` list 6), drawn after all opaque world geometry. reLCS now defers
+    building atomics whose every material has a cut-out texture
+    (`hasCutoutAlpha`, `atomicIsAlphaDecal`) until after the other buildings
+    (`DeferFaintGlassEntity`, `Renderer.cpp`). Don't key this on the DFF's
+    `zbias` mask name: about 600 DFFs use it, including wall+decal models. See
+    `git log --grep="see-through graffiti"`.
+42. **PS2-sized text comes out about half size on the 3DS top screen
     (400x240). Stories only.** `SCREEN_SCALE_X/Y` scale from the 640x448 PS2
     basis (x0.5 with the 4:3 correction, y0.536), so a `CFont::SetScale`
     copied from VC or PC renders glyphs ~6-7 px high. PS2 LCS's frontend

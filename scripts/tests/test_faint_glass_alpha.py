@@ -36,6 +36,9 @@ class TestFaintGlassAlpha(unittest.TestCase):
     def test_faint_alpha_detection(self):
         self._scenario("faint_alpha_detection")
 
+    def test_cutout_alpha_detection(self):
+        self._scenario("cutout_alpha_detection")
+
     def test_faint_alpha_rounds_in_etc1a4(self):
         self._scenario("faint_alpha_rounds_in_etc1a4")
 

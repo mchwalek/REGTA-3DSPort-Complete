@@ -1614,6 +1614,16 @@ from the ELF: PS2 road geometry is compiled into `GAME.DTZ`, not the DFFs the
 therefore restores the pre-glass-fix GS split for non-glass faint textures
 instead of imitating PS2.
 
+Correction (see-through graffiti card): the "no transparent list" above is
+only the `CRenderer` entity path. The static world comes from the `*.LVZ`
+sectors (see "Level files"), and there alpha meshes *are* split out: a model
+with decal/cut-out meshes has two resources, e.g. `COMMER.LVZ` id 269 is
+res 637 in list 3 (NORMAL) and res 638 in list 6 (TRANSPARENT,
+distance-sorted, drawn last). PS2 sector matrices are sector-relative and its
+model ids differ from the SD IDE ids, so match instances by geometry, not id.
+reLCS imitates this by deferring cut-out-only buildings (AGENTS.md landmine
+41). See `git log --grep="see-through graffiti"`.
+
 ## Reference: frontend pages and `CFont` (stats screen)
 
 Found while porting the stats screen (`git log --grep="stats screen"`).
