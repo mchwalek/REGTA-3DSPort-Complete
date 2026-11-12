@@ -23,9 +23,12 @@ screen. Non-`_3DS` builds stay unchanged (everything is `#ifdef _3DS`).
 
 - Per-site scale bumps, no global font scale (a global one would break
   every hand-placed layout).
-- Stats: rows 0.60/1.10 (non-American 0.52), row height 24, margins and
-  background polygon widened into the 16:9 side area; heading 0.85/1.35;
-  rating 0.62/1.3. Visible area extended to y 330.
+- Stats: reLCS still drew Vice City's screen (black rows on a light
+  polygon). `_3DS` now ports PS2 LCS's `0x33d2b0` in PSP 480-wide
+  coordinates: white rows at scale 0.3834/0.71 (0.3451 non-American),
+  15 apart, label x 21 / value x 460, fading between y 52-72 and 176-196;
+  "CRIMRA" left and the light-blue (118,176,220) rating name + "(N)" right on
+  y 40; no background polygon. That gives ~9.5 px text without enlarging.
 - Map legend: box spans the full width from y 70, two columns at x -40/330
   (640 basis), entries 0.75/0.95; the row step shrinks (and the text with it)
   if a long legend wouldn't fit above y 440.

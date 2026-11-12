@@ -3676,6 +3676,69 @@ CMenuManager::PrintBriefs()
 	}
 }
 
+#ifdef _3DS
+// PS2 LCS layout (SLES_541.35 0x33d2b0): white rows on the menu backdrop, PSP 480-wide coordinates.
+void
+CMenuManager::PrintStats()
+{
+	static float scrollY = 0;
+	static uint32 lastCheck = 0;
+
+	int rowNum = CStats::ConstructStatLine(99999);
+	float xScale = m_PrefsLanguage == LANGUAGE_AMERICAN ? 0.3834f : 0.34506f;
+
+	CFont::SetFontStyle(FONT_LOCALE(FONT_STANDARD));
+	CFont::SetPropOn();
+	CFont::SetDropShadowPosition(0);
+	CFont::SetScale(PSP_SCREEN_SCALE_X(xScale), PSP_SCREEN_SCALE_Y(0.71f));
+
+	if (CTimer::GetTimeInMillisecondsPauseMode() - lastCheck > 40) {
+		if (m_StatsScrollSpeed > 0.f) {
+			if (m_StatsScrollDirection == 0)
+				scrollY -= 30.f / m_StatsScrollSpeed;
+			else
+				scrollY += 30.f / m_StatsScrollSpeed;
+		}
+		lastCheck = CTimer::GetTimeInMillisecondsPauseMode();
+	}
+
+	float wrapHeight = (rowNum + 9) * 15.f;
+	for (int row = 0; row < rowNum; ++row) {
+		float y = row * 15.f + 196.f - scrollY;
+		while (y < 37.f)
+			y += wrapHeight;
+		while (y > 211.f)
+			y -= wrapHeight;
+		if (y <= 52.f || y >= 196.f)
+			continue;
+
+		float alpha = 255.f;
+		if (y < 72.f)
+			alpha = (y - 52.f) * 12.75f;
+		if (y > 176.f)
+			alpha = (1.f - (y - 176.f) * 0.05f) * 255.f;
+
+		CStats::ConstructStatLine(row);
+		CFont::SetColor(CRGBA(255, 255, 255, FadeIn(alpha)));
+		CFont::SetRightJustifyOff();
+		CFont::PrintString(PSP_SCREEN_SCALE_X(21.f), PSP_SCREEN_SCALE_Y(y), gUString);
+		CFont::SetRightJustifyOn();
+		CFont::PrintString(PSP_SCREEN_SCALE_X(460.f), PSP_SCREEN_SCALE_Y(y), gUString2);
+	}
+
+	CFont::SetCentreOff();
+	CFont::SetRightJustifyOff();
+	CFont::SetColor(CRGBA(118, 176, 220, FadeIn(255)));
+	CFont::PrintString(PSP_SCREEN_SCALE_X(21.f), PSP_SCREEN_SCALE_Y(40.f), TheText.Get("CRIMRA"));
+
+	sprintf(gString, "(%d)", CStats::FindCriminalRatingNumber());
+	AsciiToUnicode(gString, gUString);
+	CFont::SetRightJustifyOn();
+	CFont::PrintString(PSP_SCREEN_SCALE_X(460.f), PSP_SCREEN_SCALE_Y(40.f), gUString);
+	CFont::PrintString(PSP_SCREEN_SCALE_X(450.f) - CFont::GetStringWidth(gUString, true), PSP_SCREEN_SCALE_Y(40.f), CStats::FindCriminalRatingString());
+	CFont::SetRightJustifyOff();
+}
+#else
 void
 CMenuManager::PrintStats()
 {
@@ -3685,17 +3748,10 @@ CMenuManager::PrintStats()
 	static float scrollY = 0;
 
 	int rowNum = CStats::ConstructStatLine(99999);
-#ifdef _3DS
-	CSprite2d::Draw2DPolygon(MENU_X_LEFT_ALIGNED(10.0f), MENU_Y(142.0f),
-		MENU_X_LEFT_ALIGNED(623.0f), MENU_Y(142.f),
-		MENU_X_LEFT_ALIGNED(27.0f), MENU_Y(346.f),
-		MENU_X_LEFT_ALIGNED(611.f), MENU_Y(329.f), CRGBA(LIST_BACKGROUND_COLOR.r, LIST_BACKGROUND_COLOR.g, LIST_BACKGROUND_COLOR.b, FadeIn(LIST_BACKGROUND_COLOR.a)));
-#else
 	CSprite2d::Draw2DPolygon(MENU_X_LEFT_ALIGNED(90.0f), MENU_Y(142.0f),
 		MENU_X_LEFT_ALIGNED(543.0f), MENU_Y(142.f),
 		MENU_X_LEFT_ALIGNED(107.0f), MENU_Y(316.f),
 		MENU_X_LEFT_ALIGNED(531.f), MENU_Y(299.f), CRGBA(LIST_BACKGROUND_COLOR.r, LIST_BACKGROUND_COLOR.g, LIST_BACKGROUND_COLOR.b, FadeIn(LIST_BACKGROUND_COLOR.a)));
-#endif
 
 	CFont::SetFontStyle(FONT_LOCALE(FONT_STANDARD));
 	CFont::SetPropOn();
@@ -3710,9 +3766,9 @@ CMenuManager::PrintStats()
 #endif
 
 	if (m_PrefsLanguage == LANGUAGE_AMERICAN)
-		CFont::SetScale(MENU_X(STATS_ROW_X_SCALE), MENU_Y(STATS_ROW_Y_SCALE));
+		CFont::SetScale(MENU_X(0.43f), MENU_Y(0.75f));
 	else
-		CFont::SetScale(MENU_X(STATS_ROW_X_SCALE_NARROW), MENU_Y(STATS_ROW_Y_SCALE));
+		CFont::SetScale(MENU_X(0.37f), MENU_Y(0.75f));
 
 	static uint32 lastCheck = 0;
 
@@ -3779,11 +3835,7 @@ CMenuManager::PrintStats()
 	CFont::SetDropColor(CRGBA(0, 0, 0, FadeIn(255)));
 	CFont::SetCentreOn();
 	CFont::SetFontStyle(FONT_LOCALE(FONT_HEADING));
-#ifdef _3DS
-	CFont::SetScale(MENU_X(0.85f), MENU_Y(1.35f));
-#else
 	CFont::SetScale(MENU_X(0.65f), MENU_Y(1.05f));
-#endif
 	CFont::PrintString(MENU_X_LEFT_ALIGNED(STATS_RATING_X), MENU_Y(STATS_RATING_Y_1), TheText.Get("CRIMRA"));
 
 	CFont::SetCentreOff();
@@ -3798,9 +3850,7 @@ CMenuManager::PrintStats()
 	UnicodeStrcat(gUString2, gUString);
 
 	CFont::SetFontStyle(FONT_LOCALE(FONT_STANDARD));
-#if defined(_3DS)
-	CFont::SetScale(MENU_X(0.62f), MENU_Y(1.3f));
-#elif !defined(FIX_BUGS)
+#ifndef FIX_BUGS
 	CFont::SetScale(MENU_X(0.5f), MENU_Y(0.9f));
 #else
 	CFont::SetScale(MENU_X(SMALLTEXT_X_SCALE), MENU_Y(SMALLTEXT_Y_SCALE));
@@ -3810,6 +3860,7 @@ CMenuManager::PrintStats()
 
 	CFont::PrintString(MENU_X_LEFT_ALIGNED(STATS_RATING_X) - CFont::GetStringWidth(gUString2, true) / 2.f, MENU_Y(STATS_RATING_Y_2), gUString2);
 }
+#endif
 
 void
 CMenuManager::Process(void)
