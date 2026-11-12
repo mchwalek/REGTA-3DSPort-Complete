@@ -367,6 +367,7 @@ void setIm3DBuffered(bool32 enable);
 void resetIm3DFrameBuffers(void);
 // True if any material texture has only faint alpha (dirty window glass).
 bool atomicHasOnlyFaintAlpha(Atomic *atomic);
+bool atomicIsAlphaDecal(Atomic *atomic);
 #ifdef RESTORIES_3DS_BUILD
 void setPlayerVehicleClump(Clump *clump);
 void setPlayerVehicleReflection(Texture *texture, Frame *captureFrame);
@@ -445,6 +446,8 @@ struct C3DRaster
 	/* No texel reaches the GS alpha reference; drawn in one depth-writing
 	 * pass like PS2 world geometry, which has alpha test off. */
 	bool  hasOnlyFaintAlpha;
+	/* Some texel is below the GS alpha reference (decals, cut-outs). */
+	bool  hasCutoutAlpha;
 	bool  autogenMipmap;
 	int8  numLevels;
 	int8  bpp;

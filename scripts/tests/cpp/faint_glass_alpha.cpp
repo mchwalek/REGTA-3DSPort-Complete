@@ -41,6 +41,29 @@ static void faint_alpha_detection() {
 	assert(!hasOnlyFaintAlpha(&rgbRas, rgba, sizeof(rgba)));
 }
 
+static void cutout_alpha_detection() {
+	// Graffiti decals: any texel below 128 marks a cut-out; all-opaque does not.
+	uint8 etc[32];
+	C3DRaster etcRas{GPU_ETC1A4, true};
+	memset(etc, 0, sizeof(etc));
+	for(int b = 0; b < 32; b += 16) memset(etc + b, 0xFF, 8);
+	etc[8 + 3] = 0x00; etc[16 + 9] = 0x00;                      // colour bytes ignored
+	assert(!hasCutoutAlpha(&etcRas, etc, sizeof(etc)));
+	etc[16 + 4] = 0x8F;                                      // 136 and 255: still opaque
+	assert(!hasCutoutAlpha(&etcRas, etc, sizeof(etc)));
+	etc[16 + 4] = 0xF7;                                      // one texel at 119
+	assert(hasCutoutAlpha(&etcRas, etc, sizeof(etc)));
+	C3DRaster noAlpha{GPU_ETC1A4, false};
+	assert(!hasCutoutAlpha(&noAlpha, etc, sizeof(etc)));
+	assert(!hasCutoutAlpha(&etcRas, nil, 0));
+
+	uint8 rgba[8] = {255, 0, 0, 0, 128, 0, 0, 0};           // ABGR
+	C3DRaster rgbaRas{GPU_RGBA8, true};
+	assert(!hasCutoutAlpha(&rgbaRas, rgba, sizeof(rgba)));
+	rgba[4] = 127;
+	assert(hasCutoutAlpha(&rgbaRas, rgba, sizeof(rgba)));
+}
+
 static void faint_alpha_rounds_in_etc1a4() {
 	// izzy_dirtGlass alphas: flooring zeroed 3, 9, 11; rounding keeps 9 and 11.
 	assert(etc1Alpha4(9, false) == 0 && etc1Alpha4(9, true) == 1);
@@ -60,6 +83,7 @@ static void faint_alpha_rounds_in_etc1a4() {
 int main(int argc, char **argv) {
 	SCENARIOS_BEGIN
 	SCENARIO(faint_alpha_detection)
+	SCENARIO(cutout_alpha_detection)
 	SCENARIO(faint_alpha_rounds_in_etc1a4)
 	SCENARIOS_END
 }
