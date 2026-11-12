@@ -415,16 +415,25 @@ void CGame::ShutdownRenderWare(void)
 bool CGame::InitialiseOnceAfterRW(void)
 {
 	TheText.Load();
+#ifdef RW_3DS
+	Poll3DSHomeMenu();
+#endif
 	CTimer::Initialise();
 	gpTempColModels->Initialise();
 	mod_HandlingManager.Initialise();
 	CSurfaceTable::Initialise("DATA\\SURFACE.DAT");
 	CPedStats::Initialise();
 	CTimeCycle::Initialise();
+#ifdef RW_3DS
+	Poll3DSHomeMenu();
+#endif
 #ifdef GTA_PS2
 	LoadingScreen("Loading the Game", "Initialising audio", GetRandomSplashScreen());
 #endif
 	DMAudio.Initialise();
+#ifdef RW_3DS
+	Poll3DSHomeMenu();
+#endif
 
 #ifndef GTA_PS2
 #ifdef EXTERNAL_3D_SOUND

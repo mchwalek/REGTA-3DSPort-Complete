@@ -364,6 +364,9 @@ void
 ConvertingTexturesScreen(uint32 num, uint32 count, const char *text)
 {
 	HandleExit();
+#ifdef RW_3DS
+	Poll3DSHomeMenu();
+#endif
 
 	CSprite2d *splash = LoadSplash(nil);
 	if (!DoRWStuffStartOfFrame(0, 0, 0, 0, 0, 0, 255))
