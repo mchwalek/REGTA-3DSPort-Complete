@@ -820,6 +820,21 @@ callTheMaid()
 #endif
 }
 
+// libctru only enters HOME inside aptMainLoop(), and the main loop polls it once
+// per state-machine step, so long boot steps (loading screens, texture cache
+// rebuild) need their own poll. A close from HOME exits like the main loop.
+void
+Poll3DSHomeMenu(void)
+{
+	if(aptMainLoop())
+		return;
+	RwInitialised = FALSE;
+	C3D_FrameWaitDone();
+	callTheMaid();
+	fflush(NULL);
+	_exit(0);
+}
+
 extern char* fake_heap_start;
 extern char* fake_heap_end;
 
