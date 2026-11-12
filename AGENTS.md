@@ -743,6 +743,19 @@ not mistake for a failed transfer.
     as literals, and check the result in the built `.shbin`: the DVLE
     constant table holds `u16 type (2 = fvec), u16 reg, 4 x float24` entries.
     See `git log --grep="picasso"`.
+41. **LCS graffiti is usually its own building model, separate from the wall
+    under it, so 3DS draw order decides whether it works. Stories only; the
+    librw flag is shared.** The renderer draws buildings in scan order. If the
+    decal (e.g. `pmgraff90`, `pmcomgraff.txd`) comes first, its texels with
+    alpha >= 128 write depth (the GS emulation's pass 1), the wall is
+    depth-rejected there, and the scene behind shows through the graffiti.
+    PS2 splits alpha meshes into its distance-sorted TRANSPARENT sector list
+    (`*.LVZ` list 6), drawn after all opaque world geometry. reLCS now defers
+    building atomics whose every material has a cut-out texture
+    (`hasCutoutAlpha`, `atomicIsAlphaDecal`) until after the other buildings
+    (`DeferFaintGlassEntity`, `Renderer.cpp`). Don't key this on the DFF's
+    `zbias` mask name: about 600 DFFs use it, including wall+decal models. See
+    `git log --grep="see-through graffiti"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 

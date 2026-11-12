@@ -822,20 +822,45 @@ inline bool PutIntoSortedVehicleList(CVehicle *veh)
  * behind the window. */
 static CEntity *sFaintGlassEntities[16];
 static int sNumFaintGlassEntities;
+/* Decal-only buildings (graffiti) are separate models from their wall. PS2
+ * draws them in its TRANSPARENT list; drawn in scan order before the wall,
+ * their depth hides it and the scene behind shows through the decal. */
+static CEntity *sAlphaDecalEntities[128];
+static int sNumAlphaDecalEntities;
+
+enum { ALPHA_UNKNOWN, ALPHA_NONE, ALPHA_FAINT_GLASS, ALPHA_DECAL };
+
+static uint8
+GetAlphaClass(CEntity *e)
+{
+	static uint8 alphaClass[MODELINFOSIZE];
+	uint8 &known = alphaClass[e->GetModelIndex()];
+	if(known == ALPHA_UNKNOWN){
+		RpAtomic *atomic = (RpAtomic*)e->m_rwObject;
+		known = rw::c3d::atomicHasOnlyFaintAlpha(atomic) ? ALPHA_FAINT_GLASS :
+		        e->IsBuilding() && rw::c3d::atomicIsAlphaDecal(atomic) ? ALPHA_DECAL : ALPHA_NONE;
+	}
+	return known;
+}
 
 static bool
 DeferFaintGlassEntity(CEntity *e)
 {
-	static uint8 faintGlassModel[MODELINFOSIZE];	// 0 unknown, 1 no, 2 yes
 	if(e->m_rwObject == nil || RwObjectGetType(e->m_rwObject) != rpATOMIC)
 		return false;
-	uint8 &known = faintGlassModel[e->GetModelIndex()];
-	if(known == 0)
-		known = rw::c3d::atomicHasOnlyFaintAlpha((RpAtomic*)e->m_rwObject) ? 2 : 1;
-	if(known != 2 || sNumFaintGlassEntities == ARRAY_SIZE(sFaintGlassEntities))
-		return false;
-	sFaintGlassEntities[sNumFaintGlassEntities++] = e;
-	return true;
+	switch(GetAlphaClass(e)){
+	case ALPHA_FAINT_GLASS:
+		if(sNumFaintGlassEntities == ARRAY_SIZE(sFaintGlassEntities))
+			return false;
+		sFaintGlassEntities[sNumFaintGlassEntities++] = e;
+		return true;
+	case ALPHA_DECAL:
+		if(sNumAlphaDecalEntities == ARRAY_SIZE(sAlphaDecalEntities))
+			return false;
+		sAlphaDecalEntities[sNumAlphaDecalEntities++] = e;
+		return true;
+	}
+	return false;
 }
 
 static void
@@ -865,6 +890,7 @@ CRenderer::RenderEverythingBarRoads(void)
 //	gSortedVehiclesAndPeds.Clear();
 #if defined(RW_3DS)
 	sNumFaintGlassEntities = 0;
+	sNumAlphaDecalEntities = 0;
 #endif
 
 	for(i = 0; i < ms_nNoOfVisibleEntities; i++){
@@ -900,6 +926,10 @@ CRenderer::RenderEverythingBarRoads(void)
 		else
 			RenderOneNonRoad(e);
 	}
+#if defined(RW_3DS)
+	for(i = 0; i < sNumAlphaDecalEntities; i++)
+		RenderOneNonRoad(sAlphaDecalEntities[i]);
+#endif
 	POP_RENDERGROUP();
 }
 
