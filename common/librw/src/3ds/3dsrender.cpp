@@ -315,6 +315,23 @@ atomicHasOnlyFaintAlpha(Atomic *atomic)
 	return false;
 }
 
+// Every material is a cut-out texture: a standalone decal (graffiti) or
+// foliage/fence. PS2 draws such meshes in its TRANSPARENT list, after the
+// wall they sit on; drawn before it, their depth hides the wall.
+bool
+atomicIsAlphaDecal(Atomic *atomic)
+{
+	MaterialList *ml = &atomic->geometry->matList;
+	if(ml->numMaterials == 0)
+		return false;
+	for(int32 i = 0; i < ml->numMaterials; i++){
+		Texture *texture = ml->materials[i]->texture;
+		if(texture == nil || texture->raster == nil || !GETC3DRASTEREXT(texture->raster)->hasCutoutAlpha)
+			return false;
+	}
+	return true;
+}
+
 // Emulate PS2 GS alpha test FB_ONLY case: failed alpha writes to frame- but not to depth buffer
 void
 drawInst_GSemu(InstanceDataHeader *header, InstanceData *inst, ProfileDrawClass drawClass)

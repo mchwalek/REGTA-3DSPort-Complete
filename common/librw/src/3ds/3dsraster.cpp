@@ -105,6 +105,26 @@ hasOnlyFaintAlpha(const C3DRaster *natras, const uint8 *data, uint32 size)
 	}
 	return visible;
 }
+
+/* True when some texel is below the GS alpha reference: decals, cut-outs. */
+static bool
+hasCutoutAlpha(const C3DRaster *natras, const uint8 *data, uint32 size)
+{
+	if(!natras->hasAlpha || data == nil)
+		return false;
+
+	if(natras->format == GPU_ETC1A4){
+		for(uint32 block = 0; block + 16 <= size; block += 16)
+			for(uint32 i = 0; i < 8; ++i)
+				if((data[block + i] & 0x88) != 0x88)
+					return true;
+	}else if(natras->format == GPU_RGBA8){
+		for(uint32 i = 0; i + 3 < size; i += 4)
+			if(data[i] < 128)
+				return true;
+	}
+	return false;
+}
   
   
 static bool
@@ -549,6 +569,7 @@ rasterCreate(Raster *raster)
 	natras->hasAlpha     = 0;
 	natras->hasTranslucentAlpha = 0;
 	natras->hasOnlyFaintAlpha = 0;
+	natras->hasCutoutAlpha = 0;
 	natras->numLevels    = 1;
 
 	if(raster->width == 0 || raster->height == 0){
@@ -678,9 +699,12 @@ rasterUnlockWrite(Raster *raster, C3DRaster *natras, int level)
 	}else{
 		texSwizzle(raster, natras, level);
 	}
-	if(level == 0)
-		natras->hasOnlyFaintAlpha = hasOnlyFaintAlpha(natras, getImagePtr(natras->tex, 0),
-		                                              C3D_TexCalcLevelSize(natras->tex->size, 0));
+	if(level == 0){
+		const uint8 *data = getImagePtr(natras->tex, 0);
+		const uint32 size = C3D_TexCalcLevelSize(natras->tex->size, 0);
+		natras->hasOnlyFaintAlpha = hasOnlyFaintAlpha(natras, data, size);
+		natras->hasCutoutAlpha = hasCutoutAlpha(natras, data, size);
+	}
 }
 
 void
@@ -1149,6 +1173,7 @@ readNativeTexture(Stream *stream)
 	}
 	natras->hasTranslucentAlpha = hasIntermediateAlpha(natras, (const uint8*)data, size);
 	natras->hasOnlyFaintAlpha = hasOnlyFaintAlpha(natras, (const uint8*)data, size);
+	natras->hasCutoutAlpha = hasCutoutAlpha(natras, (const uint8*)data, size);
 
 	return tex;
 }
