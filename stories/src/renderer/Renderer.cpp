@@ -670,8 +670,9 @@ CRenderer::RenderOneNonRoad(CEntity *e)
 		RpClump *vehicleClump = e->m_rwObject && RwObjectGetType(e->m_rwObject) == rpCLUMP ?
 			(RpClump*)e->m_rwObject : nil;
 		const bool bigVehicle = veh->IsTrain() || veh->IsHeli() || veh->IsPlane();
-		renderOccupants = vehicleClump &&
-			CVisibilityPlugins::IsVehicleHighDetail(vehicleClump, bigVehicle);
+		// PS2 has no vehicle LOD gate on occupants; mission peds are culled only by CPed::Render's 25 m check
+		renderOccupants = vehicleClump && (veh->VehicleCreatedBy != RANDOM_VEHICLE ||
+			CVisibilityPlugins::IsVehicleHighDetail(vehicleClump, bigVehicle));
 #endif
 #ifdef VIS_DISTANCE_ALPHA
 		int vehalpha = CVisibilityPlugins::GetObjectDistanceAlpha(veh->m_rwObject);
