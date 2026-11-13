@@ -2365,6 +2365,45 @@ CTheScripts::RebindPlayerPedScriptHandle()
 		CPools::GetPedPool()->GetIndex(player);
 }
 
+/* "Calm Before the Storm" (JDT7): the heli-landing cutscene issues the landing
+ * order (GOSUB to HELI_GOTO_COORDS ground+0.2) only after its first skippable
+ * 5 s wait.  Skipping there leaves the heli flying to its last waypoint at
+ * 40 m with the pilot aboard; once teleported to the roof it climbs away while
+ * the pilot is told to get out next to Massimo and the Triads, and someone dies
+ * or gets hurt -> "You've blown your cover!".  Issue the landing order before
+ * the wait instead (same 34 bytes, reordered; jump targets are mission-local
+ * and so position-independent).  Returns whether the pattern was patched. */
+static bool PatchCalmBeforeTheStormSkip(uint8 *code, uint32 size)
+{
+	static const uint8 original[] = {
+		0xae, 0x05, 0x01, 0x00, 0x41, 0x06, 0x67, 0x79, 0x00, 0x00, 0x08, 0x88, 0x13, // CALL 31079 5000 (skippable wait)
+		0x4d, 0x00, 0x06, 0x7e, 0xe9, 0xff, 0xff,                                     // GOTO_IF_FALSE next
+		0x02, 0x00, 0x06, 0x7f, 0xe8, 0xff, 0xff,                                     // GOTO end of cutscene (skip)
+		0x50, 0x00, 0x06, 0x18, 0xdf, 0xff, 0xff,                                     // GOSUB land heli
+	};
+	static const uint8 patched[] = {
+		0x50, 0x00, 0x06, 0x18, 0xdf, 0xff, 0xff,                                     // GOSUB land heli
+		0xae, 0x05, 0x01, 0x00, 0x41, 0x06, 0x67, 0x79, 0x00, 0x00, 0x08, 0x88, 0x13, // CALL 31079 5000 (skippable wait)
+		0x4d, 0x00, 0x06, 0x77, 0xe9, 0xff, 0xff,                                     // GOTO_IF_FALSE past this block
+		0x02, 0x00, 0x06, 0x7f, 0xe8, 0xff, 0xff,                                     // GOTO end of cutscene (skip)
+	};
+	static_assert(sizeof(original) == sizeof(patched), "patch must keep the mission layout");
+	for (uint32 i = 0; i + sizeof(original) <= size; i++) {
+		if (memcmp(&code[i], original, sizeof(original)) == 0) {
+			memcpy(&code[i], patched, sizeof(patched));
+			return true;
+		}
+	}
+	return false;
+}
+
+void
+CTheScripts::PatchLoadedMissionScript(int32 size)
+{
+	if (PatchCalmBeforeTheStormSkip(&ScriptSpace[MainScriptSize], size))
+		debug("Patched JDT7 landing cutscene skip\n");
+}
+
 // SaveAllScripts walks pActiveScripts head->tail, but LoadAllScripts restores
 // each record through StartNewScript, which head-inserts -- so every
 // save/load round trip reverses script execution order, and the parity

@@ -1993,6 +1993,7 @@ CTheScripts::SwitchToMission(int32 mission)
 		size = CTheScripts::LargestMissionScriptSize;
 	CFileMgr::Seek(gScriptsFile, offset, 0);
 	CFileMgr::Read(gScriptsFile, (const char*)&CTheScripts::ScriptSpace[CTheScripts::MainScriptSize], size);
+	CTheScripts::PatchLoadedMissionScript(size);
 	CRunningScript* pMissionScript = CTheScripts::StartNewScript(CTheScripts::MainScriptSize);
 	CTimer::Resume();
 	pMissionScript->m_bIsMissionScript = true;
