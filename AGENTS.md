@@ -803,6 +803,19 @@ not mistake for a failed transfer.
     commented out below use VC sample names; don't revive them. See the
     `ps2-lcs-decompilation` skill ("ped voices") and
     `git log --grep="ped voices"`.
+46. **A ped in `PED_DRIVING` that isn't seated in a vehicle is invisible: the
+    renderer skips `PED_DRIVING` peds and only the vehicle draws its
+    occupants. The state bug is in all three trees; only stories is fixed.**
+    `OBJECTIVE_LEAVE_CAR` is temporary, so it stores the ped's objective
+    before it (often `WAIT_IN_CAR`, which script `SET_CHAR_OBJ_WAIT_IN_CAR`
+    leaves on a passenger), and `PedSetOutCarCB` restores that objective
+    once the ped is out. reLCS's `ProcessObjective` then set `PED_DRIVING`
+    for `WAIT_IN_CAR` on a ped on foot. PS2 (`0x309db0`, case 6) only does
+    that while `bInVehicle` and clears the objective otherwise. Massimo
+    stepped out of the heli in "Calm Before the Storm" (JDT7) and vanished.
+    Before blaming render/LOD code for a ped that disappears, check its
+    `m_nPedState`: a first fix here gated vehicle-occupant LODs and changed
+    nothing. See `git log --grep="WAIT_IN_CAR"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 
