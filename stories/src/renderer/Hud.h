@@ -68,6 +68,7 @@ public:
 	static float m_HelpMessageDisplayTime;
 	static bool m_HelpMessageDisplayForever;
 	static bool	m_HelpMessageQuick;
+	static bool	mAlwaysAllowHelpText;
 	static uint32 m_ZoneState;
 	static int32 m_ZoneFadeTimer;
 	static uint32 m_ZoneNameTimer;
