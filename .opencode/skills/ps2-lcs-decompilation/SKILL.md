@@ -1670,6 +1670,14 @@ model ids differ from the SD IDE ids, so match instances by geometry, not id.
 reLCS imitates this by deferring cut-out-only buildings (AGENTS.md landmine
 41). See `git log --grep="see-through graffiti"`.
 
+## Reference: particle pool (missing fires)
+
+`CParticle::Initialise` is `0x1cc7b0` (loads the `particle` TXD). Its
+`ReloadConfig` `0x1cc6b0` links the unused list over `gParticleArray`
+`0x4184b0..0x426f10`, stride 0x50: 750 particles, with no per-type or
+on-screen budget. The 3DS limit of 256 is port-only (AGENTS.md landmine
+#46). Lifespans come from `PARTICLE.CFG` (CARFLAME/FLAME/FIREBALL 2000 ms).
+
 ## Reference: frontend pages and `CFont` (stats screen)
 
 Found while porting the stats screen (`git log --grep="stats screen"`).

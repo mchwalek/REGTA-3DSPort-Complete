@@ -26,11 +26,10 @@
 
 #ifdef RW_3DS
 /* LCS keeps the PS2/PC pool at 750 (SLES_541.35 0x1cc6b0).  New3DS cannot
- * render that many useful particles in a frame, so general effects are capped
- * at 256; fire flames get the rest of the PS2 pool (see ParticleBudgetFull3DS).
- * The separate 70-entry particle-object pool is untouched. */
-#define MAX_PARTICLES_ON_SCREEN   (750)
-#define MAX_EFFECT_PARTICLES_3DS  (256)
+ * render that many useful particles in a frame; cap transient particles while
+ * leaving the separate 70-entry logical particle-object pool untouched for
+ * missions and hydrants.  Fire takes slots from old smoke (MakeRoomForFire3DS). */
+#define MAX_PARTICLES_ON_SCREEN   (256)
 #else
 #define MAX_PARTICLES_ON_SCREEN   (750)
 #endif
@@ -250,22 +249,40 @@ float      CParticle::m_CosTable[CParticle::SIN_COS_TABLE_SIZE];
 
 #ifdef _3DS
 static int nActiveParticles3DS;
-static int nActiveFireParticles3DS;
 
 // Fires and the flamethrower are mission hazards (Trouble with Triads, Friggin' the Riggin'):
-// smoke and explosions filling the effect cap must not make their flames vanish.
-static int &ParticleCounter3DS(tParticleType type)
+// once the cap is full, a new flame replaces the oldest smoke particle instead of being refused.
+// With many fires the cap holds only flames, so the flamethrower (FIREBALL) may also replace the
+// oldest fire flame. Only fire types evict, and CParticle::Update never adds those, so no list
+// walk is disturbed.
+static bool MakeRoomForFire3DS(tParticleType type)
 {
-	if(type == PARTICLE_CARFLAME || type == PARTICLE_FLAME || type == PARTICLE_FIREBALL)
-		return nActiveFireParticles3DS;
-	return nActiveParticles3DS;
+	static const tParticleType victims[] = { PARTICLE_CARFLAME_SMOKE, PARTICLE_FIREBALL_SMOKE, PARTICLE_SMOKE,
+		PARTICLE_CARFLAME, PARTICLE_FLAME };
+	int numVictims = type == PARTICLE_FIREBALL ? ARRAY_SIZE(victims) : 3;
+
+	if(type != PARTICLE_CARFLAME && type != PARTICLE_FLAME && type != PARTICLE_FIREBALL)
+		return false;
+	for(int i = 0; i < numVictims; i++) {
+		tParticleSystemData *psystem = &mod_ParticleSystemManager.m_aParticles[victims[i]];
+		CParticle *prev = nil;
+		CParticle *oldest = psystem->m_pParticles;
+		if(oldest == nil)
+			continue;
+		// AddParticle head-inserts, so the tail is the oldest
+		while(oldest->m_pNext) {
+			prev = oldest;
+			oldest = oldest->m_pNext;
+		}
+		CParticle::RemoveParticle(oldest, prev, psystem);
+		return true;
+	}
+	return false;
 }
 
-static bool ParticleBudgetFull3DS(tParticleType type)
+static bool ParticleAdmit3DS(tParticleType type)
 {
-	int &active = ParticleCounter3DS(type);
-	int budget = &active == &nActiveFireParticles3DS ? MAX_PARTICLES_ON_SCREEN - MAX_EFFECT_PARTICLES_3DS : MAX_EFFECT_PARTICLES_3DS;
-	return active >= EffectBudget3DS::Limit(budget);
+	return nActiveParticles3DS < EffectBudget3DS::Limit(MAX_PARTICLES_ON_SCREEN) || MakeRoomForFire3DS(type);
 }
 #endif
 
@@ -287,7 +304,6 @@ void CParticle::ReloadConfig()
 	
 #ifdef _3DS
 	nActiveParticles3DS = 0;
-	nActiveFireParticles3DS = 0;
 #endif
 	m_pUnusedListHead = gParticleArray;
 	
@@ -1098,7 +1114,7 @@ CParticle *CParticle::AddParticle(tParticleType type, CVector const &vecPos, CVe
 */
 	
 #ifdef _3DS
-	if(ParticleBudgetFull3DS(type)) return nil;
+	if(!ParticleAdmit3DS(type)) return nil;
 #endif
 	CParticle *pParticle = m_pUnusedListHead;
 	
@@ -1302,7 +1318,7 @@ CParticle *CParticle::AddParticle(tParticleType type, CVector const &vecPos, CVe
 	
 	m_pUnusedListHead = pParticle->m_pNext;
 #ifdef _3DS
-	++ParticleCounter3DS(type);
+	++nActiveParticles3DS;
 #endif
 
 	pParticle->m_pNext = psystem->m_pParticles;
@@ -2194,8 +2210,7 @@ void CParticle::RemoveParticle(CParticle *pParticle, CParticle *pPrevParticle, t
 		pPSystemData->m_pParticles = pParticle->m_pNext;
 
 #ifdef _3DS
-	int &active = ParticleCounter3DS(pPSystemData->m_Type);
-	if(active > 0) --active;
+	if(nActiveParticles3DS > 0) --nActiveParticles3DS;
 #endif
 	pParticle->m_pNext = m_pUnusedListHead;
 	m_pUnusedListHead = pParticle;
