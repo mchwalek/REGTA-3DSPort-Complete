@@ -939,7 +939,11 @@ CPed::ProcessObjective(void)
 				break;
 			}
 			case OBJECTIVE_WAIT_IN_CAR:
-				SetPedState(PED_DRIVING);
+				// PS2 0x309db0: on foot (e.g. restored after LEAVE_CAR) the objective is dropped, not PED_DRIVING
+				if (bInVehicle)
+					SetPedState(PED_DRIVING);
+				else
+					m_objective = OBJECTIVE_NONE;
 				break;
 			case OBJECTIVE_WAIT_IN_CAR_THEN_GET_OUT:
 				SetPedState(PED_DRIVING);

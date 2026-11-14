@@ -1555,6 +1555,28 @@ only `MI_MALE01` (the fallback driver model `AddPedInCar` uses) had a voice.
 The decoded tables live in `AudioLogic.cpp` (`aXxxVoice`). See AGENTS.md
 landmine #45 and `git log --grep="ped voices"`.
 
+## Case study: a mission ped vanishes after leaving a heli (objective/state, not rendering)
+
+Report: Massimo disappears in the Diablos cutscene of "Calm Before the
+Storm" (JDT7). The video showed him step out of the heli and close the door,
+then nothing. A first fix gated vehicle-occupant LODs and changed nothing.
+
+- Script: find the mission by its `SCRIPT_NAME` (`JDT7` in GXT `MAIN` is the
+  title). Massimo is created with `CREATE_CHAR_AS_PASSENGER` then
+  `SET_CHAR_OBJ_WAIT_IN_CAR`; the cutscene does `SET_CHAR_OBJ_LEAVE_ANY_CAR`.
+- PS2 chain (all match reLCS except the last): `SetExitCar` `0x314280` (calls
+  `CanPedExitCar` `0x32a838`), `PedSetOutCarCB` `0x1df148` (restores the
+  previous objective if `LEAVE_CAR`, then clears `bInVehicle`),
+  `RestorePreviousObjective` `0x309d00`, `CPed::Render` `0x1e2458` (in-car
+  cull 25 m, 40 m boat, × LOD multiplier).
+- `ProcessObjective` `0x309db0`, case 6 (`WAIT_IN_CAR`): `PED_DRIVING` only
+  if `bInVehicle` (`ped+0x538`), else objective = NONE. reLCS set
+  `PED_DRIVING` unconditionally, so the on-foot ped was never drawn.
+
+Field offsets (inferred): `+0x250` objective, `+0x34c` ped state, `+0x534`
+`m_pMyVehicle`, `+0x538` `bInVehicle`. See AGENTS.md landmine #47 and
+`git log --grep="WAIT_IN_CAR"`.
+
 ## Case study: faint safehouse glass — reading PS2 world data (Leeds sectors)
 
 Report: the dirty glass in Toni's Portland apartment was invisible on 3DS.
