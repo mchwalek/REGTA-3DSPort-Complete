@@ -589,6 +589,14 @@ CCam::GetBoatLook_L_R_HeightOffset(float &Offset)
 	return false;	// can't happen, we always get a boat pointer back
 }
 
+#ifdef _3DS
+static bool
+LookBehindCamIsInFront3DS(const CVector &source, const CVector &target, const CVector &targetFwd)
+{
+	return DotProduct2D(source - target, targetFwd) > 0.0f;
+}
+#endif
+
 void
 CCam::LookBehind(void)
 {
@@ -604,11 +612,17 @@ CCam::LookBehind(void)
 		TargetFwd = CamTargetEntity->GetForward();
 		TargetFwd.Normalise();
 		TargetOrientation = CGeneral::GetATanOfXY(TargetFwd.x, TargetFwd.y);
+#ifdef _3DS
+		// Beta's convention differs between Process_Cam_On_A_String and Process_FollowCar_SA, so use the geometry
+		if(DirectionWasLooking != LOOKING_BEHIND)
+			LookBehindCamWasInFront = LookBehindCamIsInFront3DS(Source, TargetCoors, TargetFwd);
+#else
 		DeltaBeta = TargetOrientation - Beta;
 		while(DeltaBeta >= PI) DeltaBeta -= 2*PI;
 		while(DeltaBeta < -PI) DeltaBeta += 2*PI;
 		if(DirectionWasLooking != LOOKING_BEHIND)
 			LookBehindCamWasInFront = DeltaBeta <= -HALFPI || DeltaBeta >= HALFPI;
+#endif
 		if(LookBehindCamWasInFront)
 			TargetOrientation += PI;
 		Source.x = Dist*Cos(TargetOrientation) + TargetCoors.x;
@@ -5544,10 +5558,14 @@ CCam::Process_FollowCar_SA(const CVector& CameraTarget, float TargetOrientation,
 		FOV = Clamp(FOV, DefaultFOV, DefaultFOV + 30.0f);
 	}
 
+	// 3DS: CCam::LookBehind does the turn, as for the string cam. Flipping Beta here put
+	// SourceBeforeLookBehind in front of the car, which turned the radar around.
+#ifndef _3DS
 	// WORKAROUND: I still don't know how looking behind works (m_bCamDirectlyInFront is unused in III, they seem to use m_bUseTransitionBeta)
 	if (pad->GetLookBehindForCar())
 		if (DirectionWasLooking == LOOKING_FORWARD || !LookingBehind)
 			TheCamera.m_bCamDirectlyInFront = true;
+#endif
 
 	// Taken from RotCamIfInFrontCar, because we don't call it anymore
 	if (!(pad->GetLookBehindForCar() || pad->GetLookBehindForPed() || pad->GetLookLeft() || pad->GetLookRight()))
