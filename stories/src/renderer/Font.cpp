@@ -596,6 +596,7 @@ CFont::PrintString(float x, float y, uint32, wchar *start, wchar *end, float spw
 	pRenderState->style = Details.style;
 	pRenderState->bIsShadow = Details.bIsShadow;
 	pRenderState->bOutlineOn = Details.bOutlineOn;
+	pRenderState->rightJustify = Details.rightJustify;
 	FontRenderStatePointer.pRenderState++;
 
 	for(s = start; s < end;){
@@ -1036,7 +1037,7 @@ CFont::GetCharacterSize(wchar c)
 		if (IsPunctuation(c + ' '))
 			return (Size[Details.style][418] + FontSizeIncrementers[Details.style]) / 1.6f * Details.scaleX;
 		else
-			return Size[Details.style][418] + FontSizeIncrementers[Details.style] * Details.scaleX;
+			return (Size[Details.style][418] + FontSizeIncrementers[Details.style]) * Details.scaleX;
 	}
 }
 
