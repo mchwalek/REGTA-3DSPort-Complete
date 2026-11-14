@@ -287,6 +287,7 @@ CPed::CPed(uint32 pedType) : m_pedIK(this)
 	bDrownsInWater = true;
 	bWaitForLeaderToComeCloser = false;
 	bHeldHostageInCar = false;
+	bHostageScreamed = false;
 	bIsPlayerFriend = true;
 	bHeadStuckInCollision = false;
 	bDeadPedInFrontOfCar = false;
@@ -2881,7 +2882,11 @@ CPed::ProcessControl(void)
 				bInVehicle = false;
 
 			if (bHeldHostageInCar) {
-				if (m_pMyVehicle && m_pMyVehicle->pDriver && m_pMyVehicle->pDriver->IsPlayer()) {
+				// PS2 (0x1d6f30 tail): scream once, and never in a taxi/cabbie/ambulance (0x32a5e0)
+				if (m_pMyVehicle && m_pMyVehicle->pDriver && m_pMyVehicle->pDriver->IsPlayer() &&
+				    m_pMyVehicle->GetModelIndex() != MI_TAXI && m_pMyVehicle->GetModelIndex() != MI_CABBIE &&
+				    m_pMyVehicle->GetModelIndex() != MI_AMBULAN && !bHostageScreamed) {
+					bHostageScreamed = true;
 					Say(SOUND_PED_FLEE_SPRINT);
 				}
 			}
