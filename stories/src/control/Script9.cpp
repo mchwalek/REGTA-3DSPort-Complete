@@ -1023,14 +1023,14 @@ int8 CRunningScript::ProcessCommands1500To1599(int32 command)
 		return 0;
 	case COMMAND_PRINT_HELP_ALWAYS:
 	{
-		// CHud::mAlwaysAllowHelpText = true; // TODO
+		CHud::mAlwaysAllowHelpText = true;
 		wchar* text = CTheScripts::GetTextByKeyFromScript(&m_nIp);
 		CHud::SetHelpMessage(text, false); // + false, true
 		return 0;
 	}
 	case COMMAND_PRINT_HELP_FOREVER_ALWAYS:
 	{
-		// CHud::mAlwaysAllowHelpText = true; // TODO
+		CHud::mAlwaysAllowHelpText = true;
 		wchar* text = CTheScripts::GetTextByKeyFromScript(&m_nIp);
 		CHud::SetHelpMessage(text, false, true); // + true
 		return 0;

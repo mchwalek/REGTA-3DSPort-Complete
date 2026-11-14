@@ -1574,7 +1574,7 @@ then nothing. A first fix gated vehicle-occupant LODs and changed nothing.
   `PED_DRIVING` unconditionally, so the on-foot ped was never drawn.
 
 Field offsets (inferred): `+0x250` objective, `+0x34c` ped state, `+0x534`
-`m_pMyVehicle`, `+0x538` `bInVehicle`. See AGENTS.md landmine #46 and
+`m_pMyVehicle`, `+0x538` `bInVehicle`. See AGENTS.md landmine #47 and
 `git log --grep="WAIT_IN_CAR"`.
 
 ## Case study: faint safehouse glass — reading PS2 world data (Leeds sectors)
@@ -1691,6 +1691,14 @@ distance-sorted, drawn last). PS2 sector matrices are sector-relative and its
 model ids differ from the SD IDE ids, so match instances by geometry, not id.
 reLCS imitates this by deferring cut-out-only buildings (AGENTS.md landmine
 41). See `git log --grep="see-through graffiti"`.
+
+## Reference: particle pool (missing fires)
+
+`CParticle::Initialise` is `0x1cc7b0` (loads the `particle` TXD). Its
+`ReloadConfig` `0x1cc6b0` links the unused list over `gParticleArray`
+`0x4184b0..0x426f10`, stride 0x50: 750 particles, with no per-type or
+on-screen budget. The 3DS limit of 256 is port-only (AGENTS.md landmine
+#46). Lifespans come from `PARTICLE.CFG` (CARFLAME/FLAME/FIREBALL 2000 ms).
 
 ## Reference: frontend pages and `CFont` (stats screen)
 

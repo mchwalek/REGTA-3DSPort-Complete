@@ -2267,10 +2267,12 @@ CWorld::IsWanderPathClear(CVector const& point1, CVector const& point2, float di
 {
 	if (Abs(point1.z - point2.z) > distance)
 		return false;
-	if (!GetIsLineOfSightClear(point1, point2, true, false, false, false, false, false, false))
+	// PS2 (0x17bde0): level LOS at the lower Z, and at most maxSteps ground probes
+	float losZ = Min(point1.z, point2.z);
+	if (!GetIsLineOfSightClear(CVector(point1.x, point1.y, losZ), CVector(point2.x, point2.y, losZ), true, false, false, false, false, false, false))
 		return false;
 	CVector vecBetween = point2 - point1;
-	uint32 nSteps = Max(vecBetween.Magnitude(), maxSteps);
+	uint32 nSteps = Min((int)vecBetween.Magnitude(), maxSteps);
 	if (nSteps == 0)
 		return true;
 	vecBetween.Normalise();

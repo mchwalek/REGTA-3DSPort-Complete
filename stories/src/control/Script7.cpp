@@ -759,7 +759,7 @@ int8 CRunningScript::ProcessCommands1200To1299(int32 command)
 		CollectParameters(&m_nIp, 5);
 		CPed* pPed = CPools::GetPedPool()->GetAt(GET_INTEGER_PARAM(0));
 		script_assert(pPed);
-		UpdateCompareFlag(CWorld::IsWanderPathClear(pPed->GetPosition(), GET_VECTOR_PARAM(0), GET_FLOAT_PARAM(3), 4));
+		UpdateCompareFlag(CWorld::IsWanderPathClear(pPed->GetPosition(), GET_VECTOR_PARAM(1), GET_FLOAT_PARAM(4), 4));
 		return 0;
 	}
 	//case COMMAND_PRINT_HELP_WITH_NUMBER:

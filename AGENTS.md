@@ -803,7 +803,22 @@ not mistake for a failed transfer.
     commented out below use VC sample names; don't revive them. See the
     `ps2-lcs-decompilation` skill ("ped voices") and
     `git log --grep="ped voices"`.
-46. **A ped in `PED_DRIVING` that isn't seated in a vehicle is invisible: the
+46. **The 3DS particle pool is 256 (128 with 3D on), PS2's is 750, and fires
+    and the flamethrower are nothing but particles. Stories only.** Fires
+    (`CFire::ProcessFire`) emit `PARTICLE_CARFLAME`, and the flamethrower
+    emits 5 `PARTICLE_FIREBALL` per frame (`GenerateFlameThrowerParticles`).
+    Each burning fire keeps ~25 flames alive (2 s life), so a few fires plus
+    smoke filled the cap, and new flames were refused: fires vanished in The
+    Trouble with Triads, and the flamethrower did in Friggin' the Riggin'.
+    Raising the pool to PS2's 750 fixed that but cost ~2 fps (12 -> 10) in
+    that scene. Instead, when the cap is full, fire types replace the oldest
+    smoke particle, and `FIREBALL` may also replace the oldest fire flame
+    (`MakeRoomForFire3DS`, `Particle.cpp`). Fires never replace each other.
+    Don't raise the cap to fix a "missing effect": check which types fill
+    the pool first. Nothing may keep a pointer to a particle of a type that
+    can be evicted (only `CParticleObject` keeps one, for explosions). PS2
+    pool: `0x1cc6b0` (750 x 0x50). See `git log --grep="fire particles"`.
+47. **A ped in `PED_DRIVING` that isn't seated in a vehicle is invisible: the
     renderer skips `PED_DRIVING` peds and only the vehicle draws its
     occupants. The state bug is in all three trees; only stories is fixed.**
     `OBJECTIVE_LEAVE_CAR` is temporary, so it stores the ped's objective
