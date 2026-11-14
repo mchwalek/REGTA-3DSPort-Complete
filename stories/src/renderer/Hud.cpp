@@ -78,6 +78,7 @@ wchar CHud::m_HelpMessageToPrint[HELP_MSG_LENGTH];
 float CHud::m_HelpMessageDisplayTime;
 bool CHud::m_HelpMessageDisplayForever;
 bool CHud::m_HelpMessageQuick;
+bool CHud::mAlwaysAllowHelpText;
 uint32 CHud::m_ZoneState;
 int32 CHud::m_ZoneFadeTimer;
 uint32 CHud::m_ZoneNameTimer;
@@ -1424,7 +1425,7 @@ void CHud::Draw()
 					}
 					break;
 				case 2:
-					if (TheCamera.m_WideScreenOn)
+					if (TheCamera.m_WideScreenOn && !mAlwaysAllowHelpText)
 						break;
 
 					m_HelpMessageFadeTimer += 2 * HudDisplayTimer::GetTimeStepInMilliseconds();
@@ -1436,9 +1437,10 @@ void CHud::Draw()
 					break;
 				case 3:
 					m_HelpMessageFadeTimer -= 2 * HudDisplayTimer::GetTimeStepInMilliseconds();
-					if (m_HelpMessageFadeTimer < 0 || TheCamera.m_WideScreenOn) {
+					if (m_HelpMessageFadeTimer < 0 || TheCamera.m_WideScreenOn && !mAlwaysAllowHelpText) {
 						m_HelpMessageState = 0;
 						m_HelpMessageFadeTimer = 0;
+						mAlwaysAllowHelpText = false;
 					}
 					fAlpha = m_HelpMessageFadeTimer * 0.001f * 225.0f;
 					break;
@@ -1455,7 +1457,7 @@ void CHud::Draw()
 					break;
 				}
 
-				if (!TheCamera.m_WideScreenOn) {
+				if (!TheCamera.m_WideScreenOn || mAlwaysAllowHelpText) {
 					m_HelpMessageTimer += HudDisplayTimer::GetTimeStepInMilliseconds();
 
 					CFont::SetAlphaFade(fAlpha);
@@ -2301,6 +2303,8 @@ void CHud::SetBigMessage(wchar *message, uint16 style)
 
 void CHud::SetHelpMessage(wchar *message, bool quick, bool displayForever)
 {
+	if (!message)
+		mAlwaysAllowHelpText = false;
 	if (!CReplay::IsPlayingBack()) {
 		for (int i = 0; i < HELP_MSG_LENGTH; i++) {
 			m_HelpMessage[i] = 0;

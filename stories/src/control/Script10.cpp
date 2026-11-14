@@ -424,14 +424,14 @@ int8 CRunningScript::ProcessCommands1600To1699(int32 command)
 	}
 	case COMMAND_PRINT_HELP_ALWAYS_NO_BRIEF:
 	{
-		// CHud::mAlwaysAllowHelpText = true;
+		CHud::mAlwaysAllowHelpText = true;
 		wchar* text = CTheScripts::GetTextByKeyFromScript(&m_nIp);
 		CHud::SetHelpMessage(text, false); // + false, false
 		return 0;
 	}
 	case COMMAND_PRINT_HELP_FOREVER_ALWAYS_NO_BRIEF:
 	{
-		// CHud::mAlwaysAllowHelpText = true;
+		CHud::mAlwaysAllowHelpText = true;
 		wchar* text = CTheScripts::GetTextByKeyFromScript(&m_nIp);
 		CHud::SetHelpMessage(text, false, true); // + false
 		return 0;
