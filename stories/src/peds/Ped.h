@@ -553,7 +553,7 @@ public:
 	uint32 bDrownsInWater : 1;
 	uint32 bWaitForLeaderToComeCloser : 1;
 	uint32 bHeldHostageInCar : 1;
-	uint32 b19C_10 : 1;
+	uint32 bHostageScreamed : 1;
 	uint32 bIsPlayerFriend : 1;
 	uint32 bHeadStuckInCollision : 1;
 	uint32 bDeadPedInFrontOfCar : 1;
