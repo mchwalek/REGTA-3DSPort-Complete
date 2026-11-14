@@ -1577,6 +1577,13 @@ Field offsets (inferred): `+0x250` objective, `+0x34c` ped state, `+0x534`
 `m_pMyVehicle`, `+0x538` `bInVehicle`. See AGENTS.md landmine #47 and
 `git log --grep="WAIT_IN_CAR"`.
 
+Ruling out a suspect: `CWorld::IsWanderPathClear` (changed with
+`IS_CHAR_WANDER_PATH_CLEAR`, `Script7.cpp`, PR #64) is only called from that
+opcode, `CPed::SetFollowPathStatic` (`Ped.cpp`) and `PedAttractor.cpp`. A
+mission whose peds are moved only by explicit script objectives never reaches
+it, so a change there can't explain that mission's failure. Grep the callers
+before blaming a recently changed function.
+
 ## Case study: faint safehouse glass — reading PS2 world data (Leeds sectors)
 
 Report: the dirty glass in Toni's Portland apartment was invisible on 3DS.
