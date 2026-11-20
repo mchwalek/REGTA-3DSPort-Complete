@@ -1,6 +1,9 @@
 #pragma once
 #ifdef _3DS
 #include "CameraOcclusion.h"
+#ifdef RESTORIES_3DS_BUILD
+#include "Object.h"
+#endif
 namespace CameraOcclusion3DS
 {
 struct RenderScope {
@@ -15,8 +18,10 @@ struct RenderScope {
 #ifdef RESTORIES_3DS_BUILD
 		// LCS PS2 building pipe: prelight scaled by timecycle ambient.
 		style.leedsBuildingLighting = entity->IsBuilding();
-		// PS2 ped/car lighting for the unlit skin and MatFX paint paths.
-		style.leedsEntityLighting = entity->IsPed() || entity->IsVehicle();
+		// PS2 ped/car lighting for the unlit skin and MatFX paint paths. Cutscene
+		// actors are lit like peds (CCutsceneObject::SetupLighting); other objects are not.
+		style.leedsEntityLighting = entity->IsPed() || entity->IsVehicle() ||
+			(entity->IsObject() && ((CObject*)entity)->ObjectCreatedBy == CUTSCENE_OBJECT);
 #endif
 		const float alpha = Alpha(entity);
 		if(alpha < 1.f) {
