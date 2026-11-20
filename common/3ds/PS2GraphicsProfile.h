@@ -76,7 +76,7 @@ inline float FogColourScale(float red, float green, float blue, const float *gai
 inline float ColourGain(int game, float authoredChannel, float authoredAlpha = 30.0f)
 {
 	const float colour = Maximum(0.0f, Minimum(1.0f, authoredChannel / 255.0f));
-	if(game == LibertyCityStories) return 1.0f + colour * 0.35f; // Gentler LCS foreground grade
+	if(game == LibertyCityStories) return 1.0f + colour; // colourfilterLCS.frag: dst += dst*blur
 	// III's timecycle supplies its own strength; VC's accepted filter is unchanged.
 	const float alpha = game == GTAIII ? Maximum(0.0f, Minimum(1.0f, authoredAlpha / 255.0f)) : 30.0f / 255.0f;
 	const float feedback = game == ViceCity ? Minimum(2.0f * colour, 1.0f) * alpha + 2.0f * colour : colour * alpha;
@@ -89,8 +89,8 @@ inline float ColourGain(int game, float authoredChannel, float authoredAlpha = 3
 
 inline float FogColourCompensation(int game, float authoredChannel, float gain)
 {
-	// Preserve LCS's accepted distant blue haze independently of its weaker
-	// foreground grade. Other games retain their existing fog/grade relationship.
+	// Keep LCS's distant blue haze at (1 + colour) however the foreground grade
+	// is scaled. Other games retain their existing fog/grade relationship.
 	if(game != LibertyCityStories) return 1.0f;
 	const float colour = Maximum(0.0f, Minimum(1.0f, authoredChannel / 255.0f));
 	return (1.0f + colour) / gain;
