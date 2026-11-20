@@ -534,7 +534,10 @@ not mistake for a failed transfer.
     `0x2e870c`, the global set by `SetupLighting` `0x2c9f30`). For any new
     per-entity lighting effect, carry it through `EntityRenderStyle` the same
     way, and don't expect it to come from the light state. Alpha-list atomics
-    (glass) render outside that scope. See `git log --grep="scorched wrecks"`.
+    (glass) render outside that scope. On stories, peds and vehicles also get
+    timecycle ambient x2 + directional (a view-angle approximation, no normals)
+    through `getEntityMaterialColor` via `EntityRenderStyle::leedsEntityLighting`;
+    scorched wins when both are set. See `git log --grep="scorched wrecks"`.
 29. **The 3DS preset blend in `CCamera::Process` (`#ifdef _3DS` after the
     comfort pass, `common/3ds/CameraPresetTransition.h`) eases every change of
     camera view, including ones the native engine jump-cuts. It exists in

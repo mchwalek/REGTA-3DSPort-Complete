@@ -15,6 +15,8 @@ struct RenderScope {
 #ifdef RESTORIES_3DS_BUILD
 		// LCS PS2 building pipe: prelight scaled by timecycle ambient.
 		style.leedsBuildingLighting = entity->IsBuilding();
+		// PS2 ped/car lighting for the unlit skin and MatFX paint paths.
+		style.leedsEntityLighting = entity->IsPed() || entity->IsVehicle();
 #endif
 		const float alpha = Alpha(entity);
 		if(alpha < 1.f) {

@@ -329,6 +329,7 @@ struct EntityRenderStyle {
 	bool worldSkyline;
 	bool scorched;
 	bool leedsBuildingLighting;
+	bool leedsEntityLighting;
 };
 EntityRenderStyle getEntityRenderStyle(void);
 void setEntityRenderStyle(EntityRenderStyle style);

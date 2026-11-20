@@ -96,6 +96,16 @@ inline float FogColourCompensation(int game, float authoredChannel, float gain)
 	return (1.0f + colour) / gain;
 }
 
+// PS2 lights peds/cars as 2*ambient + directional*N.L (ambient uploads at 2x,
+// SLES_541.35 0x184e60). The unlit 3DS paths have no normals, so N.L is a lit
+// sphere's mean brightness for the view/light angle: 0 from behind, 0.67 front-lit.
+// shortcut: clamps at 1 (PS2 can overbright) and ignores point lights; go per-vertex if lamps matter.
+inline float EntityLightChannel(float ambient, float directional, float viewDotLight)
+{
+	const float facing = (1.0f + viewDotLight) * 0.5f;
+	return Minimum(1.0f, 2.0f * ambient + directional * 0.67f * facing * facing);
+}
+
 inline float OccupantOpacity(float distanceSquared, float range)
 {
 	// Compare squared distances so each passenger does not need another sqrt.

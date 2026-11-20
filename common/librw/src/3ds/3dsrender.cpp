@@ -13,6 +13,7 @@
 #ifdef RW_3DS
 #include "rw3ds.h"
 #include "rw3dsimpl.h"
+#include "../../../3ds/PS2GraphicsProfile.h"
 #include "rw3dsshader.h"
 #include "default_shbin.h"
 
@@ -539,31 +540,61 @@ lightingCB(Atomic *atomic)
 	}
 }
 
-RGBAf
-getAtomicAmbientLight(Atomic *atomic)
+/* Accumulated ambient plus, when sun is non-nil, the first directional light.
+ * Zero local capacity skips the per-atomic local-light sphere tests. */
+static RGBAf
+getAtomicAmbientAndSun(Atomic *atomic, Light **sun)
 {
 	WorldLights lightData;
-	/* MatFX paint only uses the accumulated ambient colour.  Give
-	 * enumerateLights zero directional/local capacity so it cannot perform the
-	 * per-atomic local-light sphere tests or prepare unused light uniforms. */
-	lightData.directionals = nil;
+	Light *directionals[1];
+	lightData.directionals = sun ? directionals : nil;
 	lightData.locals = nil;
-	lightData.numDirectionals = 0;
+	lightData.numDirectionals = sun ? 1 : 0;
 	lightData.numLocals = 0;
-	if(atomic->geometry->flags & rw::Geometry::LIGHT)
+	if(sun)
+		*sun = nil;
+	if(atomic->geometry->flags & rw::Geometry::LIGHT){
 		((World*)engine->currentWorld)->enumerateLights(atomic, &lightData);
-	else{
+		if(sun && lightData.numDirectionals > 0)
+			*sun = directionals[0];
+	}else{
 		memset(&lightData, 0, sizeof(lightData));
 		lightData.ambient.alpha = 1.0f;
 	}
 	return lightData.ambient;
 }
 
+RGBAf
+getAtomicAmbientLight(Atomic *atomic)
+{
+	/* MatFX paint only uses the accumulated ambient colour. */
+	return getAtomicAmbientAndSun(atomic, nil);
+}
+
 RGBA
 getEntityMaterialColor(Atomic *atomic, const RGBA &color)
 {
-	if(!getEntityRenderStyle().scorched)
+	const EntityRenderStyle style = getEntityRenderStyle();
+	if(!style.scorched && !(style.leedsEntityLighting && (atomic->geometry->flags & rw::Geometry::LIGHT)))
 		return color;
+	if(!style.scorched){
+		/* PS2 ped/car lighting (see PS2Graphics3DS::EntityLightChannel). */
+		Light *sun;
+		const RGBAf amb = getAtomicAmbientAndSun(atomic, &sun);
+		RGBAf d = {0.0f, 0.0f, 0.0f, 0.0f};
+		float viewDotLight = 0.0f;
+		if(sun){
+			d = sun->color;
+			Camera *cam = (Camera*)engine->currentCamera;
+			if(cam)
+				viewDotLight = dot(cam->getFrame()->getLTM()->at, sun->getFrame()->getLTM()->at);
+		}
+		RGBA c = color;
+		c.red = (uint8)(c.red * PS2Graphics3DS::EntityLightChannel(amb.red, d.red, viewDotLight));
+		c.green = (uint8)(c.green * PS2Graphics3DS::EntityLightChannel(amb.green, d.green, viewDotLight));
+		c.blue = (uint8)(c.blue * PS2Graphics3DS::EntityLightChannel(amb.blue, d.blue, viewDotLight));
+		return c;
+	}
 	/* Unlit paths drop the lighting, so apply the scorched lights' ambient-only
 	 * result (WorldReplaceNormalLightsWithScorched) to the paint directly.
 	 * PS2 uploads ambient at twice its value (SLES_541.35 0x184e60), so 0.1 shows as 0.2. */
