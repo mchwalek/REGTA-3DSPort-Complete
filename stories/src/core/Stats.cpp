@@ -962,11 +962,11 @@ CStats::ConstructStatLine(int rowIdx)
 		}
 	}
 	int counter = 5;
-	
-	if (CGame::nastyGame) {
-		STAT_LINE_2(int, "FEST_RP", NumberKillFrenziesPassed, 0, TotalNumberKillFrenzies, 0);
-	}
-	
+
+	// The rows below follow PS2 CStats::ConstructStatLine (SLES_541.35 0x231d50).
+	// LCS stats that reLCS does not record are not listed.
+	STAT_LINE_2(int, "FEST_RP", NumberKillFrenziesPassed, 0, TotalNumberKillFrenzies, 0);
+
 	CPlayerInfo &player = CWorld::Players[CWorld::PlayerInFocus];
 
 	// Hidden packages shouldn't be shown with percent
@@ -1011,7 +1011,7 @@ CStats::ConstructStatLine(int rowIdx)
 
 	int mostPatheticGang = 0;
 	int mostKill = 0;
-	for (int i = PEDTYPE_GANG1; i < PEDTYPE_GANG9; ++i) {
+	for (int i = PEDTYPE_GANG1; i <= PEDTYPE_GANG9; ++i) {
 		if (CStats::PedsKilledOfThisType[i] > mostKill) {
 			mostKill = CStats::PedsKilledOfThisType[i];
 			mostPatheticGang = i;
@@ -1045,6 +1045,9 @@ CStats::ConstructStatLine(int rowIdx)
 			case PEDTYPE_GANG8:
 				TEXT_ON_RIGHT(TheText.Get("ST_GNG8"));
 				break;
+			case PEDTYPE_GANG9:
+				TEXT_ON_RIGHT(TheText.Get("ST_GNG9"));
+				break;
 			default:
 				break;
 		}
@@ -1070,17 +1073,8 @@ CStats::ConstructStatLine(int rowIdx)
 			STAT_LINE_1(float, "FEST_DC", DistanceTravelledByCar * MILES_IN_METER, 1);
 			STAT_LINE_1(float, "DISTBIK", DistanceTravelledByBike * MILES_IN_METER, 1);
 			STAT_LINE_1(float, "DISTBOA", DistanceTravelledByBoat * MILES_IN_METER, 1);
-			STAT_LINE_1(float, "DISTGOL", DistanceTravelledByGolfCart * MILES_IN_METER, 1);
-			STAT_LINE_1(float, "DISTHEL", DistanceTravelledByHelicoptor * MILES_IN_METER, 1);
-#ifdef FIX_BUGS
-			STAT_LINE_1(float, "TOT_DIS", (DistanceTravelledOnFoot + DistanceTravelledByCar + DistanceTravelledByBoat + DistanceTravelledByBike
-				+ DistanceTravelledByGolfCart + DistanceTravelledByHelicoptor + DistanceTravelledByPlane) * MILES_IN_METER, 1);
-			STAT_LINE_1(float, "MXCARD", MaximumJumpDistance * FEET_IN_METER, 1);
-			STAT_LINE_1(float, "MXCARJ", MaximumJumpHeight * FEET_IN_METER, 1);
-#else
-			STAT_LINE_1(float, "TOT_DIS", (DistanceTravelledOnFoot + DistanceTravelledByCar + DistanceTravelledByBoat + DistanceTravelledByBike
-				+ DistanceTravelledByGolfCart + DistanceTravelledByHelicoptor) * MILES_IN_METER, 1);
-#endif
+			STAT_LINE_1(float, "TOT_DIS", (DistanceTravelledOnFoot + DistanceTravelledByCar + DistanceTravelledByBoat + DistanceTravelledByBike)
+				* MILES_IN_METER, 1);
 			break;
 #endif
 		case CMenuManager::LANGUAGE_FRENCH:
@@ -1096,29 +1090,16 @@ CStats::ConstructStatLine(int rowIdx)
 			STAT_LINE_1(float, "FESTDCM", DistanceTravelledByCar, 1);
 			STAT_LINE_1(float, "DISTBIM", DistanceTravelledByBike, 1);
 			STAT_LINE_1(float, "DISTBOM", DistanceTravelledByBoat, 1);
-			STAT_LINE_1(float, "DISTGOM", DistanceTravelledByGolfCart, 1);
-			STAT_LINE_1(float, "DISTHEM", DistanceTravelledByHelicoptor, 1);
-#ifdef FIX_BUGS
-			STAT_LINE_1(float, "TOTDISM", DistanceTravelledOnFoot + DistanceTravelledByCar + DistanceTravelledByBoat
-				+ DistanceTravelledByBike + DistanceTravelledByGolfCart + DistanceTravelledByHelicoptor + DistanceTravelledByPlane, 1);
-			STAT_LINE_1(float, "MXCARDM", MaximumJumpDistance, 1);
-			STAT_LINE_1(float, "MXCARJM", MaximumJumpHeight, 1);
-#else
-			STAT_LINE_1(float, "TOTDISM", DistanceTravelledOnFoot + DistanceTravelledByCar + DistanceTravelledByBoat
-				+ DistanceTravelledByGolfCart + DistanceTravelledByHelicoptor, 1);
-#endif
+			STAT_LINE_1(float, "TOTDISM", DistanceTravelledOnFoot + DistanceTravelledByCar + DistanceTravelledByBoat + DistanceTravelledByBike, 1);
 			break;
 		default:
 			break;
 	}
 
-	// They were selecting the unit according to language in III, but they deleted the feet code in VC. Weird
-#ifndef FIX_BUGS
+	// PS2 shows the jump distance and height in metres for all languages.
 	STAT_LINE_1(float, "MXCARDM", MaximumJumpDistance, 1);
 	STAT_LINE_1(float, "MXCARJM", MaximumJumpHeight, 1);
-#endif
 	STAT_LINE_1(int, "MXFLIP", MaximumJumpFlips, 0);
-	STAT_LINE_2(int, "NOUNIF", NumberOfUniqueJumpsFound, 0, TotalNumberOfUniqueJumps, 0);
 	STAT_LINE_1(int, "MXJUMP", MaximumJumpSpins, 4);
 
 	TEXT_ON_LEFT_GXT("BSTSTU");
@@ -1151,6 +1132,7 @@ CStats::ConstructStatLine(int rowIdx)
 			TEXT_ON_RIGHT(TheText.Get("NOSTUC"));
 			break;
 	}
+	STAT_LINE_2(int, "NOUNIF", NumberOfUniqueJumpsFound, 0, TotalNumberOfUniqueJumps, 0);
 	STAT_LINE_1(int, "ST_WHEE", LongestWheelie, 0);
 	STAT_LINE_1(float, "ST_WHED", LongestWheelieDist, 1);
 	STAT_LINE_1(int, "ST_STOP", LongestStoppie, 0);
@@ -1161,21 +1143,25 @@ CStats::ConstructStatLine(int rowIdx)
 	if (LoanSharks > 0.0f)
 		STAT_LINE_1(int, "ST_LOAN", LoanSharks, 0);
 
-	STAT_LINE_1(int, "FEST_CC", CriminalsCaught, 0);
-	STAT_LINE_1(int, "FEST_HV", HighestLevelVigilanteMission, 0);
-	STAT_LINE_1(int, "PASDRO", PassengersDroppedOffWithTaxi, 0);
-	STAT_LINE_1(float, "MONTAX", MoneyMadeWithTaxi, 3);
-	STAT_LINE_1(int, "FEST_LS", LivesSavedWithAmbulance, 0);
-	STAT_LINE_1(int, "FEST_HA", HighestLevelAmbulanceMission, 0);
-	STAT_LINE_1(int, "FEST_FE", FiresExtinguished, 0);
-	STAT_LINE_1(int, "FIRELVL", HighestLevelFireMission, 0);
-
-	STAT_LINE_2(int, "ST_STOR", StoresKnockedOff, 0, 15, 0);
+	if (CriminalsCaught > 0)
+		STAT_LINE_1(int, "FEST_CC", CriminalsCaught, 0);
+	if (HighestLevelVigilanteMission > 0)
+		STAT_LINE_1(int, "FEST_HV", HighestLevelVigilanteMission, 0);
+	if (PassengersDroppedOffWithTaxi > 0)
+		STAT_LINE_1(int, "PASDRO", PassengersDroppedOffWithTaxi, 0);
+	if (MoneyMadeWithTaxi > 0)
+		STAT_LINE_1(float, "MONTAX", MoneyMadeWithTaxi, 3);
+	if (LivesSavedWithAmbulance > 0)
+		STAT_LINE_1(int, "FEST_LS", LivesSavedWithAmbulance, 0);
+	if (HighestLevelAmbulanceMission > 0)
+		STAT_LINE_1(int, "FEST_HA", HighestLevelAmbulanceMission, 0);
+	if (FiresExtinguished > 0)
+		STAT_LINE_1(int, "FEST_FE", FiresExtinguished, 0);
+	if (HighestLevelFireMission > 0)
+		STAT_LINE_1(int, "FIRELVL", HighestLevelFireMission, 0);
 
 	if (MovieStunts > 0.0f)
 		STAT_LINE_1(int, "ST_MOVI", MovieStunts, 0);
-
-	STAT_LINE_2(int, "ST_ASSI", Assassinations, 0, 5, 0);
 
 	if (PhotosTaken > 0)
 		STAT_LINE_1(int, "ST_PHOT", PhotosTaken, 0);
@@ -1241,49 +1227,6 @@ CStats::ConstructStatLine(int rowIdx)
 	if (ShootingRank > 0.0f)
 		STAT_LINE_1(int, "SHO_RAN", ShootingRank, 0);
 
-	int flightMinute = (FlightTime / 60000) % 60;
-	int flightHour = (FlightTime / 60000) / 60;
-	STAT_LINE_2(int, "ST_FTIM", flightHour, 0, flightMinute, 1);
-
-	// We always have pilot rank if we flew more then 5 minutes
-#ifndef FIX_BUGS
-	if (flightHour != 0)
-		TEXT_ON_LEFT_GXT("ST_PRAN");
-#endif
-
-#ifdef FIX_BUGS
-#define FL_TIME_MORE_THAN(hour, minute) (flightHour > hour || (flightHour == hour && flightMinute >= minute))
-#else
-#define FL_TIME_MORE_THAN(hour, minute) (flightHour > hour || flightMinute >= minute)
-#endif
-
-	if (FL_TIME_MORE_THAN(0,5)) {
-
-#ifdef FIX_BUGS
-		TEXT_ON_LEFT_GXT("ST_PRAN");
-#endif
-		if (!FL_TIME_MORE_THAN(0,10)) TEXT_ON_RIGHT(TheText.Get("ST_PR01"));
-		else if (!FL_TIME_MORE_THAN(0,20)) TEXT_ON_RIGHT(TheText.Get("ST_PR02"));
-		else if (!FL_TIME_MORE_THAN(0,30)) TEXT_ON_RIGHT(TheText.Get("ST_PR03"));
-		else if (!FL_TIME_MORE_THAN(1,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR04"));
-		else if (!FL_TIME_MORE_THAN(1,30)) TEXT_ON_RIGHT(TheText.Get("ST_PR05"));
-		else if (!FL_TIME_MORE_THAN(2,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR06"));
-		else if (!FL_TIME_MORE_THAN(2,30)) TEXT_ON_RIGHT(TheText.Get("ST_PR07"));
-		else if (!FL_TIME_MORE_THAN(3,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR08"));
-		else if (!FL_TIME_MORE_THAN(3,30)) TEXT_ON_RIGHT(TheText.Get("ST_PR09"));
-		else if (!FL_TIME_MORE_THAN(4,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR10"));
-		else if (!FL_TIME_MORE_THAN(5,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR11"));
-		else if (!FL_TIME_MORE_THAN(10,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR12"));
-		else if (!FL_TIME_MORE_THAN(20,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR13"));
-		else if (!FL_TIME_MORE_THAN(25,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR14"));
-		else if (!FL_TIME_MORE_THAN(30,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR15"));
-		else if (!FL_TIME_MORE_THAN(49,2)) TEXT_ON_RIGHT(TheText.Get("ST_PR16"));
-		else if (!FL_TIME_MORE_THAN(50,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR17"));
-		else if (!FL_TIME_MORE_THAN(100,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR18"));
-		else TEXT_ON_RIGHT(TheText.Get("ST_PR19"));
-	}
-#undef FL_TIME_MORE_THAN
-
 	if (BloodRingKills > 0)
 		STAT_LINE_1(int, "ST_BRK", BloodRingKills, 0);
 
@@ -1297,8 +1240,10 @@ CStats::ConstructStatLine(int rowIdx)
 
 	bool playerHatesRadio = true;
 	float* pListenTimeArray = DMAudio.GetListenTimeArray();
-	for (int i = 0; i < NUM_RADIOS; i++) {
+	for (int i = 0; i < NUM_RADIOS; i++)
 		FavoriteRadioStationList[i] = pListenTimeArray[i];
+	// PS2 only ranks the ten stations WILDSTYLE..LCFR. Index 10 is not a station.
+	for (int i = 0; i <= LCFR; i++) {
 		if (FavoriteRadioStationList[i] != 0.0) // double
 			playerHatesRadio = false;
 	}
@@ -1308,7 +1253,7 @@ CStats::ConstructStatLine(int rowIdx)
 		TEXT_ON_LEFT_GXT("FST_MFR");
 		float mostListenTime = FavoriteRadioStationList[0];
 		int mostListenedRadio = 0;
-		for (int i = 0; i < NUM_RADIOS; i++) {
+		for (int i = 0; i <= LCFR; i++) {
 			if (FavoriteRadioStationList[i] > mostListenTime) {
 				mostListenTime = FavoriteRadioStationList[i];
 				mostListenedRadio = i;
@@ -1346,7 +1291,7 @@ CStats::ConstructStatLine(int rowIdx)
 				TEXT_ON_RIGHT(TheText.Get("FEA_FM9"));
 				break;
 			default:
-				TEXT_ON_RIGHT(TheText.Get("FEA_FM8")); // heh
+				TEXT_ON_RIGHT(TheText.Get("FEA_FM9"));
 				break;
 		}
 
@@ -1354,7 +1299,7 @@ CStats::ConstructStatLine(int rowIdx)
 		TEXT_ON_LEFT_GXT("FST_LFR");
 		float leastListenTime = FavoriteRadioStationList[0];
 		int leastListenedRadio = 0;
-		for (int i = 0; i < NUM_RADIOS; i++) {
+		for (int i = 0; i <= LCFR; i++) {
 			if (FavoriteRadioStationList[i] < leastListenTime) {
 				leastListenTime = FavoriteRadioStationList[i];
 				leastListenedRadio = i;
@@ -1392,16 +1337,14 @@ CStats::ConstructStatLine(int rowIdx)
 				TEXT_ON_RIGHT(TheText.Get("FEA_FM9"));
 				break;
 			default:
-				TEXT_ON_RIGHT(TheText.Get("FEA_FM8")); // heh
+				TEXT_ON_RIGHT(TheText.Get("FEA_FM9"));
 				break;
 		}
 	}
 	STAT_LINE_1(int, "SPRAYIN", Sprayings, 0);
 	STAT_LINE_1(float, "ST_WEAP", WeaponBudget, 3);
-	STAT_LINE_1(float, "ST_FASH", FashionBudget, 3);
-	STAT_LINE_1(float, "ST_PROP", PropertyBudget, 3);
 	STAT_LINE_1(float, "ST_AUTO", AutoPaintingBudget, 3);
-	STAT_LINE_1(float, "ST_DAMA", PropertyBudget, 3);
+	STAT_LINE_1(float, "ST_DAMA", PropertyDestroyed, 3);
 
 	if (NumPropertyOwned > 0) {
 		STAT_LINE_1(int, "PROPOWN", NumPropertyOwned, 0);
