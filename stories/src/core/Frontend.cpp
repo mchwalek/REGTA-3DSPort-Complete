@@ -420,6 +420,19 @@ CMenuManager::ScrollUpListByOne()
 	}
 }
 
+#ifdef _3DS
+static bool
+IsMenuRowDisabled3DS(int screen, int row)
+{
+	CMenuScreenCustom::CMenuEntry &entry = aScreens[screen].m_aEntries[row];
+	if (entry.m_Action != MENUACTION_CFO_DYNAMIC || !entry.m_CFODynamic->drawFunc)
+		return false;
+	bool disabled = false;
+	entry.m_CFODynamic->drawFunc(&disabled, false);
+	return disabled;
+}
+#endif
+
 inline void
 CMenuManager::ScrollDownListByOne()
 {
@@ -4878,6 +4891,24 @@ CMenuManager::UserInput(void)
 			// and ignore our screen's goUp/Down, now it's ProcessList's job
 			goUp = false;
 			goDown = false;
+#ifdef _3DS
+			// A disabled row shows dark text also when it is selected, so the
+			// highlight is not visible. Move past disabled rows in the same direction.
+			if (m_nSelectedListRow != oldOption) {
+				const bool down = m_nSelectedListRow > oldOption;
+				while (IsMenuRowDisabled3DS(m_nCurrScreen, m_nSelectedListRow)) {
+					const int row = m_nSelectedListRow;
+					if (down) ScrollDownListByOne(); else ScrollUpListByOne();
+					if (m_nSelectedListRow == row) {
+						// No usable row before the end of the list. Go back to the old row.
+						while (m_nSelectedListRow != oldOption) {
+							if (down) ScrollUpListByOne(); else ScrollDownListByOne();
+						}
+						break;
+					}
+				}
+			}
+#endif
 			m_nCurrOption = m_nSelectedListRow;
 	
 			if (oldOption != m_nCurrOption)

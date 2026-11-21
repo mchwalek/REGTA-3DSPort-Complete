@@ -1888,7 +1888,7 @@ Apply3DSFarClipProfile(float farClip)
 #ifdef _3DS
 	if(rw::c3d::ps2GraphicsEnabled())
 		rw::c3d::preparePS2GraphicsColour(PS2Graphics3DS::LibertyCityStories, CTimeCycle::GetBlurRed(), CTimeCycle::GetBlurGreen(), CTimeCycle::GetBlurBlue());
-	const bool ps2 = rw::c3d::ps2GraphicsEnabled();
+	const bool ps2 = rw::c3d::ps2GraphicsPartEnabled(rw::c3d::PS2_PART_DRAW_DISTANCE);
 	const float worldRange = PS2Graphics3DS::FarClip(farClip, rw::c3d::adaptiveWorldRangeScale(), ps2, PS2Graphics3DS::LibertyCityStories);
 	rw::c3d::setPS2WorldRange(ps2 ? worldRange : 0.0f);
 	// Only the few authored whole-island LODs may use the extra clipping space.
@@ -1904,9 +1904,9 @@ Apply3DSFogProfile(float fogStart)
 {
 #ifdef _3DS
 	const float clip = Apply3DSFarClipProfile(CTimeCycle::GetFarClip());
-	const float range = rw::c3d::ps2GraphicsEnabled() ? rw::c3d::ps2WorldRange() : clip;
+	const float range = rw::c3d::ps2WorldRange() > 0.0f ? rw::c3d::ps2WorldRange() : clip;
 	return PS2Graphics3DS::FogStart(fogStart, range,
-		rw::c3d::adaptiveWorldRangeScale(), rw::c3d::ps2GraphicsEnabled());
+		rw::c3d::adaptiveWorldRangeScale(), rw::c3d::ps2GraphicsPartEnabled(rw::c3d::PS2_PART_FOG));
 #else
 	return fogStart;
 #endif
@@ -2076,7 +2076,7 @@ Idle(void *arg)
 		tbStartTimer(0, "RenderMotionBlur");
 		if(!stereo3D
 #ifdef _3DS
-		   && (!rw::c3d::ps2GraphicsEnabled() ||
+		   && (!rw::c3d::ps2GraphicsPartEnabled(rw::c3d::PS2_PART_COLOUR_FILTER) ||
 		       (TheCamera.m_BlurType != MOTION_BLUR_NONE && TheCamera.m_BlurType != MOTION_BLUR_LIGHT_SCENE))
 #endif
 		  )

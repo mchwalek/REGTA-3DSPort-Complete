@@ -16,4 +16,27 @@ static void PS2GraphicsButtonPress(int8 action)
 	SaveINISettings();
 #endif
 }
+
+// While the master switch is off, the row is disabled and ignores presses. The stored value stays.
+template<int part>
+static wchar *PS2GraphicsPartDraw(bool *disabled, bool)
+{
+	*disabled = !rw::c3d::ps2GraphicsEnabled();
+	return TheText.Get(rw::c3d::ps2GraphicsPartSetting(part) ? "FEM_ON" : "FEM_OFF");
+}
+
+template<int part>
+static void PS2GraphicsPartButtonPress(int8 action)
+{
+	if(action != FEOPTION_ACTION_SELECT && action != FEOPTION_ACTION_LEFT &&
+	   action != FEOPTION_ACTION_RIGHT) return;
+	if(!rw::c3d::ps2GraphicsEnabled()) return;
+	rw::c3d::setPS2GraphicsPart(part, !rw::c3d::ps2GraphicsPartSetting(part));
+#ifdef LOAD_INI_SETTINGS
+	SaveINISettings();
+#endif
+}
+
+#define PS2_GRAPHICS_PART_ROW(key, part) \
+	MENUACTION_CFO_DYNAMIC, key, { new CCFODynamic(nil, nil, nil, PS2GraphicsPartDraw<part>, PS2GraphicsPartButtonPress<part>) }, 0, 0, MENUALIGN_LEFT,
 #endif

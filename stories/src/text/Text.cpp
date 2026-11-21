@@ -5,6 +5,7 @@
 #include "Game.h"
 #endif
 #include "Frontend.h"
+#include "Font.h"
 #include "Messages.h"
 #include "Text.h"
 #include "Timer.h"
@@ -115,6 +116,16 @@ CText::Get(const char *key)
 		static wchar label[] = {'P','S','2',' ','G','r','a','p','h','i','c','s',0};
 		return label;
 	}
+	static const struct { const char *key; const char *text; } ps2Parts[] = {
+		{ "F3PCF", "PS2 Colour Filter" }, { "F3PFG", "PS2 Fog" },
+		{ "F3PBL", "PS2 Blur" }, { "F3PDD", "PS2 Draw Distance" },
+	};
+	for(int i = 0; i < ARRAY_SIZE(ps2Parts); i++)
+		if(strcmp(key, ps2Parts[i].key) == 0) {
+			static wchar labels[ARRAY_SIZE(ps2Parts)][32];
+			AsciiToUnicode(ps2Parts[i].text, labels[i]);
+			return labels[i];
+		}
 #endif
 #ifdef _3DS
 	if (strcmp(key, "F3BGM") == 0) {
