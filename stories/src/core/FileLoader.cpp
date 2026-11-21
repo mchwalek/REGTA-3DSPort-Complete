@@ -1284,6 +1284,26 @@ CFileLoader::LoadScene(const char *filename)
 	debug("Finished loading IPL\n");
 }
 
+#ifdef _3DS
+// The SD card IPLs come from PC data. These instances are not in the PS2
+// SUBURB.LVZ, so PS2 does not draw them. The Shoreside Vale tunnel light
+// volumes show as grey slabs on 3DS.
+static const char *const ps2AbsentInstanceModels[] = {
+	"Trans_lights01",
+	"Trans_lights02",
+	"Trans_lights03",
+};
+
+static bool
+IsInstanceAbsentOnPS2(const char *modelName)
+{
+	for(int i = 0; i < (int)(sizeof(ps2AbsentInstanceModels) / sizeof(ps2AbsentInstanceModels[0])); i++)
+		if(!CGeneral::faststricmp(modelName, ps2AbsentInstanceModels[i]))
+			return true;
+	return false;
+}
+#endif
+
 void
 CFileLoader::LoadObjectInstance(const char *line)
 {
@@ -1314,6 +1334,10 @@ CFileLoader::LoadObjectInstance(const char *line)
 	if(mi == nil)
 		return;
 	assert(mi->IsSimple());
+#ifdef _3DS
+	if(IsInstanceAbsentOnPS2(mi->GetModelName()))
+		return;
+#endif
 
 	if(!CStreaming::IsObjectInCdImage(id))
 		debug("Not in cdimage %s\n", mi->GetModelName());
