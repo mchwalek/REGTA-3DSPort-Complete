@@ -108,6 +108,54 @@ CText::Unload(void)
 	memset(szMissionTableName, 0, sizeof(szMissionTableName));
 }
 
+#ifdef _3DS
+static bool
+IsLiteralButtonBoundary3DS(wchar c)
+{
+	return !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'));
+}
+
+// Some GXT strings write a PS2 button name as plain text, not as a ~k~ token.
+// For a listed key, return a copy with the first standalone button name
+// replaced by its 3DS name. Return all other text unchanged.
+static wchar *
+Replace3DSLiteralButtonText(const char *key, wchar *text)
+{
+	// TUP_AD: adrenaline pill help in TP1/TP2/TS1. main.scm reads
+	// IS_BUTTON_PRESSED 0 6 (RightShoulder1), which is R on 3DS.
+	static const struct { const char *key, *from, *to; } literals[] = {
+		{ "TUP_AD", "R1", "R" },
+	};
+	static wchar rewritten[ARRAY_SIZE(literals)][256];
+	if (text == nil)
+		return text;
+	for (uint32 i = 0; i < ARRAY_SIZE(literals); i++) {
+		if (strcmp(key, literals[i].key) != 0)
+			continue;
+		const uint32 fromLen = strlen(literals[i].from);
+		const uint32 max = ARRAY_SIZE(rewritten[i]) - 1;
+		wchar *out = rewritten[i];
+		uint32 o = 0;
+		bool replaced = false;
+		for (uint32 s = 0; text[s] != 0 && o < max;) {
+			bool match = !replaced && (s == 0 || IsLiteralButtonBoundary3DS(text[s - 1]));
+			for (uint32 j = 0; match && j < fromLen; j++)
+				match = text[s + j] == (uint8)literals[i].from[j];
+			if (match && IsLiteralButtonBoundary3DS(text[s + fromLen])) {
+				for (const char *t = literals[i].to; *t != '\0' && o < max; t++)
+					out[o++] = (uint8)*t;
+				s += fromLen;
+				replaced = true;
+			} else
+				out[o++] = text[s++];
+		}
+		out[o] = 0;
+		return out;
+	}
+	return text;
+}
+#endif
+
 wchar*
 CText::Get(const char *key)
 {
@@ -175,6 +223,8 @@ CText::Get(const char *key)
 			if (strcmp(key, fallback[i].key) == 0)
 				return translated[i];
 	}
+	if (result)
+		outstr = Replace3DSLiteralButtonText(key, outstr);
 #endif
 	return outstr;
 }
