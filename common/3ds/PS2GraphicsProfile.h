@@ -40,12 +40,6 @@ inline float FogStart(float authored, float farClip, float pressureScale, bool e
 	return Maximum(farClip * 0.55f, Minimum(authored * pressureScale, farClip * 0.65f));
 }
 
-inline float SilhouetteFogStart(float start, float end)
-{
-	// A negative start fogs the near scene; silhouettes still begin in the rear band.
-	return Maximum(start, end * 0.55f);
-}
-
 inline float FogVisibility(float distance, float start, float end)
 {
 	const float t = Maximum(0.0f, Minimum(1.0f, (distance - start) / Maximum(end - start, 1.0f)));

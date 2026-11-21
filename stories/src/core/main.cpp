@@ -1903,9 +1903,6 @@ static float
 Apply3DSFogProfile(float fogStart)
 {
 #ifdef _3DS
-	// Timecycle fog starting behind the camera (foggy/cloudy/rain) tints the near scene, as on PS2.
-	if(fogStart < 0.0f)
-		return fogStart;
 	const float clip = Apply3DSFarClipProfile(CTimeCycle::GetFarClip());
 	const float range = rw::c3d::ps2GraphicsEnabled() ? rw::c3d::ps2WorldRange() : clip;
 	return PS2Graphics3DS::FogStart(fogStart, range,

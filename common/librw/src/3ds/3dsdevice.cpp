@@ -1818,8 +1818,7 @@ ps2SilhouetteWeight(Atomic *atomic)
 	const Sphere &bounds = *atomic->getWorldBoundingSphere();
 	const V3d offset = sub(bounds.center, view.pos);
 	const float32 nearestDepth = dot(offset, view.at) - bounds.radius;
-	return PS2Graphics3DS::SilhouetteWeight(nearestDepth,
-		PS2Graphics3DS::SilhouetteFogStart(cam->fogPlane, rwStateCache.fogEnd), rwStateCache.fogEnd, ps2GraphicsGame);
+	return PS2Graphics3DS::SilhouetteWeight(nearestDepth, cam->fogPlane, rwStateCache.fogEnd, ps2GraphicsGame);
 }
 
 // Retain pre-HUD world history separately for each native eye format. Native
