@@ -206,6 +206,14 @@ python3 -m unittest discover -s $WORKSPACE_ROOT/repo/scripts/tests -p 'test_*.py
 $WORKSPACE_ROOT/repo/scripts/verify-layout.sh
 ```
 
+In a git worktree, `verify-layout.sh` stops with "Install manifest is stale"
+and exit code 1, also on a clean tree. The cause is
+`models/generic/race_arrow.dff` and `race_arrow.txd` in `gamefiles/relcs/`.
+`common/3ds/InstallManifest.h` lists them, but git does not track them, so
+only the main checkout has them. The symlink check still passes. Do not
+regenerate the manifest from a worktree: that removes the two entries. Run
+the check in the main checkout, or copy the two files into the worktree.
+
 `test_3ds_world_and_menus.py`'s `test_compiled_menus` needs `DEVKITARM`
 exported (see above) — it defaults to a `toolchains/devkitARM-r55` path that
 does not exist in this environment.
