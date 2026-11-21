@@ -1637,6 +1637,34 @@ tint, alpha) before tuning anything. Here each data theory (PS2 alpha
 scale, UV tiling, vertex alpha) gave a prediction that didn't fit. See
 `git log --grep="faint glass"`.
 
+## Reference: check the PS2 Graphics settings before you compare screenshots
+
+The "PS2 Graphics" option on the `Display` page controls four parts: the PS2
+colour filter, distance fog, blur and short draw distance. Each part
+also has its own row under it (stories only). Before you compare a 3DS
+screenshot with a PS2 screenshot, get these values from the user or from
+`reLCS.ini` on the SD card:
+
+| `reLCS.ini` key (section `Graphics`) | Effect when off |
+|---|---|
+| `PS2Graphics` | All four parts below are off. |
+| `PS2ColourFilter` | No PS2 colour gain. The stock `RenderMotionBlur` runs. |
+| `PS2Fog` | No PS2 distance fog and no skyline haze. |
+| `PS2Blur` | No history blend and no 2-pixel echo. |
+| `PS2DrawDistance` | Normal far clip and detail ranges. |
+
+The gates are `rw::c3d::ps2GraphicsPartEnabled(part)` (part enum in
+`common/librw/src/3ds/rw3ds.h`). A part is on only when the master switch
+and the part switch are both on. "Restore defaults" on the
+`Display` page (`RestoreDefDisplay`) sets all five to on. Nothing else sets them.
+
+Real case: a user turned PS2 Graphics off because of the blur. After that,
+each 3DS night screenshot in the comparison had no colour filter. The outdoor scene was much darker than PS2, and the cause looked
+like lighting. With the filter on, the whole-picture average was RGB
+11,22,22 against PS2 11,21,21. The near-fog change from that session was
+never visible on the console, because fog was off. See
+`git log --grep="PS2 Graphics into colour filter"`.
+
 ## Reference: audio sample rates and pitch (sound "too high" on 3DS)
 
 Found while checking a report that 3DS audio was sharp. The cause was the

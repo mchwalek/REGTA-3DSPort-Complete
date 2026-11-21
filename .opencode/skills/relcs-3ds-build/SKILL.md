@@ -181,6 +181,17 @@ ask whether the app launched on the console — don't re-run `scripts/deploy.sh`
 speculatively based on a stale percentage, since that risks compounding a
 genuinely bad console state if the first attempt is in fact still live.
 
+`scripts/deploy.sh` finds `3dslink` at `<repo>/../hosttools/3dslink`. In a
+git worktree outside the workspace, that path does not exist, and the script
+stops with "3dslink not found". From a worktree, call the tool directly:
+
+```sh
+$WORKSPACE_ROOT/hosttools/3dslink -a <3DS-LAN-IP> stories/build/relcs.3dsx
+```
+
+"Connection to <ip> failed" means that the console is not in Homebrew
+Launcher. Ask the user to open it, then send again.
+
 **Write down the commit that each deployed build came from** (`git log -1
 --format='%h %ci'` at build time). Release branches get several builds a day,
 so "tested on today's release" isn't specific enough. Before you say a fix did

@@ -150,6 +150,26 @@ the PC/mouse code after it is not compiled on 3DS. PS2 reference: input
   Square `0x26`, Triangle `0x28`, Cross `0x2a`, Circle `0x2c`, L3 `0x2e`,
   R3 `0x30`; OldState at `+0x30`. Use these when reading any PS2 pad code.
 
+## Frontend rows: scrolling pages and disabled rows (stories)
+
+- A page with more than `MAX_VISIBLE_OPTION` (12) rows scrolls
+  (`SCROLLABLE_PAGES`, `Frontend.cpp`). On such a page, `ProcessList` moves
+  the cursor for up/down. `ProcessUserInput` gets `goUp`/`goDown` as false,
+  so a change to its up/down code has no effect there. The `Display` page has
+  14 rows on 3DS, so it scrolls.
+- A `CCFODynamic` row whose draw function sets `*disabled = true` draws dark
+  text, also when the cursor is on it. The menu marks the cursor only with
+  white text, so the cursor is not visible on a disabled row. After
+  `ProcessList`, the `_3DS` block moves the cursor past disabled rows in the
+  same direction (`IsMenuRowDisabled3DS`). If no usable row comes before the
+  end of the list, the cursor goes back to the old row.
+- Touch input can still select a disabled row. The press function must
+  ignore the press while its draw function reports the row as disabled (see
+  `PS2GraphicsPartButtonPress`, `common/3ds/PS2GraphicsMenu.h`).
+- A new row label needs a hardcoded `CText::Get` entry
+  (`stories/src/text/Text.cpp`). A key that is not in the GXT shows as an
+  empty string under `MASTER` (AGENTS.md landmine #19).
+
 ## Where NOT to look
 
 - `Frontend_PS2.cpp` is dead code (`PC_MENU` is defined, so `PS2_MENU` never
