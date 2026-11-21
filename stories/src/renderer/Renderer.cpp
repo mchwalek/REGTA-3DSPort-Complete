@@ -173,7 +173,7 @@ struct LCSPS2BuildingRenderScope {
 		style.opacity *= LCSPS2BuildingOpacity(ent);
 		style.worldBuilding = ent->IsBuilding();
 		style.leedsBuildingLighting = ent->IsBuilding();
-		style.worldSkyline = rw::c3d::ps2GraphicsEnabled() && IsLCSIslandLodModel(ent->GetModelIndex());
+		style.worldSkyline = rw::c3d::ps2GraphicsPartEnabled(rw::c3d::PS2_PART_FOG) && IsLCSIslandLodModel(ent->GetModelIndex());
 		rw::c3d::setEntityRenderStyle(style);
 	}
 	~LCSPS2BuildingRenderScope() { rw::c3d::setEntityRenderStyle(previous); }
@@ -356,7 +356,7 @@ GetLCSWorldLodScale(CSimpleModelInfo *mi, int16 modelId, CEntity *ent, const LCS
 	// original draw distance, and coarse models keep their original far limit.
 	if(ent && ent->IsBuilding() && !ent->bIsBIGBuilding &&
 	   HasLCSBuildingLodPair(modelId, LCS_HD_HAS_LOD))
-		scale *= LCS_BUILDING_HD_RANGE * (rw::c3d::ps2GraphicsEnabled() ? PS2Graphics3DS::DetailRangeScale : 1.0f);
+		scale *= LCS_BUILDING_HD_RANGE * (rw::c3d::ps2GraphicsPartEnabled(rw::c3d::PS2_PART_DRAW_DISTANCE) ? PS2Graphics3DS::DetailRangeScale : 1.0f);
 	return scale;
 }
 

@@ -182,6 +182,8 @@ static UniformObject uniformObject;
 static V3d cameraWorldOrigin = {0.0f, 0.0f, 0.0f};
 static C3DMaterialState materialState;
 static bool32 ps2Graphics = PS2Graphics3DS::DefaultEnabled;
+static bool32 ps2GraphicsParts[PS2_NUM_PARTS] = {true, true, true, true};
+static bool32 ps2Part(int32 part) { return ps2Graphics && ps2GraphicsParts[part]; }
 static bool32 ps2FogCamera;
 static C3D_Tex ps2FogTexture;
 static bool32 ps2FogTextureReady;
@@ -1317,7 +1319,7 @@ flushCache(float32 entityOpacity)
 {
 	// Nonlinear PICA depth LUTs compress distant world space into the last bin.
 	// Distance-fog variants export their own normalised camera-space coordinate.
-	const bool fog = ps2Graphics && ps2FogCamera && ps2FogTextureReady &&
+	const bool fog = ps2Part(PS2_PART_FOG) && ps2FogCamera && ps2FogTextureReady &&
 		rwStateCache.fogEnable && currentShader && currentShader->hasFogProgram;
 	if(currentShader) currentShader->selectFog(fog);
 	if(ps2FogTextureBound != fog){
@@ -1467,6 +1469,19 @@ setPS2Graphics(bool32 enabled)
 {
 	if(ps2Graphics == enabled) return;
 	ps2Graphics = enabled;
+	ps2FogParams[0] = ps2FogParams[1] = 0.0f;
+	ps2HistoryValid[0] = ps2HistoryValid[1] = false;
+	ps2HistoryTick = 0;
+}
+
+bool32 ps2GraphicsPartSetting(int32 part) { return ps2GraphicsParts[part]; }
+bool32 ps2GraphicsPartEnabled(int32 part) { return ps2Part(part); }
+
+void
+setPS2GraphicsPart(int32 part, bool32 enabled)
+{
+	if(ps2GraphicsParts[part] == enabled) return;
+	ps2GraphicsParts[part] = enabled;
 	ps2FogParams[0] = ps2FogParams[1] = 0.0f;
 	ps2HistoryValid[0] = ps2HistoryValid[1] = false;
 	ps2HistoryTick = 0;
@@ -1756,14 +1771,14 @@ updateFog(Camera *cam)
 	rwStateCache.fogEnd = cam->farPlane;
 	ps2FogCamera = isTopCamera(cam) && cam->projection == Camera::PERSPECTIVE &&
 		cam->nearPlane > 0.0f && cam->farPlane > cam->nearPlane;
-	if(ps2Graphics && ps2FogCamera && ps2OrdinaryWorldRange > cam->fogPlane)
-		rwStateCache.fogEnd = PS2Graphics3DS::Minimum(cam->farPlane, ps2OrdinaryWorldRange);
+	if(ps2FogCamera && ps2WorldRange() > cam->fogPlane)
+		rwStateCache.fogEnd = PS2Graphics3DS::Minimum(cam->farPlane, ps2WorldRange());
 	// Initialised for every camera, even when disabled. Only the dedicated
 	// fog shader entries consume these values; normal/HUD entries are intact.
 	ps2FogParams[0] = ps2FogParams[1] = 0.0f;
 	ps2FogParams[2] = 0.5f;
 	ps2FogParams[3] = 0.0f;
-	if(!ps2Graphics || !ps2FogCamera){
+	if(!ps2Part(PS2_PART_FOG) || !ps2FogCamera){
 		c3dUniform4fv(U(u_ps2FogParams), 1, ps2FogParams);
 		return;
 	}
@@ -1795,7 +1810,7 @@ setPS2WorldRange(float32 range)
 float32
 ps2WorldRange(void)
 {
-	return ps2Graphics ? ps2OrdinaryWorldRange : 0.0f;
+	return ps2Part(PS2_PART_DRAW_DISTANCE) ? ps2OrdinaryWorldRange : 0.0f;
 }
 
 void
@@ -1809,7 +1824,7 @@ setPS2SilhouetteWeight(float32 weight)
 float32
 ps2SilhouetteWeight(Atomic *atomic)
 {
-	if(!ps2Graphics || !ps2FogCamera || !ps2FogTextureReady ||
+	if(!ps2Part(PS2_PART_FOG) || !ps2FogCamera || !ps2FogTextureReady ||
 	   !rwStateCache.fogEnable || !entityRenderStyle.worldBuilding ||
 	   entityRenderStyle.opacity < 1.0f) return 0.0f;
 	Camera *cam = (Camera*)engine->currentCamera;
@@ -1827,7 +1842,9 @@ void
 renderPS2Graphics(int32 game, float32 red, float32 green, float32 blue, float32 alpha)
 {
 	Camera *cam = (Camera*)engine->currentCamera;
-	if(!ps2Graphics || !cam || !isTopCamera(cam)) return;
+	const bool32 filter = ps2Part(PS2_PART_COLOUR_FILTER);
+	const bool32 blur = ps2Part(PS2_PART_BLUR);
+	if(!(filter || blur) || !cam || !isTopCamera(cam)) return;
 	const int32 initialEye = stereoActive && stereoViewportEye == 1 ? 1 : 0;
 	const int32 passes = stereoActive ? 2 : 1;
 	const uint64 tick = svcGetSystemTick();
@@ -1843,8 +1860,9 @@ renderPS2Graphics(int32 game, float32 red, float32 green, float32 blue, float32 
 	   stereoExtendedDepth != ps2HistoryExtended || dx*dx + dy*dy + dz*dz > 256.0f || facing < 0.0f){
 		ps2HistoryValid[0] = ps2HistoryValid[1] = false;
 	}
-	const float32 gain[3] = {PS2Graphics3DS::ColourGain(game, red, alpha),
-		PS2Graphics3DS::ColourGain(game, green, alpha), PS2Graphics3DS::ColourGain(game, blue, alpha)};
+	const float32 gain[3] = {filter ? PS2Graphics3DS::ColourGain(game, red, alpha) : 1.0f,
+		filter ? PS2Graphics3DS::ColourGain(game, green, alpha) : 1.0f,
+		filter ? PS2Graphics3DS::ColourGain(game, blue, alpha) : 1.0f};
 	for(int32 pass = 0; pass < passes; ++pass){
 		const int32 eye = pass ? 1 - initialEye : initialEye;
 		C3D_FrameBuf *source = stereoFrameBuffer[eye];
@@ -1870,17 +1888,19 @@ renderPS2Graphics(int32 game, float32 red, float32 green, float32 blue, float32 
 			ps2EyeTextureReady[eye] = true;
 		}
 		setStereoEyeViewport(eye);
-		if(ps2HistoryValid[eye])
+		if(blur && ps2HistoryValid[eye])
 			im2DRenderPS2Overlay(&ps2EyeTexture[eye], 1.0f, 1.0f, 1.0f, 30.0f/255.0f, 0.0f, 0.0f);
 		// Store the temporal mixture before grading/edge softness. This keeps
 		// the filter from amplifying itself over successive frames, and HUD
 		// text never becomes part of the retained image.
 		C3D_SyncTextureCopy((u32*)source->colorBuf, 0,
 			(u32*)ps2EyeTexture[eye].data, 0, size, 8);
-		im2DRenderPS2Overlay(&ps2EyeTexture[eye], gain[0], gain[1], gain[2], 1.0f, 0.0f, 0.0f);
+		if(filter)
+			im2DRenderPS2Overlay(&ps2EyeTexture[eye], gain[0], gain[1], gain[2], 1.0f, 0.0f, 0.0f);
 		// Desktop's shifted second overlay: a subtle two-pixel image echo,
 		// not a dark-corner vignette. Same displacement in both eyes.
-		im2DRenderPS2Overlay(&ps2EyeTexture[eye], gain[0], gain[1], gain[2], 0.18f, 2.0f, 2.0f);
+		if(blur)
+			im2DRenderPS2Overlay(&ps2EyeTexture[eye], gain[0], gain[1], gain[2], 0.18f, 2.0f, 2.0f);
 		ps2HistoryValid[eye] = true;
 	}
 	ps2HistoryTick = tick;

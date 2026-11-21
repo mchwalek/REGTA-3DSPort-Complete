@@ -164,12 +164,12 @@ void RestoreDefDisplay(int8 action) {
 		FrontEndMenuManager.SaveSettings();
 	#endif
 #ifdef _3DS
-	if(!rw::c3d::ps2GraphicsEnabled()){
-		rw::c3d::setPS2Graphics(true);
+	rw::c3d::setPS2Graphics(true);
+	for(int32 part = 0; part < rw::c3d::PS2_NUM_PARTS; part++)
+		rw::c3d::setPS2GraphicsPart(part, true);
 #ifdef LOAD_INI_SETTINGS
-		SaveINISettings();
+	SaveINISettings();
 #endif
-	}
 #endif
 }
 
@@ -499,6 +499,10 @@ CMenuScreenCustom aScreens[] = {
 		MENUACTION_BRIGHTNESS,	"FED_BRI", { nil, SAVESLOT_NONE, MENUPAGE_DISPLAY_SETTINGS }, 0, 0, MENUALIGN_LEFT,
 #ifdef _3DS
 		MENUACTION_CFO_DYNAMIC, "F3PS2", { new CCFODynamic(nil, nil, nil, PS2GraphicsDraw, PS2GraphicsButtonPress) }, 0, 0, MENUALIGN_LEFT,
+		PS2_GRAPHICS_PART_ROW("F3PCF", rw::c3d::PS2_PART_COLOUR_FILTER)
+		PS2_GRAPHICS_PART_ROW("F3PFG", rw::c3d::PS2_PART_FOG)
+		PS2_GRAPHICS_PART_ROW("F3PBL", rw::c3d::PS2_PART_BLUR)
+		PS2_GRAPHICS_PART_ROW("F3PDD", rw::c3d::PS2_PART_DRAW_DISTANCE)
 #endif
 #ifndef _3DS
 		MENUACTION_DRAWDIST,	"FEM_LOD", { nil, SAVESLOT_NONE, MENUPAGE_DISPLAY_SETTINGS }, 0, 0, MENUALIGN_LEFT,

@@ -206,6 +206,7 @@ CustomFrontendOptionsPopulate(void)
 
 mINI::INIFile ini("reLCS.ini");
 mINI::INIStructure cfg;
+static const char *ps2GraphicsPartKeys[rw::c3d::PS2_NUM_PARTS] = { "PS2ColourFilter", "PS2Fog", "PS2Blur", "PS2DrawDistance" };
 
 bool ReadIniIfExists(const char *cat, const char *key, uint32 *out)
 {
@@ -537,6 +538,11 @@ bool LoadINISettings()
 	ReadIniIfExists("Graphics", "PerformanceMode2D", &performanceMode2D);
 	ReadIniIfExists("Graphics", "PerformanceMode3D", &performanceMode3D);
 	rw::c3d::setPS2Graphics(ps2Graphics);
+	for(int32 part = 0; part < rw::c3d::PS2_NUM_PARTS; part++){
+		bool enabled = true;
+		ReadIniIfExists("Graphics", ps2GraphicsPartKeys[part], &enabled);
+		rw::c3d::setPS2GraphicsPart(part, enabled);
+	}
 	rw::c3d::setStereoExtendedDepth(stereoExtendedDepth);
 	rw::c3d::set3DSPerformanceModes(performanceMode2D, performanceMode3D);
 	ReadIniIfExists("Graphics", "FrameLimiter", &FrontEndMenuManager.m_PrefsFrameLimiter);
@@ -649,6 +655,8 @@ void SaveINISettings()
 	StoreIni("Display", "Subtitles", FrontEndMenuManager.m_PrefsShowSubtitles);
 	StoreIni("Graphics", "AspectRatio", FrontEndMenuManager.m_PrefsUseWideScreen);
 	StoreIni("Graphics", "PS2Graphics", rw::c3d::ps2GraphicsEnabled() != 0);
+	for(int32 part = 0; part < rw::c3d::PS2_NUM_PARTS; part++)
+		StoreIni("Graphics", ps2GraphicsPartKeys[part], rw::c3d::ps2GraphicsPartSetting(part) != 0);
 	StoreIni("Graphics", "StereoExtendedDepth",
 	         rw::c3d::stereoExtendedDepthEnabled() != 0);
 	StoreIni("Graphics", "PerformanceMode2D",

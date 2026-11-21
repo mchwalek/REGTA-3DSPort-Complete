@@ -316,7 +316,7 @@ Hide(CEntity *entity)
 
 inline float PS2OccupantOpacity(CVehicle *vehicle)
 {
-	if(!rw::c3d::ps2GraphicsEnabled() || vehicle->VehicleCreatedBy != RANDOM_VEHICLE)
+	if(!rw::c3d::ps2GraphicsPartEnabled(rw::c3d::PS2_PART_DRAW_DISTANCE) || vehicle->VehicleCreatedBy != RANDOM_VEHICLE)
 		return 1.0f;
 	CPlayerPed *player = FindPlayerPed();
 	if(player && vehicle == player->m_pMyVehicle) return 1.0f;

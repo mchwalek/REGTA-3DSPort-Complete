@@ -114,6 +114,11 @@ bool32 stereoExtendedDepthEnabled(void);
 void setStereoExtendedDepth(bool32 extendedDepth);
 bool32 ps2GraphicsEnabled(void);
 void setPS2Graphics(bool32 enabled);
+// Each part runs only while the master switch above is also on.
+enum { PS2_PART_COLOUR_FILTER, PS2_PART_FOG, PS2_PART_BLUR, PS2_PART_DRAW_DISTANCE, PS2_NUM_PARTS };
+bool32 ps2GraphicsPartSetting(int32 part);
+bool32 ps2GraphicsPartEnabled(int32 part);
+void setPS2GraphicsPart(int32 part, bool32 enabled);
 void preparePS2GraphicsColour(int32 game, float32 red, float32 green, float32 blue, float32 alpha = 30.0f);
 void setPS2WorldRange(float32 range);
 float32 ps2WorldRange(void);
