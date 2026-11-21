@@ -151,8 +151,8 @@ SyncLCSFortStauntonWorld(void)
 	if(destroyed) {
 		/* commer.ipl contains the intact city plus only the destroyed LOD shell.
 		 * Remove both flattened phases, then load the complete authored ruin IPL.
-		 * Models 3653..3660 are the detailed rubble/set-piece layer already placed
-		 * by the flattened IPL, so they deliberately remain in the ruined phase. */
+		 * Models 3653..3660 are the subway construction set (beams, overhangs,
+		 * Rubble3 end caps). commer.ipl places them, and they stay in both phases. */
 		RemoveBuildingsInModelRange(3600, 3652);
 		RemoveBuildingsInModelRange(3661, 3664);
 		RemoveBuildingsInModelRange(3685, 3741);
@@ -160,9 +160,11 @@ SyncLCSFortStauntonWorld(void)
 		CFileLoader::LoadScene("DATA/Maps/fortdestroyed.ipl");
 	} else {
 		/* The complete intact phase is already part of commer.ipl.  Its stray
-		 * destroyed LODs and detailed rubble caused the night-time z-fighting and
-		 * needless draw cost. */
-		RemoveBuildingsInModelRange(3653, 3660);
+		 * destroyed LODs caused the night-time z-fighting and needless draw cost.
+		 * Keep the construction set (3653..3660): PS2 keeps it in the static
+		 * building table and draws it with no level swap. "Bringing the House
+		 * Down" drives through it, and without the Rubble3 end caps the subway
+		 * tube is open at both ends. */
 		RemoveBuildingsInModelRange(3685, 3741);
 		LoadLCSFortCollision(false);
 	}
