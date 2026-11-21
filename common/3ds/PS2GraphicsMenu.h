@@ -17,7 +17,7 @@ static void PS2GraphicsButtonPress(int8 action)
 #endif
 }
 
-// Greyed out and inert while the master switch is off; the stored value is kept.
+// While the master switch is off, the row is disabled and ignores presses. The stored value stays.
 template<int part>
 static wchar *PS2GraphicsPartDraw(bool *disabled, bool)
 {
