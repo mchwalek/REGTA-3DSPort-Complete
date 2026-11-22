@@ -309,6 +309,18 @@ struct LCSWorldBounds {
 	}
 };
 
+static int gLCSTunnelMouthLod = -1;
+static const float LCS_TUNNEL_LOD_MARGIN = 10.0f;
+
+static bool
+IsCameraInsideLCSTunnelLod(int modelId, const LCSWorldBounds &bounds)
+{
+	/* LODl_tunnel1 has a black arch behind the west portal of the Shoreside
+	 * tunnel. The real tunnel is wider and turns east, so the arch is inside
+	 * the road. PS2 does not list this LOD in the sectors near the mouth. */
+	return modelId == gLCSTunnelMouthLod && bounds.distance < bounds.radius + LCS_TUNNEL_LOD_MARGIN;
+}
+
 static float
 GetLCSWorldLodScale(CSimpleModelInfo *mi, int16 modelId, CEntity *ent, const LCSWorldBounds &bounds)
 {
@@ -523,6 +535,7 @@ CRenderer::Init(void)
 		SortBIGBuildings();
 #ifdef _3DS
 	InitLCSBuildingLodPairs();
+	CModelInfo::GetModelInfo("LODl_tunnel1", &gLCSTunnelMouthLod);
 #endif
 }
 
@@ -1610,6 +1623,8 @@ CRenderer::SetupBigBuildingVisibility(CEntity *ent)
 	const LCSWorldBounds bounds(ent, ms_vecCameraPosition);
 	const float lodDist = GetLCSWorldDistance(ent, dist, bounds) /
 		GetLCSWorldLodScale(mi, ent->m_modelIndex, ent, bounds);
+	if(IsCameraInsideLCSTunnelLod(ent->m_modelIndex, bounds))
+		return VIS_INVISIBLE;
 #else
 	const float lodDist = dist;
 #endif

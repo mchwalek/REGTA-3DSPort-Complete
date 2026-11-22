@@ -29,8 +29,10 @@ On 3DS they don't render as a glow:
   textured texels) gives them a grey base colour even with black day
   prelight.
 
-The result is grey slabs inside the tunnel, which matches the report of
-strange opaque geometry.
+The result is grey slabs inside the tunnel. A console test after the fix
+showed that the reported geometry was still there and had turned black. The
+slabs were blending over it. The cause of the report is the west mouth LOD:
+see `2026-11-22-shoreside-tunnel-mouth-lod-design.md`.
 
 ## What PS2 draws there
 
@@ -99,6 +101,6 @@ Only stories changes. III and miami have no such models.
 
 ## Rulings
 
-- Ruling: treat `Trans_lights01-03` as the reported geometry — they are the only tunnel models with no PS2 counterpart and the only see-through ones drawn with the wrong blend — if wrong, the card stays open and the tunnel loses a night effect PS2 doesn't have anyway.
+- Ruling: treat `Trans_lights01-03` as the reported geometry — they are the only tunnel models with no PS2 counterpart — this was wrong: the console test showed the report is the west mouth LOD. The removal stays because PS2 has no such instances.
 - Ruling: remove the instances instead of fixing the additive blend — PS2 has no such instances at all, so removing them matches PS2 by day and by night — cost if wrong: none for PS2 parity. The PC data's night glow is gone.
 - Ruling: gate on `_3DS` — the only build this repo makes, and desktop reLCS's additive pipeline may draw them differently — cost if wrong: a desktop build keeps the volumes.
