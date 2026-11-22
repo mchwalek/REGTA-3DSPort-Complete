@@ -10,7 +10,11 @@ public:
 		TOTAL_FASTEST_TIMES = 23,
 		TOTAL_HIGHEST_SCORES = 5,
 		TOTAL_BEST_POSITIONS = 1,
-		TOTAL_PROPERTIES = 15
+		TOTAL_PROPERTIES = 15,
+		TOTAL_BANDIT_RACES = 3,
+		TOTAL_STREET_RACES = 6,
+		TOTAL_DIRT_BIKE_RACES = 10,
+		TOTAL_COSTUMES = 16
 	};
 	static int32 SeagullsKilled;
 	static int32 DaysPassed;
@@ -106,6 +110,57 @@ public:
 	static float LongestStoppieDist;
 	static float Longest2WheelDist;
 
+	// LCS-only stats. SaveStats writes them after the stats above.
+	static int32 CarsCrushed;
+	static int32 HitmenKilled;
+	static float LongestFacePlantDist;
+	static int32 CarsSold;
+	static int32 MoneyMadeWithCarSales;
+	static int32 BikesSold;
+	static int32 MoneyMadeWithBikeSales;
+	static int32 NumberOfExportedCars;
+	static int32 TotalNumberOfCarExport;
+	static int32 HighestLevelSlashTv;
+	static int32 MoneyMadeWithSlashTv;
+	static int32 TotalKillsOnSlashTV;
+	static int32 PackagesSmuggled;
+	static int32 SmugglersWasted;
+	static int32 FastestSmugglingTime;
+	static int32 MoneyMadeInCoach;
+	static int32 MoneyMadeCollectingTrash;
+	static int32 GuardianAngelMissionsPassed;
+	static int32 HighestGuardianAngelJusticeDished;
+	static int32 GuardianAngelHighestLevel_Ind;
+	static int32 GuardianAngelHighestLevel_Com;
+	static int32 GuardianAngelHighestLevel_Sub;
+	static int32 MostTimeLeftTrainRace;
+	static int32 HighestTrainCashEarned;
+	static int32 FastestHeliRaceTime;
+	static int32 BestHeliRacePosition;
+	static int32 NumberOutfitChanges;
+	static int32 BestBanditLapTimes[TOTAL_BANDIT_RACES];
+	static int32 BestBanditPositions[TOTAL_BANDIT_RACES];
+	static int32 StreetRaceFastestTime[TOTAL_STREET_RACES];
+	static int32 StreetRaceFastestLap[TOTAL_STREET_RACES];
+	static int32 StreetRaceBestPosition[TOTAL_STREET_RACES];
+	static int32 DirtBikeFastestLap[TOTAL_DIRT_BIKE_RACES];
+	static int32 DirtBikeFastestTime[TOTAL_DIRT_BIKE_RACES];
+	static int32 DirtBikeMostAir;
+	static int32 BestTimeGoGoFaggio;
+	static float NoodlesDelivered;
+	static float MoneyMadeFromTourist;
+	static float TouristsTakenToSpots;
+	static int32 MaxSecondsOnCarnageLeft;
+	static int32 MaxKillsOnRcTriad;
+	static float TopScrapyardChallengeScore;
+	static float Top9mmMayhemScore;
+	static float TopScooterShooterScore;
+	static float TopWichitaWipeoutScore;
+	static uint16 UnlockedCostumes;
+
+	// The timer value when this session started. It is not saved.
+	static int32 SessionStartTime;
+
 public:
 	static void Init(void);
 	static void RegisterFastestTime(int32, int32);
@@ -147,6 +202,23 @@ public:
 	static void AddPropertyAsOwned(int32);
 	static void PopulateFavoriteRadioStationList();
 	static float GetFavoriteRadioStationList(int32);
-	static void BuildStatLine(Const char *, void *, int, void *, int);
+	static void InitLcsStats(void);
+	static void RegisterFastestSmugglingTime(int32 time);
+	static void RegisterHighestGuardianAngelJusticeDished(int32);
+	static void RegisterGuardianAngelLevels(int32 ind, int32 com, int32 sub);
+	static void RegisterBestBanditLapTime(int32 race, int32 time);
+	static void RegisterBestBanditPosition(int32 race, int32 position);
+	static void RegisterMostTimeLeftTrainRace(int32 time);
+	static void RegisterHighestTrainCashEarned(int32 cash);
+	static void RegisterFastestHeliRaceTime(int32 time);
+	static void RegisterBestHeliRacePosition(int32 position);
+	static void RegisterStreetRaceFastestTime(int32 race, int32 time);
+	static void RegisterStreetRaceFastestLap(int32 race, int32 time);
+	static void RegisterStreetRaceBestPosition(int32 race, int32 position);
+	static void RegisterDirtBikeFastestLap(int32 race, int32 time);
+	static void RegisterDirtBikeFastestTime(int32 race, int32 time);
+	static void RegisterBestTimeGoGoFaggio(int32 time);
+	static void AddUnlockedCostume(int32 costume);
+	static void BuildStatLine(Const char *, void *, int, void *, int, int indent = 0);
 	static int ConstructStatLine(int);
 };

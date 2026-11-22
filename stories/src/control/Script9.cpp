@@ -519,11 +519,11 @@ int8 CRunningScript::ProcessCommands1500To1599(int32 command)
 		return 0;
 	}
 	case COMMAND_REGISTER_CAR_SOLD:
-		// CStats::CarsSold++;
+		CStats::CarsSold++;
 		return 0;
 	case COMMAND_ADD_MONEY_MADE_WITH_CAR_SALES:
 		CollectParameters(&m_nIp, 1);
-		// CStats::MoneyMadeWithCarSales += GET_INTEGER_PARAM(0);
+		CStats::MoneyMadeWithCarSales += GET_INTEGER_PARAM(0);
 		return 0;
 	case COMMAND_SET_BRIDGE_STATE:
 	{
@@ -593,21 +593,21 @@ int8 CRunningScript::ProcessCommands1500To1599(int32 command)
 		CWorld::Players[CWorld::PlayerInFocus].m_nCollectedPackages = GET_INTEGER_PARAM(0);
 		return 0;
 	case COMMAND_REGISTER_BIKE_SOLD:
-		// CStats::BikesSold++;
+		CStats::BikesSold++;
 		return 0;
 	case COMMAND_ADD_MONEY_MADE_WITH_BIKE_SALES:
 		CollectParameters(&m_nIp, 1);
-		// CStats::MoneyMadeWithBikeSales += GET_INTEGER_PARAM(0);
+		CStats::MoneyMadeWithBikeSales += GET_INTEGER_PARAM(0);
 		return 0;
 	case COMMAND_REGISTER_PACKAGE_SMUGGLED:
-		// CStats::PackagesSmuggled++;
+		CStats::PackagesSmuggled++;
 		return 0;
 	case COMMAND_REGISTER_SMUGGLER_WASTED:
-		// CStats::SmugglersWasted++;
+		CStats::SmugglersWasted++;
 		return 0;
 	case COMMAND_REGISTER_FASTEST_SMUGGLING_TIME:
 		CollectParameters(&m_nIp, 1);
-		// CStats::RegisterFastestSmugglingTime(GET_INTEGER_PARAM(0));
+		CStats::RegisterFastestSmugglingTime(GET_INTEGER_PARAM(0));
 		return 0;
 	case COMMAND_SET_CHAR_DIVE_FROM_CAR:
 	{
@@ -649,60 +649,60 @@ int8 CRunningScript::ProcessCommands1500To1599(int32 command)
 	}
 	case COMMAND_ADD_MONEY_MADE_IN_COACH:
 		CollectParameters(&m_nIp, 1);
-		// CStats::MoneyMadeInCoach += GET_INTEGER_PARAM(0);
+		CStats::MoneyMadeInCoach += GET_INTEGER_PARAM(0);
 		return 0;
 	case COMMAND_ADD_MONEY_MADE_COLLECTING_TRASH:
 		CollectParameters(&m_nIp, 1);
-		// CStats::MoneyMadeCollectingTrash += GET_INTEGER_PARAM(0);
+		CStats::MoneyMadeCollectingTrash += GET_INTEGER_PARAM(0);
 		return 0;
 	case COMMAND_REGISTER_HITMAN_KILLED:
-		// CStats::HitmenKilled++;
+		CStats::HitmenKilled++;
 		return 0;
 	case COMMAND_REGISTER_GUARDIAN_ANGEL_MISSION_PASSED:
-		// CStats::GaurdianAngelMissionsPassed++;
+		CStats::GuardianAngelMissionsPassed++;
 		return 0;
 	case COMMAND_REGISTER_HIGHEST_GUARDIAN_ANGEL_JUSTICE_DISHED:
 		CollectParameters(&m_nIp, 1);
-		// CStats::RegisterHighestGaurdianAngelJusticeDished(GET_INTEGER_PARAM(0));
+		CStats::RegisterHighestGuardianAngelJusticeDished(GET_INTEGER_PARAM(0));
 		return 0;
 	case COMMAND_REGISTER_BEST_BANDIT_LAP_TIME:
 		CollectParameters(&m_nIp, 2);
-		// CStats::RegisterBestBanditLapTime(GET_INTEGER_PARAM(0), GET_INTEGER_PARAM(1));
+		CStats::RegisterBestBanditLapTime(GET_INTEGER_PARAM(0), GET_INTEGER_PARAM(1));
 		return 0;
 	case COMMAND_REGISTER_BEST_BANDIT_POSITION:
 		CollectParameters(&m_nIp, 2);
-		// CStats::RegisterBestBanditPosition(GET_INTEGER_PARAM(0), GET_INTEGER_PARAM(1));
+		CStats::RegisterBestBanditPosition(GET_INTEGER_PARAM(0), GET_INTEGER_PARAM(1));
 		return 0;
 	case COMMAND_REGISTER_MOST_TIME_LEFT_TRAIN_RACE:
 		CollectParameters(&m_nIp, 1);
-		// CStats::RegisterMostTimeLeftTrainRace(GET_INTEGER_PARAM(0));
+		CStats::RegisterMostTimeLeftTrainRace(GET_INTEGER_PARAM(0));
 		return 0;
 	case COMMAND_REGISTER_HIGHEST_TRAIN_CASH_EARNED:
 		CollectParameters(&m_nIp, 1);
-		// CStats::RegisterHighestTrainCashEarned(GET_INTEGER_PARAM(0));
+		CStats::RegisterHighestTrainCashEarned(GET_INTEGER_PARAM(0));
 		return 0;
 	case COMMAND_REGISTER_FASTEST_HELI_RACE_TIME:
-		// CStats::RegisterFastestHeliRaceTime(GET_INTEGER_PARAM(0));
 		CollectParameters(&m_nIp, 1);
+		CStats::RegisterFastestHeliRaceTime(GET_INTEGER_PARAM(0));
 		return 0;
 	case COMMAND_REGISTER_BEST_HELI_RACE_POSITION:
-		// CStats::RegisterBestHeliRacePosition(GET_INTEGER_PARAM(0));
 		CollectParameters(&m_nIp, 1);
+		CStats::RegisterBestHeliRacePosition(GET_INTEGER_PARAM(0));
 		return 0;
 	case COMMAND_REGISTER_OUTFIT_CHANGE:
-		// CStats::NumberOutfitChanges++;
+		CStats::NumberOutfitChanges++;
 		return 0;
 	case COMMAND_REGISTER_STREET_RACE_FASTEST_TIME:
-		// CStats::RegisterStreetRaceFastestTime(GET_INTEGER_PARAM(0), GET_INTEGER_PARAM(1));
 		CollectParameters(&m_nIp, 2);
+		CStats::RegisterStreetRaceFastestTime(GET_INTEGER_PARAM(0), GET_INTEGER_PARAM(1));
 		return 0;
 	case COMMAND_REGISTER_STREET_RACE_FASTEST_LAP:
 		CollectParameters(&m_nIp, 2);
-		// CStats::RegisterStreetRaceFastestLap(GET_INTEGER_PARAM(0), GET_INTEGER_PARAM(1));
+		CStats::RegisterStreetRaceFastestLap(GET_INTEGER_PARAM(0), GET_INTEGER_PARAM(1));
 		return 0;
 	case COMMAND_REGISTER_STREET_RACE_BEST_POSITION:
 		CollectParameters(&m_nIp, 2);
-		// CStats::RegisterStreetRaceBestPosition(GET_INTEGER_PARAM(0), GET_INTEGER_PARAM(1));
+		CStats::RegisterStreetRaceBestPosition(GET_INTEGER_PARAM(0), GET_INTEGER_PARAM(1));
 		return 0;
 	case COMMAND_HAS_OBJECT_BEEN_DAMAGED_BY_WEAPON:
 	{
@@ -1112,27 +1112,27 @@ int8 CRunningScript::ProcessCommands1500To1599(int32 command)
 	}
 	case COMMAND_REGISTER_FACE_PLANT_DISTANCE:
 		CollectParameters(&m_nIp, 1);
-		//CStats::LongestFacePlantDist = Max(CStats::LongestFacePlantDist, GET_FLOAT_PARAM(0));
+		CStats::LongestFacePlantDist = Max(CStats::LongestFacePlantDist, GET_FLOAT_PARAM(0));
 		return 0;
 	case COMMAND_REGISTER_MAX_SECONDS_ON_CARNAGE_LEFT:
 		CollectParameters(&m_nIp, 1);
-		//CStats::MaxSecondsOnCarnageLeft = Max(CStats::MaxSecondsOnCarnageLeft, GET_INTEGER_PARAM(0));
+		CStats::MaxSecondsOnCarnageLeft = Max(CStats::MaxSecondsOnCarnageLeft, GET_INTEGER_PARAM(0));
 		return 0;
 	case COMMAND_REGISTER_MAX_KILLS_ON_RC_TRIAD:
 		CollectParameters(&m_nIp, 1);
-		//CStats::MaxKillsOnRcTriad = Max(CStats::MaxKillsOnRcTriad, GET_INTEGER_PARAM(0));
+		CStats::MaxKillsOnRcTriad = Max(CStats::MaxKillsOnRcTriad, GET_INTEGER_PARAM(0));
 		return 0;
 	case COMMAND_REGISTER_HIGHEST_LEVEL_SLASH_TV:
 		CollectParameters(&m_nIp, 1);
-		//CStats::HighestLevelSlashTv = Max(CStats::HighestLevelSlashTv, GET_INTEGER_PARAM(0));
+		CStats::HighestLevelSlashTv = Max(CStats::HighestLevelSlashTv, GET_INTEGER_PARAM(0));
 		return 0;
 	case COMMAND_ADD_MONEY_MADE_WITH_SLASH_TV:
 		CollectParameters(&m_nIp, 1);
-		//CStats::MoneyMadeWithSlashTv += GET_INTEGER_PARAM(0);
+		CStats::MoneyMadeWithSlashTv += GET_INTEGER_PARAM(0);
 		return 0;
 	case COMMAND_ADD_TOTAL_KILLS_ON_SLASH_TV:
 		CollectParameters(&m_nIp, 1);
-		//CStats::TotalKillsOnSlashTV += GET_INTEGER_PARAM(0);
+		CStats::TotalKillsOnSlashTV += GET_INTEGER_PARAM(0);
 		return 0;
 	default:
 		script_assert(0);

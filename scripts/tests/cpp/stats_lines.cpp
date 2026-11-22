@@ -23,6 +23,7 @@
 static wchar gUString[256], gUString2[256];
 static std::string gLeft;
 static std::string gRight;
+static int gIndent;
 
 static void UnicodeStrcpy(wchar *dst, const wchar *src) {
 	while ((*dst++ = *src++)) {}
@@ -84,8 +85,9 @@ static std::string Value(void *p, int type) {
 		snprintf(s, sizeof(s), "%d", *(int *)p);
 	return s;
 }
-void CStats::BuildStatLine(const char *text, void *stat, int type, void *stat2, int) {
+void CStats::BuildStatLine(const char *text, void *stat, int type, void *stat2, int, int indent) {
 	gLeft = text;
+	gIndent = indent;
 	gRight = stat ? Value(stat, type) : "";
 	if (stat2) gRight += "/" + Value(stat2, 0);
 }
@@ -99,6 +101,7 @@ static void PrintRows() {
 	for (int i = 0; i < total; i++) {
 		gLeft = "?";
 		gRight.clear();
+		gIndent = 0;
 		gUString[0] = gUString2[0] = 0;
 		CStats::ConstructStatLine(i);
 		// TEXT_ON_RIGHT clears gUString and fills gUString2 without BuildStatLine.
@@ -106,13 +109,21 @@ static void PrintRows() {
 			gLeft = "";
 			gRight = Narrow(gUString2);
 		}
-		printf("%s|%s\n", gLeft.c_str(), gRight.c_str());
+		printf("%s|%s|%d\n", gLeft.c_str(), gRight.c_str(), gIndent);
 	}
+}
+
+// The PS2 start values of the race positions: INT_MAX, no race finished.
+static void NoRacesFinished() {
+	CStats::BestHeliRacePosition = INT_MAX;
+	for (int i = 0; i < CStats::TOTAL_BANDIT_RACES; i++) CStats::BestBanditPositions[i] = INT_MAX;
+	for (int i = 0; i < CStats::TOTAL_STREET_RACES; i++) CStats::StreetRaceBestPosition[i] = INT_MAX;
 }
 
 static void zero() {
 	CStats::BestStuntJump = 0;
 	CStats::BestPositions[0] = INT_MAX;
+	NoRacesFinished();
 	PrintRows();
 }
 
@@ -151,6 +162,62 @@ static void full() {
 	gListenTime[0] = 1.0f;
 	for (int i = 1; i < 9; i++) gListenTime[i] = 2.0f;
 	gListenTime[10] = 0.0f;
+	NoRacesFinished();
+	CStats::HitmenKilled = 1;
+	CStats::CarsSold = 1;
+	CStats::MoneyMadeWithCarSales = 1;
+	CStats::BikesSold = 1;
+	CStats::MoneyMadeWithBikeSales = 1;
+	CStats::NumberOfExportedCars = 1;
+	CStats::TotalNumberOfCarExport = 3;
+	CStats::HighestLevelSlashTv = 1;
+	CStats::MoneyMadeWithSlashTv = 1;
+	CStats::TotalKillsOnSlashTV = 1;
+	CStats::MoneyMadeCollectingTrash = 1;
+	CStats::GuardianAngelMissionsPassed = 1;
+	CStats::HighestGuardianAngelJusticeDished = 1;
+	CStats::GuardianAngelHighestLevel_Com = 1;
+	CStats::MostTimeLeftTrainRace = 125;
+	CStats::BestHeliRacePosition = 2;
+	CStats::BestBanditPositions[1] = 1;
+	CStats::BestBanditLapTimes[1] = 61;
+	CStats::StreetRaceBestPosition[2] = 1;
+	CStats::StreetRaceFastestLap[2] = 30;
+	CStats::StreetRaceFastestTime[2] = 90;
+	CStats::DirtBikeFastestLap[0] = 40;
+	CStats::DirtBikeFastestTime[0] = 120;
+	CStats::DirtBikeMostAir = 1;
+	CStats::BestTimeGoGoFaggio = 65000;
+	CStats::NoodlesDelivered = 1;
+	CStats::MoneyMadeFromTourist = 1;
+	CStats::TouristsTakenToSpots = 1;
+	CStats::TopScrapyardChallengeScore = 1;
+	CStats::Top9mmMayhemScore = 1;
+	CStats::TopScooterShooterScore = 1;
+	CStats::TopWichitaWipeoutScore = 1;
+	CStats::MaxSecondsOnCarnageLeft = 1;
+	CStats::MaxKillsOnRcTriad = 1;
+	CStats::UnlockedCostumes = 1 << 0 | 1 << 15;
+	CStats::SessionStartTime = 2 * 60000;
+	PrintRows();
+}
+
+// Every race finished. The air time row needs a finished dirt bike race.
+static void races() {
+	CStats::BestPositions[0] = INT_MAX;
+	for (int i = 0; i < CStats::TOTAL_BANDIT_RACES; i++) CStats::BestBanditPositions[i] = 1;
+	for (int i = 0; i < CStats::TOTAL_STREET_RACES; i++) CStats::StreetRaceBestPosition[i] = 1;
+	for (int i = 0; i < CStats::TOTAL_DIRT_BIKE_RACES; i++) CStats::DirtBikeFastestLap[i] = 1;
+	CStats::BestHeliRacePosition = INT_MAX;
+	CStats::DirtBikeMostAir = 1;
+	PrintRows();
+}
+
+// Air time without a finished dirt bike race is not listed.
+static void air_only() {
+	CStats::BestPositions[0] = INT_MAX;
+	NoRacesFinished();
+	CStats::DirtBikeMostAir = 1;
 	PrintRows();
 }
 
@@ -174,5 +241,7 @@ int main(int argc, char **argv) {
 	SCENARIO(zero)
 	SCENARIO(full)
 	SCENARIO(damage)
+	SCENARIO(races)
+	SCENARIO(air_only)
 	SCENARIOS_END
 }

@@ -1101,7 +1101,7 @@ void CGarage::Update()
 					CWorld::Players[CWorld::PlayerInFocus].m_nMoney += reward * CGarages::CrusherRewardMultiplier;
 					CMessages::AddMessageWithNumber(TheText.Get("CRUSHED"), 5000, 1, reward* CGarages::CrusherRewardMultiplier, -1, -1, -1, -1, -1);
 					DestroyVehicleAndDriverAndPassengers(m_pTarget);
-					//++CStats::CarsCrushed; // TODO
+					++CStats::CarsCrushed;
 					m_pTarget = nil;
 					m_eGarageState = GS_AFTERDROPOFF;
 					m_nTimeToStartAction = CTimer::GetTimeInMilliseconds() + TIME_TO_CRUSH_CAR;
