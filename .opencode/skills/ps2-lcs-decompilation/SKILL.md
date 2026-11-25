@@ -1637,6 +1637,44 @@ tint, alpha) before tuning anything. Here each data theory (PS2 alpha
 scale, UV tiling, vertex alpha) gave a prediction that didn't fit. See
 `git log --grep="faint glass"`.
 
+## Case study: Shoreside tunnel — meshless light instances and the sector crossfade
+
+Report: a dark slab and a black arch inside the Shoreside Vale northern
+tunnel. The fixes are 3DS render code (AGENTS.md landmine #48). This section
+covers the PS2 data that set the fixes.
+
+- **`SUBURB.LVZ` is not the full instance list.** It holds the sectors and
+  their meshes. `GAME.DTZ` (decompress it first) holds the compiled world
+  tables. The building records for `Trans_lights01-03` are at `0x2b2720`,
+  `0x2b2780` and `0x2b27e0`. Each record has the `suburb.ipl` position and
+  the model id at +0x58 (3116, 3117, 3118). The LVZ has no mesh for these
+  ids, so PS2 never draws the mesh but keeps the entity.
+- **2dfx table.** `GAME.DTZ` `0x4e3360`-`0x4e3aa0` holds 0x40-byte effect
+  records. The 30 tunnel records are coronastar glows, colour 249,145,34,200.
+  They match the SD `suburb.ide` 2dfx lines byte for byte in position. To
+  find a model's effects, search the table for its position values as
+  floats.
+- **Which sectors list a LOD.** Count the sectors whose pass lists hold the
+  LOD id and the detailed id (struct layout: "faint safehouse glass" above).
+  `LODl_tunnel1` is LVZ id 0xf0f and its detailed portal is 0x8720. Of 745
+  sectors, 678 list the LOD and 51 list the portal. No sector lists both.
+  The LOD is absent from every sector west of the tunnel bend (x -525).
+- **Sector crossfade.** The world loop `0x200fb0` sets a counter at `+0x4c`
+  to 479 on a sector change. The counter drops by 32 for each 25 fps frame.
+  - Counter 255 or more: content that only the new sector lists fades in,
+    alpha `min(255, 512 - counter)`.
+  - Counter below 255: content that only the old sector lists fades out,
+    alpha = counter.
+  - New content is fully in after 8 frames. Old content is gone after 15
+    frames (about 0.6 s).
+  The 3DS port has no sector lists. To copy the fade for one model, test the
+  camera against a region. Then run the same counter, scaled by
+  `16 * timestep` (timestep 2.0 is one 25 fps frame).
+
+Lesson: "PS2 has no instance here" from the LVZ alone is not proof. Check
+`GAME.DTZ` for the model id and its 2dfx before you drop an instance. See
+`git log --grep="Shoreside tunnel"`.
+
 ## Reference: check the PS2 Graphics settings before you compare screenshots
 
 The "PS2 Graphics" option on the `Display` page controls four parts: the PS2

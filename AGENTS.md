@@ -834,6 +834,26 @@ not mistake for a failed transfer.
     Before blaming render/LOD code for a ped that disappears, check its
     `m_nPedState`: a first fix here gated vehicle-occupant LODs and changed
     nothing. See `git log --grep="WAIT_IN_CAR"`.
+48. **An SD model that PS2 never draws can still carry PS2 data, so don't drop
+    the instance. A LOD can also stand inside the space its detailed model
+    covers. Stories only. Check the other trees before you reuse the fix.** The
+    Shoreside Vale tunnel lights `Trans_lights01-03` drew a dark slab.
+    `SUBURB.LVZ` has no mesh for them, but PS2 `GAME.DTZ` keeps them as
+    building instances with 30 coronastar glows. A load-time skip in
+    `CFileLoader::LoadObjectInstance` removed the slab and the glows.
+    `CCoronas` gets glows from `PreRender` on the visible lists, so
+    `bIsVisible = false` or `VIS_INVISIBLE` also kills them. Skip only the
+    mesh, through `CRenderer::ShouldRenderEntityMesh3DS` (`Renderer.cpp`).
+    It gates the three 3DS draw sites. The west-mouth LOD `LODl_tunnel1`
+    has a black arch that stands inside the real tunnel. The 3DS LOD
+    handoff hides a LOD only while its detailed model is on screen, so the
+    arch drew from inside. PS2 lists that LOD only in sectors east of the
+    bend and fades it out with its sector crossfade (`0x200fb0`).
+    `UpdateLCSTunnelLodCrossfade` copies that fade. Before you remove an
+    instance that "PS2 doesn't have", search `GAME.DTZ` for its model id and
+    its 2dfx entries. Before you add a LOD distance rule, check which PS2
+    sectors list the LOD (see the `ps2-lcs-decompilation` skill, "Shoreside
+    tunnel"). See `git log --grep="Shoreside tunnel"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 
