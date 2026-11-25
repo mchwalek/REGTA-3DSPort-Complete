@@ -2,6 +2,12 @@
 
 Trello: [Strange opaque geometry in shoreside vale northern tunnel](https://trello.com/c/hmgOLkZ7). The card has no description or screenshot.
 
+> Correction (2026-11-25): PS2 does place these instances. `GAME.DTZ` holds
+> them as buildings with 30 coronastar glows; only `SUBURB.LVZ` has no mesh
+> for them. Skipping them at load time also removed the glows. The fix now
+> skips only the mesh draw. See
+> `2026-11-25-shoreside-tunnel-glows-and-lod-crossfade-design.md`.
+
 ## What the 3DS draws there
 
 The tunnel through the hill north of Shoreside Vale (y 450-770) is built from

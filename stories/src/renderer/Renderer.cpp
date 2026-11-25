@@ -150,19 +150,67 @@ IsLCSIslandLodModel(int16 modelId)
 		modelId == islandLODsubCom;
 }
 
+static int gLCSTunnelMouthLod = -1;
+
+static const float LCS_TUNNEL_CROSSFADE_START = 479.0f;
+/* PS2 decreases the sector crossfade counter by 32 for each 25 fps frame,
+ * and one 25 fps frame is a timestep of 2.0. */
+static const float LCS_TUNNEL_CROSSFADE_STEP = 16.0f;
+
+static bool gLCSTunnelLodListed = true;
+static float gLCSTunnelLodCrossfade = 0.0f;
+
+static bool
+IsLCSTunnelLodListedAt(const CVector &cam)
+{
+	/* PS2 SUBURB.LVZ lists LODl_tunnel1 only in the sectors east of the
+	 * tunnel bend (x = -525). The boxes are the bounds of the tunnel
+	 * models Section_02 and Section_03. Outside them, the usual LOD
+	 * handoff applies. */
+	const bool inSection02 = cam.x >= -719.6f && cam.x <= -480.1f && cam.y >= 567.5f && cam.y <= 651.2f &&
+		cam.z >= 77.0f && cam.z <= 91.4f;
+	const bool inSection03 = cam.x >= -907.1f && cam.x <= -717.6f && cam.y >= 587.8f && cam.y <= 650.9f &&
+		cam.z >= 76.8f && cam.z <= 92.5f;
+	return !(inSection02 || inSection03) || cam.x > -525.0f;
+}
+
+static void
+UpdateLCSTunnelLodCrossfade(const CVector &cam, float timeStep)
+{
+	/* PS2 0x200fb0 sets the counter to 479 when the camera goes into a new
+	 * sector. While the counter is 255 or more, the new sector content
+	 * fades in. Below 255, the old sector content fades out. */
+	const bool listed = IsLCSTunnelLodListedAt(cam);
+	if(listed != gLCSTunnelLodListed){
+		gLCSTunnelLodListed = listed;
+		gLCSTunnelLodCrossfade = LCS_TUNNEL_CROSSFADE_START;
+	}else
+		gLCSTunnelLodCrossfade = Max(gLCSTunnelLodCrossfade - LCS_TUNNEL_CROSSFADE_STEP * timeStep, 0.0f);
+}
+
+static float
+LCSTunnelLodCrossfadeOpacity(bool listed, float crossfade)
+{
+	if(listed)
+		return crossfade < 255.0f ? 1.0f : Min((512.0f - crossfade) / 255.0f, 1.0f);
+	return crossfade < 255.0f ? crossfade / 255.0f : 1.0f;
+}
+
 static float
 LCSPS2BuildingOpacity(CEntity *ent)
 {
+	const float tunnel = ent->GetModelIndex() == gLCSTunnelMouthLod ?
+		LCSTunnelLodCrossfadeOpacity(gLCSTunnelLodListed, gLCSTunnelLodCrossfade) : 1.0f;
 	const float range = rw::c3d::ps2WorldRange();
 	if(range <= 0.0f || !ent->IsBuilding() || IsLCSIslandLodModel(ent->GetModelIndex()))
-		return 1.0f;
+		return tunnel;
 	CBaseModelInfo *base = CModelInfo::GetModelInfo(ent->GetModelIndex());
 	// Never dissolve the ground under the player or transparent road overlays.
 	if(!base->IsSimple() || ((CSimpleModelInfo*)base)->m_wetRoadReflection)
-		return 1.0f;
+		return tunnel;
 	const CVector offset = ent->GetBoundCentre() - TheCamera.GetPosition();
 	const float depth = DotProduct(offset, TheCamera.GetForward()) - ent->GetBoundRadius();
-	return PS2Graphics3DS::WorldOpacity(depth, range);
+	return tunnel * PS2Graphics3DS::WorldOpacity(depth, range);
 }
 
 struct LCSPS2BuildingRenderScope {
@@ -309,7 +357,6 @@ struct LCSWorldBounds {
 	}
 };
 
-static int gLCSTunnelMouthLod = -1;
 static const float LCS_TUNNEL_LOD_MARGIN = 10.0f;
 
 static bool
@@ -525,6 +572,26 @@ CRenderer::ShouldRenderAttachedWindowLights(CEntity *ent)
 	return true;
 }
 
+/* Trans_lights01-03 in the Shoreside Vale northern tunnel. PS2 GAME.DTZ keeps
+ * these instances for their coronastar glows, but SUBURB.LVZ has no mesh for
+ * them. Their 3DS mesh is a dark slab between the tunnel walls. */
+static int gLCSMeshlessLightModels[3] = { -1, -1, -1 };
+
+static bool
+IsLCSMeshlessLightModel(int modelId)
+{
+	for(int i = 0; i < 3; i++)
+		if(modelId >= 0 && modelId == gLCSMeshlessLightModels[i])
+			return true;
+	return false;
+}
+
+bool
+CRenderer::ShouldRenderEntityMesh3DS(CEntity *ent)
+{
+	return !IsLCSMeshlessLightModel(ent->GetModelIndex()) && ShouldRenderAttachedWindowLights(ent);
+}
+
 #endif
 
 void
@@ -536,6 +603,9 @@ CRenderer::Init(void)
 #ifdef _3DS
 	InitLCSBuildingLodPairs();
 	CModelInfo::GetModelInfo("LODl_tunnel1", &gLCSTunnelMouthLod);
+	CModelInfo::GetModelInfo("Trans_lights01", &gLCSMeshlessLightModels[0]);
+	CModelInfo::GetModelInfo("Trans_lights02", &gLCSMeshlessLightModels[1]);
+	CModelInfo::GetModelInfo("Trans_lights03", &gLCSMeshlessLightModels[2]);
 #endif
 }
 
@@ -617,7 +687,7 @@ CRenderer::RenderOneNonRoad(CEntity *e)
 	bool resetLights;
 
 #ifdef _3DS
-	if(!ShouldRenderAttachedWindowLights(e))
+	if(!ShouldRenderEntityMesh3DS(e))
 		return;
 #endif
 
@@ -1100,7 +1170,7 @@ CRenderer::RenderOneBuilding(CEntity *ent, float camdist)
 	if(ent->m_rwObject == nil)
 		return;
 #ifdef _3DS
-	if(!ShouldRenderAttachedWindowLights(ent))
+	if(!ShouldRenderEntityMesh3DS(ent))
 		return;
 	LCSPS2BuildingRenderScope ps2BuildingStyle(ent);
 #endif
@@ -1749,6 +1819,9 @@ CRenderer::ConstructRenderList(void)
 #endif
 	COcclusion::ProcessBeforeRendering();
 	ms_vecCameraPosition = TheCamera.GetPosition();
+#ifdef _3DS
+	UpdateLCSTunnelLodCrossfade(ms_vecCameraPosition, CTimer::GetTimeStep());
+#endif
 
 	// unused
 	TestCloseThings = 0;

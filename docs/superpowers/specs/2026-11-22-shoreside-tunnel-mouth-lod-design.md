@@ -2,6 +2,11 @@
 
 Trello: [Strange opaque geometry in shoreside vale northern tunnel](https://trello.com/c/hmgOLkZ7).
 
+> Correction (2026-11-25): PS2 drops this LOD at the tunnel bend, not only
+> near the mouth, and fades it out. PS2 also keeps the `Trans_lights`
+> instances for their glows. See
+> `2026-11-25-shoreside-tunnel-glows-and-lod-crossfade-design.md`.
+
 This follows `2026-11-21-shoreside-tunnel-light-volumes-design.md`. That fix
 removed the `Trans_lights01-03` volumes. On the console the geometry was
 still there and had turned from grey to black, so the volumes were only
