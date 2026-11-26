@@ -1791,3 +1791,42 @@ PS2 menu pages use PSP 480x272 coordinates (reLCS `PSP_SCREEN_SCALE_X/Y`).
   `0x166b70`, `SetRightJustifyOn` `0x166c48`, `SetJustifyOn` `0x166c68`,
   `SetPropOn` `0x166c90`, `SetDropColor` `0x166d28`; `PrintString`
   `0x1658f0`, `GetStringWidth` `0x166298`, `TheText.Get` `0x333038`.
+- Row list: `CStats::ConstructStatLine` `0x231d50`. It sets the row order,
+  which rows show, and the value of each row. reLCS follows it in
+  `stories/src/core/Stats.cpp` (`ConstructStatLine`).
+- Stat writes: `0x2f0e70` and `0x273140`. A best time keeps the smaller
+  value, and 0 means "not set". A level or a score keeps the larger value.
+  Race positions start at `INT_MAX`, all other stats at 0. PS2 does not
+  check race or outfit indexes from `main.scm`. reLCS ignores a bad index.
+- reLCS stores the 46 LCS-only stats after the old stats block.
+  `CStats::LoadStats` reads them only when the block is long enough
+  (`LcsStatsSize`). Thus a save from an older 3DS build loads, and its LCS
+  stats get their start values. A save from a new build can fail in an
+  older build. If you add a stat, append it after the LCS stats and update
+  `LcsStatsSize`. The script opcodes that write the stats are in
+  `Script9.cpp` and `Script10.cpp`. The car crusher is in `Garages.cpp`.
+  Tests: `test_lcs_stats_lines.py`, `test_lcs_stats_save.py`. See
+  `git log --grep="LCS-only stats"`.
+
+## Reference: music mode changes (end credits)
+
+PS2 `cMusicManager::PlayFrontEndTrack` is `0x169e38`, and `Service` is
+`0x167e80`. reLCS has the same state machine in
+`stories/src/audio/MusicManager.cpp`.
+
+- `Service` latches a change of music mode one frame before the change
+  completes. The change to game mode clears `m_nFrontendTrack`.
+- The SALH5 credits script asks for game mode (`SWITCH_CAR_RADIO 1`) while
+  the mission-passed jingle plays. Often one frame later,
+  `PLAY_END_OF_GAME_TUNE` asks for frontend mode and `FINALE`. The mode is
+  still frontend, so `PlayFrontEndTrack` does not set
+  `m_bEarlyFrontendTrack`. The latched change completes and clears the
+  track, and the credits have no music.
+- PS2 has the same bug. The reLCS fix is under `FIX_BUGS`:
+  `PlayFrontEndTrack` cancels a latched change away from frontend mode
+  when the new request is for frontend mode. III and miami have the same
+  code without the fix.
+- If a frontend track (jingle, menu music, credits) is silent after a
+  script changes the radio or mode, look for this race first. Test:
+  `scripts/tests/test_music_frontend_track_race.py`. See
+  `git log --grep="end credits music"`.

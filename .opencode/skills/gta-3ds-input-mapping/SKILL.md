@@ -170,6 +170,23 @@ the PC/mouse code after it is not compiled on 3DS. PS2 reference: input
   (`stories/src/text/Text.cpp`). A key that is not in the GXT shows as an
   empty string under `MASTER` (AGENTS.md landmine #19).
 
+## Button names typed as plain text in the GXT (stories)
+
+- Some GXT strings write a PS2 button name as plain text, not as a `~k~`
+  token. The 3DS button labels replace only tokens, so the player sees the
+  PS2 name. Example: `TUP_AD` (adrenaline pill help in TP1/TP2/TS1) says
+  "R1" in all five languages. The script reads `IS_BUTTON_PRESSED 0 6`
+  (RightShoulder1), which is R on 3DS. Only the text is wrong.
+- Fix such a key in the `_3DS` table in `Replace3DSLiteralButtonText`
+  (`stories/src/text/Text.cpp`). `CText::Get` sends each found string
+  through it. Add one `{ key, from, to }` row. The table replaces only the
+  first match that stands alone (not "R10" or "AR1"). It does not change
+  the loaded GXT data.
+- Before you add a row, find the pad button that the script reads. The
+  3DS name to use comes from that button, not from the PS2 name.
+- Test: `scripts/tests/test_3ds_literal_button_text.py`. See
+  `git log --grep="adrenaline pill"`.
+
 ## Where NOT to look
 
 - `Frontend_PS2.cpp` is dead code (`PC_MENU` is defined, so `PS2_MENU` never
