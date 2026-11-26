@@ -231,6 +231,22 @@ RwTexture *gpLaserDotTex;
 RwTexture *gpViewFinderTex;
 
 #ifdef _3DS
+/* PS2 draws the sniper and laser scope in PSP 480x272 HUD units
+ * (SLES_541.35 VA 0x23f540). With the widescreen flag set, each quadrant has
+ * a half-extent of 210 x 210 units, centred on the screen. The 3DS top screen
+ * has square pixels, so one SCREEN_HEIGHT/272 scale keeps the scope round.
+ * The circle then fills the full screen height, as on PS2. */
+static CRect
+GetPS2ScopeRect3DS(float halfWidthPSP, float halfHeightPSP)
+{
+	const float scale = SCREEN_HEIGHT / (float)PSP_DEFAULT_SCREEN_HEIGHT;
+	const float cx = SCREEN_WIDTH / 2.0f;
+	const float cy = SCREEN_HEIGHT / 2.0f;
+
+	return CRect(cx - halfWidthPSP * scale, cy - halfHeightPSP * scale,
+		cx + halfWidthPSP * scale, cy + halfHeightPSP * scale);
+}
+
 static void
 DrawSolidRocketSight(float brightness)
 {
@@ -453,6 +469,13 @@ void CHud::Draw()
 						xOffset = SCREEN_SCALE_X(256.0f);
 						yOffset = SCREEN_SCALE_Y(192.0f);
 					}
+#ifdef _3DS
+					CRect scopeRect3DS = GetPS2ScopeRect3DS(210.0f, 210.0f);
+					if (sprite != HUD_VIEWFINDER) {
+						xOffset = scopeRect3DS.right - SCREEN_WIDTH / 2;
+						yOffset = scopeRect3DS.bottom - SCREEN_HEIGHT / 2;
+					}
+#endif
 
 					rect.left = SCREEN_WIDTH/2 - xOffset;
 					rect.top = SCREEN_HEIGHT/2 - yOffset;
@@ -481,6 +504,17 @@ void CHud::Draw()
 					rect.bottom = SCREEN_HEIGHT/2 + yOffset;
 					Sprites[sprite].Draw(CRect(rect), CRGBA(255, 255, 255, 255),
 						0.99f, 0.99f,  0.01f, 0.99f,  0.99f, 0.01f,  0.01f, 0.01f);
+#ifdef _3DS
+					/* PS2 fills the sides outside the sniper and laser scope
+					 * with black bars (SLES_541.35 VA 0x23f540). */
+					if (sprite != HUD_VIEWFINDER) {
+						const CRGBA black(0, 0, 0, 255);
+						if (scopeRect3DS.left > 0.0f)
+							CSprite2d::DrawRect(CRect(0.0f, 0.0f, scopeRect3DS.left, SCREEN_HEIGHT), black);
+						if (scopeRect3DS.right < SCREEN_WIDTH)
+							CSprite2d::DrawRect(CRect(scopeRect3DS.right, 0.0f, SCREEN_WIDTH, SCREEN_HEIGHT), black);
+					}
+#endif
 
 					CVector dotPos;
 					float size = 25.0f;
