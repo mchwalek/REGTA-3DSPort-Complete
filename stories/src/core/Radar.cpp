@@ -702,7 +702,13 @@ void CRadar::DrawBlips()
 
 			CVector2D vec2d;
 			vec2d.x = vec2DRadarOrigin.x;
+#ifdef ENABLE_3DS_BOTTOM_RADAR
+			// sqrt(2) clears PS2's unit circle but not the bottom radar's
+			// rectangle (its far corner is at 1.83), so use 2.0 there.
+			vec2d.y = (m_bDrawingBottomScreen ? 2.0f : M_SQRT2) * m_radarRange + vec2DRadarOrigin.y;
+#else
 			vec2d.y = M_SQRT2 * m_radarRange + vec2DRadarOrigin.y;
+#endif
 			TransformRealWorldPointToRadarSpace(in, vec2d);
 			LimitRadarPoint(in);
 			TransformRadarPointToScreenSpace(out, in);
@@ -1167,6 +1173,26 @@ CRadar::Initialise()
 		gRadarTxdIds[i] = CTxdStore::FindTxdSlot(gRadarTexNames[i]);
 }
 
+#ifdef ENABLE_3DS_BOTTOM_RADAR
+/* The bottom radar fills the 320x240 screen, so its edge is a rectangle, inset
+ * 10 px for the blip sprites. PS2's LimitRadarPoint (0x1188e0) uses the unit
+ * circle, and its callers read the result as "1.0 = radar edge". This returns
+ * the same measure for the rectangle and moves outside points onto its edge. */
+static float
+LimitBottomRadarPoint3DS(CVector2D &point)
+{
+	const float left = -11.0f / 12.0f;
+	const float right = 19.0f / 12.0f;
+	const float vertical = 11.0f / 12.0f;
+	const float edge = Max(point.x < 0.0f ? point.x / left : point.x / right, Abs(point.y) / vertical);
+	if (edge > 1.0f) {
+		point.x /= edge;
+		point.y /= edge;
+	}
+	return edge;
+}
+#endif
+
 float CRadar::LimitRadarPoint(CVector2D &point)
 {
 	float dist, invdist;
@@ -1177,26 +1203,8 @@ float CRadar::LimitRadarPoint(CVector2D &point)
 		return dist;
 
 #ifdef ENABLE_3DS_BOTTOM_RADAR
-	if(m_bDrawingBottomScreen) {
-		// reVC lower-screen contract: off-radar icons travel around the inset
-		// rectangular edge of the complete 320x240 display, not a unit circle.
-		const float left = -11.0f / 12.0f;
-		const float right = 19.0f / 12.0f;
-		const float vertical = 11.0f / 12.0f;
-		if(dist > 1.0f) {
-			float edgeScale = 1000000.0f;
-			if(point.x < 0.0f)
-				edgeScale = Min(edgeScale, left / point.x);
-			else if(point.x > 0.0f)
-				edgeScale = Min(edgeScale, right / point.x);
-			if(point.y < 0.0f)
-				edgeScale = Min(edgeScale, -vertical / point.y);
-			else if(point.y > 0.0f)
-				edgeScale = Min(edgeScale, vertical / point.y);
-			point *= edgeScale;
-		}
-		return dist;
-	}
+	if(m_bDrawingBottomScreen)
+		return LimitBottomRadarPoint3DS(point);
 #endif
 
 	if (dist > 1.0f) {
