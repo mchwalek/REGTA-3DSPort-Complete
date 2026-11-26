@@ -4656,6 +4656,15 @@ CPed::GiveDelayedWeapon(eWeaponType weapon, uint32 ammo)
 	}
 }
 
+// PS2 0x1e1180: an ammo total from 10000 to 29999 becomes 9999. The HUD hides
+// the count when the reserve is 9999 or more. A total of 30000 or more is the
+// "infinite" ammo of rampages and ATTACH_CHAR_TO_CAR. It does not change.
+static uint32
+ClampFiniteAmmo(uint32 ammo)
+{
+	return ammo >= 10000 && ammo < 30000 ? 9999 : ammo;
+}
+
 int32
 CPed::GiveWeapon(eWeaponType weaponType, uint32 ammo, bool unused)
 {
@@ -4670,13 +4679,14 @@ CPed::GiveWeapon(eWeaponType weaponType, uint32 ammo, bool unused)
 		} else {
 			GetWeapon(slot).m_nAmmoTotal = Min(99999, GetWeapon(slot).m_nAmmoTotal);
 		}
+		GetWeapon(slot).m_nAmmoTotal = ClampFiniteAmmo(GetWeapon(slot).m_nAmmoTotal);
 		GetWeapon(slot).Reload();
 		if (GetWeapon(slot).m_eWeaponState == WEAPONSTATE_OUT_OF_AMMO && GetWeapon(slot).m_nAmmoTotal > 0)
 			GetWeapon(slot).m_eWeaponState = WEAPONSTATE_READY;
 	} else {
 		if (HasWeaponSlot(slot)) {
 			if (CWeaponInfo::IsWeaponSlotAmmoMergeable(slot))
-				ammo += GetWeapon(slot).m_nAmmoTotal;
+				ammo = ClampFiniteAmmo(ammo + GetWeapon(slot).m_nAmmoTotal);
 
 			RemoveWeaponModel(CWeaponInfo::GetWeaponInfo(GetWeapon(slot).m_eWeaponType)->m_nModelId);
 			GetWeapon(slot).Shutdown();
