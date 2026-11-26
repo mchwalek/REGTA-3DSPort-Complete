@@ -113,5 +113,72 @@ etc1_common(uint8_t *src, uint8_t **dst, int stride, bool alpha, bool roundAlpha
 	}
 }
 
+/* Inverse of etc1_common for one 8x8 tile. Alpha nibble n decodes to n*17,
+ * as on the GPU. */
+static void
+etc1_decode_common(const uint8_t **src, uint8_t *dst, int stride, bool alpha)
+{
+	for (int j = 0; j < 8; j += 4)
+	{
+		for (int i = 0; i < 8; i += 4)
+		{
+			const uint8_t *in_alpha = *src;
+			if (alpha)
+				*src += 8;
+
+			uint8_t in_block[8];
+			for (int k = 0; k < 8; k++)
+				in_block[k] = (*src)[8 - k - 1];
+			*src += 8;
+
+			unsigned int out_block[4 * 4];
+			rg_etc1::unpack_etc1_block(in_block, out_block);
+
+			for (int y = 0; y < 4; ++y)
+			{
+				for (int x = 0; x < 4; ++x)
+				{
+					uint8_t *pix = dst + ((7 - (j + y)) * stride) + ((i + x) * 4);
+					const uint8_t *rgba = reinterpret_cast<const uint8_t*>(&out_block[y * 4 + x]);
+					pix[0] = rgba[0];
+					pix[1] = rgba[1];
+					pix[2] = rgba[2];
+					if (alpha){
+						uint8_t packed = in_alpha[2 * x + y / 2];
+						pix[3] = 17 * ((y & 1) ? packed >> 4 : packed & 0xF);
+					}else{
+						pix[3] = 0xFF;
+					}
+				}
+			}
+		}
+	}
+}
+
+/* Decode one ETC1 or ETC1A4 level into 32-bit RGBA, in the image layout that
+ * texCompress reads (stride width*4). */
+void
+etc1_decode(const uint8_t *src, uint8_t *dst, int width, int height, bool alpha)
+{
+	const int stride = width * 4;
+	for (int y = height - 8; y >= 0; y -= 8)
+		for (int x = 0; x < width; x += 8)
+			etc1_decode_common(&src, &dst[(x * 4) + (y * stride)], stride, alpha);
+}
+
+/* Halve a 32-bit RGBA image. Each output texel is the rounded mean of a 2x2
+ * block of input texels. */
+void
+boxDownsample2x(const uint8_t *src, uint8_t *dst, int width, int height)
+{
+	const int stride = width * 4;
+	for (int y = 0; y < height / 2; y++)
+		for (int x = 0; x < width / 2; x++)
+			for (int c = 0; c < 4; c++){
+				const uint8_t *p = src + (2 * y) * stride + (2 * x) * 4 + c;
+				*dst++ = (p[0] + p[4] + p[stride] + p[stride + 4] + 2) / 4;
+			}
+}
+
 }
 }

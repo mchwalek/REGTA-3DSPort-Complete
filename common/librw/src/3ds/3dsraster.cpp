@@ -619,6 +619,76 @@ ret:
 	return ret;
 }
 
+#ifdef RW_3DS
+void etc1_decode(const uint8_t *src, uint8_t *dst, int width, int height, bool alpha);
+void boxDownsample2x(const uint8_t *src, uint8_t *dst, int width, int height);
+
+/* Give a compressed texture with one level a full mip chain. ETC data cannot
+ * be read back through rasterLock, so level 0 is decoded here. Level 0 keeps
+ * its original bytes. Each smaller level is a 2x2 box filter of the level
+ * above it, compressed again. Returns false and changes nothing if the
+ * raster is not a compressed texture with one level of at least 16x16. */
+bool32
+rasterGenerateCompressedMipmaps(Raster *raster)
+{
+	C3DRaster *natras = GETC3DRASTEREXT(raster);
+	C3D_Tex *old = natras->tex;
+	if(raster->type != Raster::TEXTURE || !natras->isCompressed || old == nil ||
+	   natras->numLevels > 1 || old->width < 16 || old->height < 16)
+		return 0;
+
+	const int w = old->width;
+	const int h = old->height;
+	uint8 *big = (uint8*)rwMalloc(w * h * 4, MEMDUR_FUNCTION | ID_DRIVER);
+	uint8 *small = (uint8*)rwMalloc(w * h, MEMDUR_FUNCTION | ID_DRIVER);
+	natras->tex = rwMallocT(C3D_Tex, 1, MEMDUR_EVENT | ID_DRIVER);
+	if(big == nil || small == nil || natras->tex == nil){
+		rwFree(big);
+		rwFree(small);
+		rwFree(natras->tex);
+		natras->tex = old;
+		return 0;
+	}
+	etc1_decode((const uint8*)old->data, big, w, h, natras->hasAlpha);
+
+	/* A texture stage must not keep the C3D_Tex that is freed below. */
+	forgetRasterState(raster);
+	TexAlloc(raster, w, h, natras->format, 1);
+	natras->tex->param = old->param;
+	memcpy(getImagePtr(natras->tex, 0), old->data, old->size);
+	linearFree(old->data);
+	rwFree(old);
+
+	uint8 *src = big;
+	uint8 *dst = small;
+	int lw = w;
+	int lh = h;
+	for(int level = 1; level <= natras->tex->maxLevel; level++){
+		boxDownsample2x(src, dst, lw, lh);
+		lw /= 2;
+		lh /= 2;
+		raster->pixels = dst;
+		raster->width = lw;
+		raster->height = lh;
+		raster->stride = lw * 4;
+		texCompress(raster, natras, level);
+		uint8 *tmp = src;
+		src = dst;
+		dst = tmp;
+	}
+	raster->width = raster->originalWidth;
+	raster->height = raster->originalHeight;
+	raster->stride = raster->originalStride;
+	raster->pixels = raster->originalPixels;
+	raster->format |= Raster::MIPMAP;
+	C3D_TexFlush(natras->tex);
+
+	rwFree(big);
+	rwFree(small);
+	return 1;
+}
+#endif
+
 uint8*
 rasterLock(Raster *raster, int32 level, int32 lockMode)
 {

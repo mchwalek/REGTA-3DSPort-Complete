@@ -386,12 +386,15 @@ filterConvMap_NoMIP[] = {
 	GPU_NEAREST, GPU_LINEAR
 };
 
+/* Filter between mip levels. PICA always selects a level when the texture
+ * has more than one, so plain LINEAR becomes trilinear on a mipmapped
+ * texture. */
 static GPU_TEXTURE_FILTER_PARAM
 filterConvMap_MIP[] = {
 	GPU_NEAREST,		// was 0
 	GPU_NEAREST, GPU_LINEAR,
-	GPU_NEAREST, GPU_LINEAR,
-	GPU_NEAREST, GPU_LINEAR
+	GPU_NEAREST, GPU_NEAREST,
+	GPU_LINEAR, GPU_LINEAR
 };
 
 static GPU_TEXTURE_WRAP_PARAM
@@ -626,7 +629,25 @@ updateRasterParams(C3DRaster *natras)
 	int wrapS = addressConvMap[natras->addressU];
 	int wrapT = addressConvMap[natras->addressV];
 	C3D_TexSetFilter(tex, filter, filter);
+	C3D_TexSetFilterMipmap(tex, filterConvMap_MIP[natras->filterMode]);
 	C3D_TexSetWrap(tex, wrapS, wrapT);
+}
+
+/* Set the filter that this raster uses for all later draws. The
+ * TEXTUREFILTER render state changes only the raster that is bound at that
+ * time, and a TEXTURERASTER bind keeps the filter of the raster. */
+void
+rasterSetFilterMode(Raster *raster, int32 filter)
+{
+	if(raster == nil)
+		return;
+	C3DRaster *natras = NATRAS(raster);
+	natras->filterMode = filter;
+	updateRasterParams(natras);
+	/* citro3d uploads texture parameters only when it binds a texture. */
+	for(int stage = 0; stage < MAXNUMSTAGES; stage++)
+		if(rwStateCache.texstage[stage] == raster && natras->tex)
+			C3D_TexBind(stage, natras->tex);
 }
 
 void
