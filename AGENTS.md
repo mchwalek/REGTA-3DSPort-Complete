@@ -854,6 +854,22 @@ not mistake for a failed transfer.
     its 2dfx entries. Before you add a LOD distance rule, check which PS2
     sectors list the LOD (see the `ps2-lcs-decompilation` skill, "Shoreside
     tunnel"). See `git log --grep="Shoreside tunnel"`.
+49. **On 3DS, `rwRENDERSTATETEXTUREFILTER` changes only the raster bound at
+    that moment, and binding through `rwRENDERSTATETEXTURERASTER` keeps the
+    raster's own filter. This is shared librw code, so it affects all three
+    trees.** `setRasterParams(0, ...)` (`common/librw/src/3ds/3dsdevice.cpp`)
+    writes the filter into `rwStateCache.texstage[0]`. `CSprite2d` binds with
+    `TEXTURERASTER`, which never reads the state. `allocateETC` creates every
+    ETC raster NEAREST, and `gForceCompression` makes every texture ETC. So a
+    `TEXTUREFILTER = LINEAR` set before a sprite draw often does nothing, and
+    the pause-menu map tiles drew NEAREST for that reason. To filter one
+    texture, call `rw::c3d::rasterSetFilterMode` on its raster; it also
+    rebinds the raster, because citro3d uploads texture parameters only in
+    `C3D_TexBind`. No SD texture has mip levels. The radar tiles get them at
+    load (`rasterGenerateCompressedMipmaps`, called from `PrepareRadarTxd` in
+    `stories/src/rw/TxdStore.cpp`), and `txd.img` stores them, so a change to
+    that code needs a `CAPSVERSION` bump (#35). On a texture with levels,
+    `rwFILTERLINEAR` samples trilinear. See `git log --grep="map tiles"`.
 
 ## Where things live (`stories/src`, 21 dirs, ~533 files)
 
