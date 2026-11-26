@@ -115,6 +115,54 @@ float CStats::LongestWheelieDist;
 float CStats::LongestStoppieDist;
 float CStats::Longest2WheelDist;
 
+int32 CStats::CarsCrushed;
+int32 CStats::HitmenKilled;
+float CStats::LongestFacePlantDist;
+int32 CStats::CarsSold;
+int32 CStats::MoneyMadeWithCarSales;
+int32 CStats::BikesSold;
+int32 CStats::MoneyMadeWithBikeSales;
+int32 CStats::NumberOfExportedCars;
+int32 CStats::TotalNumberOfCarExport;
+int32 CStats::HighestLevelSlashTv;
+int32 CStats::MoneyMadeWithSlashTv;
+int32 CStats::TotalKillsOnSlashTV;
+int32 CStats::PackagesSmuggled;
+int32 CStats::SmugglersWasted;
+int32 CStats::FastestSmugglingTime;
+int32 CStats::MoneyMadeInCoach;
+int32 CStats::MoneyMadeCollectingTrash;
+int32 CStats::GuardianAngelMissionsPassed;
+int32 CStats::HighestGuardianAngelJusticeDished;
+int32 CStats::GuardianAngelHighestLevel_Ind;
+int32 CStats::GuardianAngelHighestLevel_Com;
+int32 CStats::GuardianAngelHighestLevel_Sub;
+int32 CStats::MostTimeLeftTrainRace;
+int32 CStats::HighestTrainCashEarned;
+int32 CStats::FastestHeliRaceTime;
+int32 CStats::BestHeliRacePosition;
+int32 CStats::NumberOutfitChanges;
+int32 CStats::BestBanditLapTimes[CStats::TOTAL_BANDIT_RACES];
+int32 CStats::BestBanditPositions[CStats::TOTAL_BANDIT_RACES];
+int32 CStats::StreetRaceFastestTime[CStats::TOTAL_STREET_RACES];
+int32 CStats::StreetRaceFastestLap[CStats::TOTAL_STREET_RACES];
+int32 CStats::StreetRaceBestPosition[CStats::TOTAL_STREET_RACES];
+int32 CStats::DirtBikeFastestLap[CStats::TOTAL_DIRT_BIKE_RACES];
+int32 CStats::DirtBikeFastestTime[CStats::TOTAL_DIRT_BIKE_RACES];
+int32 CStats::DirtBikeMostAir;
+int32 CStats::BestTimeGoGoFaggio;
+float CStats::NoodlesDelivered;
+float CStats::MoneyMadeFromTourist;
+float CStats::TouristsTakenToSpots;
+int32 CStats::MaxSecondsOnCarnageLeft;
+int32 CStats::MaxKillsOnRcTriad;
+float CStats::TopScrapyardChallengeScore;
+float CStats::Top9mmMayhemScore;
+float CStats::TopScooterShooterScore;
+float CStats::TopWichitaWipeoutScore;
+uint16 CStats::UnlockedCostumes;
+int32 CStats::SessionStartTime;
+
 void CStats::Init()
 {
 	PeopleKilledByOthers = 0;
@@ -222,6 +270,167 @@ void CStats::Init()
 
 	BloodRingKills = 0;
 	BloodRingTime = 0;
+
+	InitLcsStats();
+	SessionStartTime = CTimer::GetTimeInMilliseconds();
+}
+
+// Sets the LCS-only stats to the PS2 CStats::Init values (SLES_541.35):
+// 0, and INT_MAX for a race position (no race finished).
+void CStats::InitLcsStats(void)
+{
+	CarsCrushed = 0;
+	HitmenKilled = 0;
+	LongestFacePlantDist = 0.0f;
+	CarsSold = 0;
+	MoneyMadeWithCarSales = 0;
+	BikesSold = 0;
+	MoneyMadeWithBikeSales = 0;
+	NumberOfExportedCars = 0;
+	TotalNumberOfCarExport = 0;
+	HighestLevelSlashTv = 0;
+	MoneyMadeWithSlashTv = 0;
+	TotalKillsOnSlashTV = 0;
+	PackagesSmuggled = 0;
+	SmugglersWasted = 0;
+	FastestSmugglingTime = 0;
+	MoneyMadeInCoach = 0;
+	MoneyMadeCollectingTrash = 0;
+	GuardianAngelMissionsPassed = 0;
+	HighestGuardianAngelJusticeDished = 0;
+	GuardianAngelHighestLevel_Ind = 0;
+	GuardianAngelHighestLevel_Com = 0;
+	GuardianAngelHighestLevel_Sub = 0;
+	MostTimeLeftTrainRace = 0;
+	HighestTrainCashEarned = 0;
+	FastestHeliRaceTime = 0;
+	BestHeliRacePosition = INT_MAX;
+	NumberOutfitChanges = 0;
+	for (int i = 0; i < TOTAL_BANDIT_RACES; i++) {
+		BestBanditLapTimes[i] = 0;
+		BestBanditPositions[i] = INT_MAX;
+	}
+	for (int i = 0; i < TOTAL_STREET_RACES; i++) {
+		StreetRaceFastestTime[i] = 0;
+		StreetRaceFastestLap[i] = 0;
+		StreetRaceBestPosition[i] = INT_MAX;
+	}
+	for (int i = 0; i < TOTAL_DIRT_BIKE_RACES; i++) {
+		DirtBikeFastestLap[i] = 0;
+		DirtBikeFastestTime[i] = 0;
+	}
+	DirtBikeMostAir = 0;
+	BestTimeGoGoFaggio = 0;
+	NoodlesDelivered = 0.0f;
+	MoneyMadeFromTourist = 0.0f;
+	TouristsTakenToSpots = 0.0f;
+	MaxSecondsOnCarnageLeft = 0;
+	MaxKillsOnRcTriad = 0;
+	TopScrapyardChallengeScore = 0.0f;
+	Top9mmMayhemScore = 0.0f;
+	TopScooterShooterScore = 0.0f;
+	TopWichitaWipeoutScore = 0.0f;
+	UnlockedCostumes = 0;
+}
+
+// PS2 rule for a best time: 0 means no time yet, else the smaller time stays.
+static void RegisterBestTime(int32 &best, int32 time)
+{
+	if (best == 0 || time < best)
+		best = time;
+}
+
+void CStats::RegisterFastestSmugglingTime(int32 time)
+{
+	RegisterBestTime(FastestSmugglingTime, time);
+}
+
+// PS2 (0x231c88) ignores the parameter and counts the calls.
+void CStats::RegisterHighestGuardianAngelJusticeDished(int32)
+{
+	++HighestGuardianAngelJusticeDished;
+}
+
+void CStats::RegisterGuardianAngelLevels(int32 ind, int32 com, int32 sub)
+{
+	GuardianAngelHighestLevel_Ind = Max(GuardianAngelHighestLevel_Ind, ind);
+	GuardianAngelHighestLevel_Com = Max(GuardianAngelHighestLevel_Com, com);
+	GuardianAngelHighestLevel_Sub = Max(GuardianAngelHighestLevel_Sub, sub);
+}
+
+void CStats::RegisterBestBanditLapTime(int32 race, int32 time)
+{
+	if (race >= 0 && race < TOTAL_BANDIT_RACES)
+		RegisterBestTime(BestBanditLapTimes[race], time);
+}
+
+void CStats::RegisterBestBanditPosition(int32 race, int32 position)
+{
+	if (race >= 0 && race < TOTAL_BANDIT_RACES)
+		BestBanditPositions[race] = Min(BestBanditPositions[race], position);
+}
+
+// PS2 (0x231ca0): 0 means no time yet, else the larger time stays.
+void CStats::RegisterMostTimeLeftTrainRace(int32 time)
+{
+	if (MostTimeLeftTrainRace == 0 || time > MostTimeLeftTrainRace)
+		MostTimeLeftTrainRace = time;
+}
+
+void CStats::RegisterHighestTrainCashEarned(int32 cash)
+{
+	HighestTrainCashEarned = Max(HighestTrainCashEarned, cash);
+}
+
+void CStats::RegisterFastestHeliRaceTime(int32 time)
+{
+	RegisterBestTime(FastestHeliRaceTime, time);
+}
+
+void CStats::RegisterBestHeliRacePosition(int32 position)
+{
+	BestHeliRacePosition = Min(BestHeliRacePosition, position);
+}
+
+void CStats::RegisterStreetRaceFastestTime(int32 race, int32 time)
+{
+	if (race >= 0 && race < TOTAL_STREET_RACES)
+		RegisterBestTime(StreetRaceFastestTime[race], time);
+}
+
+void CStats::RegisterStreetRaceFastestLap(int32 race, int32 time)
+{
+	if (race >= 0 && race < TOTAL_STREET_RACES)
+		RegisterBestTime(StreetRaceFastestLap[race], time);
+}
+
+void CStats::RegisterStreetRaceBestPosition(int32 race, int32 position)
+{
+	if (race >= 0 && race < TOTAL_STREET_RACES)
+		StreetRaceBestPosition[race] = Min(StreetRaceBestPosition[race], position);
+}
+
+void CStats::RegisterDirtBikeFastestLap(int32 race, int32 time)
+{
+	if (race >= 0 && race < TOTAL_DIRT_BIKE_RACES)
+		RegisterBestTime(DirtBikeFastestLap[race], time);
+}
+
+void CStats::RegisterDirtBikeFastestTime(int32 race, int32 time)
+{
+	if (race >= 0 && race < TOTAL_DIRT_BIKE_RACES)
+		RegisterBestTime(DirtBikeFastestTime[race], time);
+}
+
+void CStats::RegisterBestTimeGoGoFaggio(int32 time)
+{
+	RegisterBestTime(BestTimeGoGoFaggio, time);
+}
+
+void CStats::AddUnlockedCostume(int32 costume)
+{
+	if (costume >= 0 && costume < TOTAL_COSTUMES)
+		UnlockedCostumes |= 1 << costume;
 }
 
 void CStats::RegisterFastestTime(int32 index, int32 time)
@@ -490,6 +699,57 @@ float CStats::GetFavoriteRadioStationList(int32 station)
 	return FavoriteRadioStationList[station];
 }
 
+// The size of the LCS-only stats at the end of the stats block.
+static uint32 LcsStatsSize(void)
+{
+	return sizeof(CStats::CarsCrushed) +
+		sizeof(CStats::HitmenKilled) +
+		sizeof(CStats::LongestFacePlantDist) +
+		sizeof(CStats::CarsSold) +
+		sizeof(CStats::MoneyMadeWithCarSales) +
+		sizeof(CStats::BikesSold) +
+		sizeof(CStats::MoneyMadeWithBikeSales) +
+		sizeof(CStats::NumberOfExportedCars) +
+		sizeof(CStats::TotalNumberOfCarExport) +
+		sizeof(CStats::HighestLevelSlashTv) +
+		sizeof(CStats::MoneyMadeWithSlashTv) +
+		sizeof(CStats::TotalKillsOnSlashTV) +
+		sizeof(CStats::PackagesSmuggled) +
+		sizeof(CStats::SmugglersWasted) +
+		sizeof(CStats::FastestSmugglingTime) +
+		sizeof(CStats::MoneyMadeInCoach) +
+		sizeof(CStats::MoneyMadeCollectingTrash) +
+		sizeof(CStats::GuardianAngelMissionsPassed) +
+		sizeof(CStats::HighestGuardianAngelJusticeDished) +
+		sizeof(CStats::GuardianAngelHighestLevel_Ind) +
+		sizeof(CStats::GuardianAngelHighestLevel_Com) +
+		sizeof(CStats::GuardianAngelHighestLevel_Sub) +
+		sizeof(CStats::MostTimeLeftTrainRace) +
+		sizeof(CStats::HighestTrainCashEarned) +
+		sizeof(CStats::FastestHeliRaceTime) +
+		sizeof(CStats::BestHeliRacePosition) +
+		sizeof(CStats::NumberOutfitChanges) +
+		sizeof(CStats::BestBanditLapTimes) +
+		sizeof(CStats::BestBanditPositions) +
+		sizeof(CStats::StreetRaceFastestTime) +
+		sizeof(CStats::StreetRaceFastestLap) +
+		sizeof(CStats::StreetRaceBestPosition) +
+		sizeof(CStats::DirtBikeFastestLap) +
+		sizeof(CStats::DirtBikeFastestTime) +
+		sizeof(CStats::DirtBikeMostAir) +
+		sizeof(CStats::BestTimeGoGoFaggio) +
+		sizeof(CStats::NoodlesDelivered) +
+		sizeof(CStats::MoneyMadeFromTourist) +
+		sizeof(CStats::TouristsTakenToSpots) +
+		sizeof(CStats::MaxSecondsOnCarnageLeft) +
+		sizeof(CStats::MaxKillsOnRcTriad) +
+		sizeof(CStats::TopScrapyardChallengeScore) +
+		sizeof(CStats::Top9mmMayhemScore) +
+		sizeof(CStats::TopScooterShooterScore) +
+		sizeof(CStats::TopWichitaWipeoutScore) +
+		sizeof(CStats::UnlockedCostumes);
+}
+
 void CStats::SaveStats(uint8 *buf, uint32 *size)
 {
 	CheckPointReachedSuccessfully();
@@ -581,7 +841,8 @@ void CStats::SaveStats(uint8 *buf, uint32 *size)
 		sizeof(TotalLegitimateKills) +
 		sizeof(LastMissionPassedName) +
 		sizeof(CheatedCount) +
-		sizeof(FavoriteRadioStationList);
+		sizeof(FavoriteRadioStationList) +
+		LcsStatsSize();
 
 #define CopyToBuf(buf, data) memcpy(buf, &data, sizeof(data)); buf += sizeof(data);
 	CopyToBuf(buf, PeopleKilledByPlayer);
@@ -673,6 +934,54 @@ void CStats::SaveStats(uint8 *buf, uint32 *size)
 	CopyToBuf(buf, CheatedCount);
 	PopulateFavoriteRadioStationList();
 	CopyToBuf(buf, FavoriteRadioStationList);
+
+	// LCS-only stats. 3DS saves from older builds end before them.
+	CopyToBuf(buf, CarsCrushed);
+	CopyToBuf(buf, HitmenKilled);
+	CopyToBuf(buf, LongestFacePlantDist);
+	CopyToBuf(buf, CarsSold);
+	CopyToBuf(buf, MoneyMadeWithCarSales);
+	CopyToBuf(buf, BikesSold);
+	CopyToBuf(buf, MoneyMadeWithBikeSales);
+	CopyToBuf(buf, NumberOfExportedCars);
+	CopyToBuf(buf, TotalNumberOfCarExport);
+	CopyToBuf(buf, HighestLevelSlashTv);
+	CopyToBuf(buf, MoneyMadeWithSlashTv);
+	CopyToBuf(buf, TotalKillsOnSlashTV);
+	CopyToBuf(buf, PackagesSmuggled);
+	CopyToBuf(buf, SmugglersWasted);
+	CopyToBuf(buf, FastestSmugglingTime);
+	CopyToBuf(buf, MoneyMadeInCoach);
+	CopyToBuf(buf, MoneyMadeCollectingTrash);
+	CopyToBuf(buf, GuardianAngelMissionsPassed);
+	CopyToBuf(buf, HighestGuardianAngelJusticeDished);
+	CopyToBuf(buf, GuardianAngelHighestLevel_Ind);
+	CopyToBuf(buf, GuardianAngelHighestLevel_Com);
+	CopyToBuf(buf, GuardianAngelHighestLevel_Sub);
+	CopyToBuf(buf, MostTimeLeftTrainRace);
+	CopyToBuf(buf, HighestTrainCashEarned);
+	CopyToBuf(buf, FastestHeliRaceTime);
+	CopyToBuf(buf, BestHeliRacePosition);
+	CopyToBuf(buf, NumberOutfitChanges);
+	CopyToBuf(buf, BestBanditLapTimes);
+	CopyToBuf(buf, BestBanditPositions);
+	CopyToBuf(buf, StreetRaceFastestTime);
+	CopyToBuf(buf, StreetRaceFastestLap);
+	CopyToBuf(buf, StreetRaceBestPosition);
+	CopyToBuf(buf, DirtBikeFastestLap);
+	CopyToBuf(buf, DirtBikeFastestTime);
+	CopyToBuf(buf, DirtBikeMostAir);
+	CopyToBuf(buf, BestTimeGoGoFaggio);
+	CopyToBuf(buf, NoodlesDelivered);
+	CopyToBuf(buf, MoneyMadeFromTourist);
+	CopyToBuf(buf, TouristsTakenToSpots);
+	CopyToBuf(buf, MaxSecondsOnCarnageLeft);
+	CopyToBuf(buf, MaxKillsOnRcTriad);
+	CopyToBuf(buf, TopScrapyardChallengeScore);
+	CopyToBuf(buf, Top9mmMayhemScore);
+	CopyToBuf(buf, TopScooterShooterScore);
+	CopyToBuf(buf, TopWichitaWipeoutScore);
+	CopyToBuf(buf, UnlockedCostumes);
 
 	assert(buf - buf_start == *size);
 #undef CopyToBuf
@@ -773,7 +1082,60 @@ void CStats::LoadStats(uint8 *buf, uint32 size)
 	CopyFromBuf(buf, CheatedCount);
 	CopyFromBuf(buf, FavoriteRadioStationList);
 
-	assert(buf - buf_start == size);
+	// A stats block from an older 3DS build ends here. Then the LCS-only
+	// stats get their start values.
+	if (size >= (uint32)(buf - buf_start) + LcsStatsSize()) {
+		CopyFromBuf(buf, CarsCrushed);
+		CopyFromBuf(buf, HitmenKilled);
+		CopyFromBuf(buf, LongestFacePlantDist);
+		CopyFromBuf(buf, CarsSold);
+		CopyFromBuf(buf, MoneyMadeWithCarSales);
+		CopyFromBuf(buf, BikesSold);
+		CopyFromBuf(buf, MoneyMadeWithBikeSales);
+		CopyFromBuf(buf, NumberOfExportedCars);
+		CopyFromBuf(buf, TotalNumberOfCarExport);
+		CopyFromBuf(buf, HighestLevelSlashTv);
+		CopyFromBuf(buf, MoneyMadeWithSlashTv);
+		CopyFromBuf(buf, TotalKillsOnSlashTV);
+		CopyFromBuf(buf, PackagesSmuggled);
+		CopyFromBuf(buf, SmugglersWasted);
+		CopyFromBuf(buf, FastestSmugglingTime);
+		CopyFromBuf(buf, MoneyMadeInCoach);
+		CopyFromBuf(buf, MoneyMadeCollectingTrash);
+		CopyFromBuf(buf, GuardianAngelMissionsPassed);
+		CopyFromBuf(buf, HighestGuardianAngelJusticeDished);
+		CopyFromBuf(buf, GuardianAngelHighestLevel_Ind);
+		CopyFromBuf(buf, GuardianAngelHighestLevel_Com);
+		CopyFromBuf(buf, GuardianAngelHighestLevel_Sub);
+		CopyFromBuf(buf, MostTimeLeftTrainRace);
+		CopyFromBuf(buf, HighestTrainCashEarned);
+		CopyFromBuf(buf, FastestHeliRaceTime);
+		CopyFromBuf(buf, BestHeliRacePosition);
+		CopyFromBuf(buf, NumberOutfitChanges);
+		CopyFromBuf(buf, BestBanditLapTimes);
+		CopyFromBuf(buf, BestBanditPositions);
+		CopyFromBuf(buf, StreetRaceFastestTime);
+		CopyFromBuf(buf, StreetRaceFastestLap);
+		CopyFromBuf(buf, StreetRaceBestPosition);
+		CopyFromBuf(buf, DirtBikeFastestLap);
+		CopyFromBuf(buf, DirtBikeFastestTime);
+		CopyFromBuf(buf, DirtBikeMostAir);
+		CopyFromBuf(buf, BestTimeGoGoFaggio);
+		CopyFromBuf(buf, NoodlesDelivered);
+		CopyFromBuf(buf, MoneyMadeFromTourist);
+		CopyFromBuf(buf, TouristsTakenToSpots);
+		CopyFromBuf(buf, MaxSecondsOnCarnageLeft);
+		CopyFromBuf(buf, MaxKillsOnRcTriad);
+		CopyFromBuf(buf, TopScrapyardChallengeScore);
+		CopyFromBuf(buf, Top9mmMayhemScore);
+		CopyFromBuf(buf, TopScooterShooterScore);
+		CopyFromBuf(buf, TopWichitaWipeoutScore);
+		CopyFromBuf(buf, UnlockedCostumes);
+	} else
+		InitLcsStats();
+
+	SessionStartTime = CTimer::GetTimeInMilliseconds();
+	assert(buf - buf_start <= size);
 #undef CopyFromBuf
 }
 
@@ -786,7 +1148,7 @@ CStats::PopulateFavoriteRadioStationList()
 }
 
 void
-CStats::BuildStatLine(Const char *text, void *stat, int displayType, void *stat2, int isTime)
+CStats::BuildStatLine(Const char *text, void *stat, int displayType, void *stat2, int isTime, int indent)
 {
 #define STAT_D *(int*)stat
 #define STAT_F *(float*)stat
@@ -871,7 +1233,11 @@ CStats::BuildStatLine(Const char *text, void *stat, int displayType, void *stat2
 			break;
 		}
 	}
-	UnicodeStrcpy(gUString, TheText.Get(text));
+	// PS2 (0x235448) puts indent - 1 spaces before the text of a sub-row.
+	int spaces = indent > 0 ? indent - 1 : 0;
+	for (int i = 0; i < spaces; i++)
+		gUString[i] = ' ';
+	UnicodeStrcpy(gUString + spaces, TheText.Get(text));
 	CFont::FilterOutTokensFromString(gUString);
 	AsciiToUnicode(gString2, gUString2);
 #undef STAT_D
@@ -921,6 +1287,35 @@ CStats::ConstructStatLine(int rowIdx)
 		} counter++; \
 	} while(0)
 
+#define INDENTED_LINE(varType, left, right1, type, indent) \
+	do { \
+		if(counter == rowIdx){ \
+			varType a = right1; \
+			BuildStatLine(left, &a, type, nil, 0, indent); \
+			return 0; \
+		} counter++; \
+	} while(0)
+
+#define HEADER_LINE(left, indent) \
+	do { \
+		if(counter == rowIdx){ \
+			BuildStatLine(left, nil, 0, nil, 0, indent); \
+			return 0; \
+		} counter++; \
+	} while(0)
+
+// A time in seconds, shown as minutes and seconds.
+#define TIME_LINE(left, seconds, indent) \
+	do { \
+		if(counter == rowIdx){ \
+			int32 t = seconds; \
+			int minute = t / 60; \
+			int second = t % 60 < 0 ? -(t % 60) : t % 60; \
+			BuildStatLine(left, &minute, 0, &second, 1, indent); \
+			return 0; \
+		} counter++; \
+	} while(0)
+
 #define FASTEST_TIME(id, str) \
 	do { \
 		if(FastestTimes[id]) { \
@@ -947,26 +1342,33 @@ CStats::ConstructStatLine(int rowIdx)
 			return 0;
 		}
 		case 2: {
-			int hour = (CTimer::GetTimeInMilliseconds() / 60000) / 60;
-			int minute = (CTimer::GetTimeInMilliseconds() / 60000) % 60;
+			// PS2 shows the time since the game was started or loaded here.
+			uint32 sessionTime = CTimer::GetTimeInMilliseconds() - SessionStartTime;
+			int hour = (sessionTime / 60000) / 60;
+			int minute = (sessionTime / 60000) % 60;
 			BuildStatLine("ST_TIME", &hour, 0, &minute, 1);
 			return 0;
 		}
 		case 3: {
-			BuildStatLine("DAYSPS", &DaysPassed, 0, nil, 0);
+			int hour = (CTimer::GetTimeInMilliseconds() / 60000) / 60;
+			int minute = (CTimer::GetTimeInMilliseconds() / 60000) % 60;
+			BuildStatLine("ST_OVTI", &hour, 0, &minute, 1);
 			return 0;
 		}
 		case 4: {
+			BuildStatLine("DAYSPS", &DaysPassed, 0, nil, 0);
+			return 0;
+		}
+		case 5: {
 			BuildStatLine("NUMSHV", &SafeHouseVisits, 0, nil, 0);
 			return 0;
 		}
 	}
-	int counter = 5;
-	
-	if (CGame::nastyGame) {
-		STAT_LINE_2(int, "FEST_RP", NumberKillFrenziesPassed, 0, TotalNumberKillFrenzies, 0);
-	}
-	
+	int counter = 6;
+
+	// The rows below follow PS2 CStats::ConstructStatLine (SLES_541.35 0x231d50).
+	STAT_LINE_2(int, "FEST_RP", NumberKillFrenziesPassed, 0, TotalNumberKillFrenzies, 0);
+
 	CPlayerInfo &player = CWorld::Players[CWorld::PlayerInFocus];
 
 	// Hidden packages shouldn't be shown with percent
@@ -1011,7 +1413,7 @@ CStats::ConstructStatLine(int rowIdx)
 
 	int mostPatheticGang = 0;
 	int mostKill = 0;
-	for (int i = PEDTYPE_GANG1; i < PEDTYPE_GANG9; ++i) {
+	for (int i = PEDTYPE_GANG1; i <= PEDTYPE_GANG9; ++i) {
 		if (CStats::PedsKilledOfThisType[i] > mostKill) {
 			mostKill = CStats::PedsKilledOfThisType[i];
 			mostPatheticGang = i;
@@ -1045,6 +1447,9 @@ CStats::ConstructStatLine(int rowIdx)
 			case PEDTYPE_GANG8:
 				TEXT_ON_RIGHT(TheText.Get("ST_GNG8"));
 				break;
+			case PEDTYPE_GANG9:
+				TEXT_ON_RIGHT(TheText.Get("ST_GNG9"));
+				break;
 			default:
 				break;
 		}
@@ -1057,11 +1462,14 @@ CStats::ConstructStatLine(int rowIdx)
 			+ PedsKilledOfThisType[PEDTYPE_GANG1], 0);
 
 	STAT_LINE_1(int, "DED_CRI", PedsKilledOfThisType[PEDTYPE_CRIMINAL], 0);
+	if (HitmenKilled > 0)
+		STAT_LINE_1(int, "HTMKLD", HitmenKilled, 0);
 	STAT_LINE_1(int, "KGS_EXP", KgsOfExplosivesUsed, 0);
 	STAT_LINE_1(int, "BUL_FIR", RoundsFiredByPlayer, 0);
 	STAT_LINE_1(int, "BUL_HIT", BulletsThatHit, 0);
 ;
 	STAT_LINE_1(int, "ACCURA", RoundsFiredByPlayer == 0 ? 0 : (BulletsThatHit * 100.0f / (float)RoundsFiredByPlayer), 2);
+	STAT_LINE_1(int, "CAR_CRU", CarsCrushed, 0);
 
 	switch (FrontEndMenuManager.m_PrefsLanguage) {
 		case CMenuManager::LANGUAGE_AMERICAN:
@@ -1070,17 +1478,8 @@ CStats::ConstructStatLine(int rowIdx)
 			STAT_LINE_1(float, "FEST_DC", DistanceTravelledByCar * MILES_IN_METER, 1);
 			STAT_LINE_1(float, "DISTBIK", DistanceTravelledByBike * MILES_IN_METER, 1);
 			STAT_LINE_1(float, "DISTBOA", DistanceTravelledByBoat * MILES_IN_METER, 1);
-			STAT_LINE_1(float, "DISTGOL", DistanceTravelledByGolfCart * MILES_IN_METER, 1);
-			STAT_LINE_1(float, "DISTHEL", DistanceTravelledByHelicoptor * MILES_IN_METER, 1);
-#ifdef FIX_BUGS
-			STAT_LINE_1(float, "TOT_DIS", (DistanceTravelledOnFoot + DistanceTravelledByCar + DistanceTravelledByBoat + DistanceTravelledByBike
-				+ DistanceTravelledByGolfCart + DistanceTravelledByHelicoptor + DistanceTravelledByPlane) * MILES_IN_METER, 1);
-			STAT_LINE_1(float, "MXCARD", MaximumJumpDistance * FEET_IN_METER, 1);
-			STAT_LINE_1(float, "MXCARJ", MaximumJumpHeight * FEET_IN_METER, 1);
-#else
-			STAT_LINE_1(float, "TOT_DIS", (DistanceTravelledOnFoot + DistanceTravelledByCar + DistanceTravelledByBoat + DistanceTravelledByBike
-				+ DistanceTravelledByGolfCart + DistanceTravelledByHelicoptor) * MILES_IN_METER, 1);
-#endif
+			STAT_LINE_1(float, "TOT_DIS", (DistanceTravelledOnFoot + DistanceTravelledByCar + DistanceTravelledByBoat + DistanceTravelledByBike)
+				* MILES_IN_METER, 1);
 			break;
 #endif
 		case CMenuManager::LANGUAGE_FRENCH:
@@ -1096,29 +1495,16 @@ CStats::ConstructStatLine(int rowIdx)
 			STAT_LINE_1(float, "FESTDCM", DistanceTravelledByCar, 1);
 			STAT_LINE_1(float, "DISTBIM", DistanceTravelledByBike, 1);
 			STAT_LINE_1(float, "DISTBOM", DistanceTravelledByBoat, 1);
-			STAT_LINE_1(float, "DISTGOM", DistanceTravelledByGolfCart, 1);
-			STAT_LINE_1(float, "DISTHEM", DistanceTravelledByHelicoptor, 1);
-#ifdef FIX_BUGS
-			STAT_LINE_1(float, "TOTDISM", DistanceTravelledOnFoot + DistanceTravelledByCar + DistanceTravelledByBoat
-				+ DistanceTravelledByBike + DistanceTravelledByGolfCart + DistanceTravelledByHelicoptor + DistanceTravelledByPlane, 1);
-			STAT_LINE_1(float, "MXCARDM", MaximumJumpDistance, 1);
-			STAT_LINE_1(float, "MXCARJM", MaximumJumpHeight, 1);
-#else
-			STAT_LINE_1(float, "TOTDISM", DistanceTravelledOnFoot + DistanceTravelledByCar + DistanceTravelledByBoat
-				+ DistanceTravelledByGolfCart + DistanceTravelledByHelicoptor, 1);
-#endif
+			STAT_LINE_1(float, "TOTDISM", DistanceTravelledOnFoot + DistanceTravelledByCar + DistanceTravelledByBoat + DistanceTravelledByBike, 1);
 			break;
 		default:
 			break;
 	}
 
-	// They were selecting the unit according to language in III, but they deleted the feet code in VC. Weird
-#ifndef FIX_BUGS
+	// PS2 shows the jump distance and height in metres for all languages.
 	STAT_LINE_1(float, "MXCARDM", MaximumJumpDistance, 1);
 	STAT_LINE_1(float, "MXCARJM", MaximumJumpHeight, 1);
-#endif
 	STAT_LINE_1(int, "MXFLIP", MaximumJumpFlips, 0);
-	STAT_LINE_2(int, "NOUNIF", NumberOfUniqueJumpsFound, 0, TotalNumberOfUniqueJumps, 0);
 	STAT_LINE_1(int, "MXJUMP", MaximumJumpSpins, 4);
 
 	TEXT_ON_LEFT_GXT("BSTSTU");
@@ -1151,37 +1537,129 @@ CStats::ConstructStatLine(int rowIdx)
 			TEXT_ON_RIGHT(TheText.Get("NOSTUC"));
 			break;
 	}
+	STAT_LINE_2(int, "NOUNIF", NumberOfUniqueJumpsFound, 0, TotalNumberOfUniqueJumps, 0);
 	STAT_LINE_1(int, "ST_WHEE", LongestWheelie, 0);
 	STAT_LINE_1(float, "ST_WHED", LongestWheelieDist, 1);
 	STAT_LINE_1(int, "ST_STOP", LongestStoppie, 0);
 	STAT_LINE_1(float, "ST_STOD", LongestStoppieDist, 1);
+	STAT_LINE_1(float, "ST_FAPD", LongestFacePlantDist, 1);
 	STAT_LINE_1(int, "ST_2WHE", Longest2Wheel, 0);
 	STAT_LINE_1(float, "ST_2WHD", Longest2WheelDist, 1);
 
 	if (LoanSharks > 0.0f)
 		STAT_LINE_1(int, "ST_LOAN", LoanSharks, 0);
 
-	STAT_LINE_1(int, "FEST_CC", CriminalsCaught, 0);
-	STAT_LINE_1(int, "FEST_HV", HighestLevelVigilanteMission, 0);
-	STAT_LINE_1(int, "PASDRO", PassengersDroppedOffWithTaxi, 0);
-	STAT_LINE_1(float, "MONTAX", MoneyMadeWithTaxi, 3);
-	STAT_LINE_1(int, "FEST_LS", LivesSavedWithAmbulance, 0);
-	STAT_LINE_1(int, "FEST_HA", HighestLevelAmbulanceMission, 0);
-	STAT_LINE_1(int, "FEST_FE", FiresExtinguished, 0);
-	STAT_LINE_1(int, "FIRELVL", HighestLevelFireMission, 0);
+	if (CriminalsCaught > 0)
+		STAT_LINE_1(int, "FEST_CC", CriminalsCaught, 0);
+	if (HighestLevelVigilanteMission > 0)
+		STAT_LINE_1(int, "FEST_HV", HighestLevelVigilanteMission, 0);
+	if (PassengersDroppedOffWithTaxi > 0)
+		STAT_LINE_1(int, "PASDRO", PassengersDroppedOffWithTaxi, 0);
+	if (MoneyMadeWithTaxi > 0)
+		STAT_LINE_1(float, "MONTAX", MoneyMadeWithTaxi, 3);
+	if (LivesSavedWithAmbulance > 0)
+		STAT_LINE_1(int, "FEST_LS", LivesSavedWithAmbulance, 0);
+	if (HighestLevelAmbulanceMission > 0)
+		STAT_LINE_1(int, "FEST_HA", HighestLevelAmbulanceMission, 0);
+	if (FiresExtinguished > 0)
+		STAT_LINE_1(int, "FEST_FE", FiresExtinguished, 0);
+	if (HighestLevelFireMission > 0)
+		STAT_LINE_1(int, "FIRELVL", HighestLevelFireMission, 0);
 
-	STAT_LINE_2(int, "ST_STOR", StoresKnockedOff, 0, 15, 0);
+	if (CarsSold > 0)
+		STAT_LINE_1(int, "CARSLD", CarsSold, 0);
+	if (MoneyMadeWithCarSales > 0)
+		STAT_LINE_1(float, "MONCAR", MoneyMadeWithCarSales, 3);
+	if (BikesSold > 0)
+		STAT_LINE_1(int, "BIKESLD", BikesSold, 0);
+	if (MoneyMadeWithBikeSales > 0)
+		STAT_LINE_1(float, "MONBIKE", MoneyMadeWithBikeSales, 3);
+	if (NumberOfExportedCars > 0)
+		STAT_LINE_2(int, "CARSEXP", NumberOfExportedCars, 0, TotalNumberOfCarExport, 0);
+	if (HighestLevelSlashTv > 0)
+		STAT_LINE_1(int, "SLTVLVL", HighestLevelSlashTv, 0);
+	if (MoneyMadeWithSlashTv > 0)
+		STAT_LINE_1(float, "SLTVMON", MoneyMadeWithSlashTv, 3);
+	if (TotalKillsOnSlashTV > 0)
+		STAT_LINE_1(int, "SLTVKIL", TotalKillsOnSlashTV, 0);
+	if (MoneyMadeCollectingTrash > 0)
+		STAT_LINE_1(float, "MONTRS", MoneyMadeCollectingTrash, 3);
+	if (GuardianAngelMissionsPassed > 0)
+		STAT_LINE_1(int, "GDAMSP", GuardianAngelMissionsPassed, 0);
+	if (HighestGuardianAngelJusticeDished > 0)
+		STAT_LINE_1(int, "HGAJD", HighestGuardianAngelJusticeDished, 0);
+	if (GuardianAngelHighestLevel_Ind > 0 || GuardianAngelHighestLevel_Com > 0 || GuardianAngelHighestLevel_Sub > 0) {
+		HEADER_LINE("GDA_HL", 0);
+		if (GuardianAngelHighestLevel_Ind > 0)
+			INDENTED_LINE(int, "IND_ZON", GuardianAngelHighestLevel_Ind, 0, 4);
+		if (GuardianAngelHighestLevel_Com > 0)
+			INDENTED_LINE(int, "COM_ZON", GuardianAngelHighestLevel_Com, 0, 4);
+		if (GuardianAngelHighestLevel_Sub > 0)
+			INDENTED_LINE(int, "SUB_ZON", GuardianAngelHighestLevel_Sub, 0, 4);
+	}
+	if (MostTimeLeftTrainRace > 0)
+		TIME_LINE("FSTTRT", MostTimeLeftTrainRace, 0);
+	if (BestHeliRacePosition != INT_MAX)
+		STAT_LINE_1(int, "BHLPOS", BestHeliRacePosition, 0);
+	STAT_LINE_1(int, "TMSOUT", NumberOutfitChanges, 0);
+
+	// A race is listed when it has a result. INT_MAX is "no position yet".
+	char raceKey[16];
+	bool header = false;
+	for (int i = 0; i < TOTAL_BANDIT_RACES; i++) {
+		if (BestBanditPositions[i] == INT_MAX)
+			continue;
+		if (!header) {
+			HEADER_LINE("BNDRACE", 0);
+			header = true;
+		}
+		sprintf(raceKey, "BNDRAC%d", i);
+		HEADER_LINE(raceKey, 2);
+		INDENTED_LINE(int, "DBIKEBP", BestBanditPositions[i], 0, 4);
+		TIME_LINE("DBIKEFL", BestBanditLapTimes[i], 4);
+	}
+	for (int i = 0; i < TOTAL_STREET_RACES; i++) {
+		if (StreetRaceBestPosition[i] == INT_MAX)
+			continue;
+		sprintf(raceKey, "BSRPS%d", i);
+		HEADER_LINE(raceKey, 0);
+		INDENTED_LINE(int, "DBIKEBP", StreetRaceBestPosition[i], 0, 2);
+		TIME_LINE("DBIKEFL", StreetRaceFastestLap[i], 2);
+		TIME_LINE("DBIKEFT", StreetRaceFastestTime[i], 2);
+	}
+	header = false;
+	for (int i = 0; i < TOTAL_DIRT_BIKE_RACES; i++) {
+		if (DirtBikeFastestLap[i] == 0)
+			continue;
+		if (!header) {
+			HEADER_LINE("DBIKEHE", 0);
+			header = true;
+		}
+		sprintf(raceKey, "DBIKE%d", i);
+		HEADER_LINE(raceKey, 2);
+		TIME_LINE("DBIKEFL", DirtBikeFastestLap[i], 4);
+		TIME_LINE("DBIKEFT", DirtBikeFastestTime[i], 4);
+	}
+	if (DirtBikeMostAir > 0 && header)
+		INDENTED_LINE(int, "DBIKEAI", DirtBikeMostAir, 0, 2);
+	if (BestTimeGoGoFaggio > 0)
+		TIME_LINE("FEST_GO", BestTimeGoGoFaggio / 1000, 0);
 
 	if (MovieStunts > 0.0f)
 		STAT_LINE_1(int, "ST_MOVI", MovieStunts, 0);
-
-	STAT_LINE_2(int, "ST_ASSI", Assassinations, 0, 5, 0);
 
 	if (PhotosTaken > 0)
 		STAT_LINE_1(int, "ST_PHOT", PhotosTaken, 0);
 
 	if (PizzasDelivered > 0.0f)
 		STAT_LINE_1(int, "ST_PIZZ", PizzasDelivered, 0);
+
+	if (NoodlesDelivered > 0.0f)
+		STAT_LINE_1(int, "ST_NOOD", NoodlesDelivered, 0);
+	if (MoneyMadeFromTourist > 0.0f)
+		STAT_LINE_1(float, "MO_TOUR", MoneyMadeFromTourist, 3);
+	if (TouristsTakenToSpots > 0.0f)
+		STAT_LINE_1(int, "TA_TOUR", TouristsTakenToSpots, 0);
 
 	if (GarbagePickups > 0.0f)
 		STAT_LINE_1(int, "ST_GARB", GarbagePickups, 0);
@@ -1241,48 +1719,20 @@ CStats::ConstructStatLine(int rowIdx)
 	if (ShootingRank > 0.0f)
 		STAT_LINE_1(int, "SHO_RAN", ShootingRank, 0);
 
-	int flightMinute = (FlightTime / 60000) % 60;
-	int flightHour = (FlightTime / 60000) / 60;
-	STAT_LINE_2(int, "ST_FTIM", flightHour, 0, flightMinute, 1);
-
-	// We always have pilot rank if we flew more then 5 minutes
-#ifndef FIX_BUGS
-	if (flightHour != 0)
-		TEXT_ON_LEFT_GXT("ST_PRAN");
-#endif
-
-#ifdef FIX_BUGS
-#define FL_TIME_MORE_THAN(hour, minute) (flightHour > hour || (flightHour == hour && flightMinute >= minute))
-#else
-#define FL_TIME_MORE_THAN(hour, minute) (flightHour > hour || flightMinute >= minute)
-#endif
-
-	if (FL_TIME_MORE_THAN(0,5)) {
-
-#ifdef FIX_BUGS
-		TEXT_ON_LEFT_GXT("ST_PRAN");
-#endif
-		if (!FL_TIME_MORE_THAN(0,10)) TEXT_ON_RIGHT(TheText.Get("ST_PR01"));
-		else if (!FL_TIME_MORE_THAN(0,20)) TEXT_ON_RIGHT(TheText.Get("ST_PR02"));
-		else if (!FL_TIME_MORE_THAN(0,30)) TEXT_ON_RIGHT(TheText.Get("ST_PR03"));
-		else if (!FL_TIME_MORE_THAN(1,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR04"));
-		else if (!FL_TIME_MORE_THAN(1,30)) TEXT_ON_RIGHT(TheText.Get("ST_PR05"));
-		else if (!FL_TIME_MORE_THAN(2,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR06"));
-		else if (!FL_TIME_MORE_THAN(2,30)) TEXT_ON_RIGHT(TheText.Get("ST_PR07"));
-		else if (!FL_TIME_MORE_THAN(3,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR08"));
-		else if (!FL_TIME_MORE_THAN(3,30)) TEXT_ON_RIGHT(TheText.Get("ST_PR09"));
-		else if (!FL_TIME_MORE_THAN(4,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR10"));
-		else if (!FL_TIME_MORE_THAN(5,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR11"));
-		else if (!FL_TIME_MORE_THAN(10,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR12"));
-		else if (!FL_TIME_MORE_THAN(20,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR13"));
-		else if (!FL_TIME_MORE_THAN(25,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR14"));
-		else if (!FL_TIME_MORE_THAN(30,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR15"));
-		else if (!FL_TIME_MORE_THAN(49,2)) TEXT_ON_RIGHT(TheText.Get("ST_PR16"));
-		else if (!FL_TIME_MORE_THAN(50,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR17"));
-		else if (!FL_TIME_MORE_THAN(100,0)) TEXT_ON_RIGHT(TheText.Get("ST_PR18"));
-		else TEXT_ON_RIGHT(TheText.Get("ST_PR19"));
+	if (TopScrapyardChallengeScore > 0.0f)
+		STAT_LINE_1(int, "SC_SCRA", TopScrapyardChallengeScore, 0);
+	if (Top9mmMayhemScore > 0.0f)
+		STAT_LINE_1(int, "SC_9MM", Top9mmMayhemScore, 0);
+	if (TopScooterShooterScore > 0.0f)
+		STAT_LINE_1(int, "SC_SCOO", TopScooterShooterScore, 0);
+	if (TopWichitaWipeoutScore > 0.0f)
+		STAT_LINE_1(int, "SC_WICH", TopWichitaWipeoutScore, 0);
+	if (CGame::nastyGame) {
+		if (MaxSecondsOnCarnageLeft > 0)
+			TIME_LINE("FEST_CN", MaxSecondsOnCarnageLeft, 0);
+		if (MaxKillsOnRcTriad > 0)
+			STAT_LINE_1(int, "FEST_TR", MaxKillsOnRcTriad, 0);
 	}
-#undef FL_TIME_MORE_THAN
 
 	if (BloodRingKills > 0)
 		STAT_LINE_1(int, "ST_BRK", BloodRingKills, 0);
@@ -1297,8 +1747,10 @@ CStats::ConstructStatLine(int rowIdx)
 
 	bool playerHatesRadio = true;
 	float* pListenTimeArray = DMAudio.GetListenTimeArray();
-	for (int i = 0; i < NUM_RADIOS; i++) {
+	for (int i = 0; i < NUM_RADIOS; i++)
 		FavoriteRadioStationList[i] = pListenTimeArray[i];
+	// PS2 only ranks the ten stations WILDSTYLE..LCFR. Index 10 is not a station.
+	for (int i = 0; i <= LCFR; i++) {
 		if (FavoriteRadioStationList[i] != 0.0) // double
 			playerHatesRadio = false;
 	}
@@ -1308,7 +1760,7 @@ CStats::ConstructStatLine(int rowIdx)
 		TEXT_ON_LEFT_GXT("FST_MFR");
 		float mostListenTime = FavoriteRadioStationList[0];
 		int mostListenedRadio = 0;
-		for (int i = 0; i < NUM_RADIOS; i++) {
+		for (int i = 0; i <= LCFR; i++) {
 			if (FavoriteRadioStationList[i] > mostListenTime) {
 				mostListenTime = FavoriteRadioStationList[i];
 				mostListenedRadio = i;
@@ -1346,7 +1798,7 @@ CStats::ConstructStatLine(int rowIdx)
 				TEXT_ON_RIGHT(TheText.Get("FEA_FM9"));
 				break;
 			default:
-				TEXT_ON_RIGHT(TheText.Get("FEA_FM8")); // heh
+				TEXT_ON_RIGHT(TheText.Get("FEA_FM9"));
 				break;
 		}
 
@@ -1354,7 +1806,7 @@ CStats::ConstructStatLine(int rowIdx)
 		TEXT_ON_LEFT_GXT("FST_LFR");
 		float leastListenTime = FavoriteRadioStationList[0];
 		int leastListenedRadio = 0;
-		for (int i = 0; i < NUM_RADIOS; i++) {
+		for (int i = 0; i <= LCFR; i++) {
 			if (FavoriteRadioStationList[i] < leastListenTime) {
 				leastListenTime = FavoriteRadioStationList[i];
 				leastListenedRadio = i;
@@ -1392,16 +1844,14 @@ CStats::ConstructStatLine(int rowIdx)
 				TEXT_ON_RIGHT(TheText.Get("FEA_FM9"));
 				break;
 			default:
-				TEXT_ON_RIGHT(TheText.Get("FEA_FM8")); // heh
+				TEXT_ON_RIGHT(TheText.Get("FEA_FM9"));
 				break;
 		}
 	}
 	STAT_LINE_1(int, "SPRAYIN", Sprayings, 0);
 	STAT_LINE_1(float, "ST_WEAP", WeaponBudget, 3);
-	STAT_LINE_1(float, "ST_FASH", FashionBudget, 3);
-	STAT_LINE_1(float, "ST_PROP", PropertyBudget, 3);
 	STAT_LINE_1(float, "ST_AUTO", AutoPaintingBudget, 3);
-	STAT_LINE_1(float, "ST_DAMA", PropertyBudget, 3);
+	STAT_LINE_1(float, "ST_DAMA", PropertyDestroyed, 3);
 
 	if (NumPropertyOwned > 0) {
 		STAT_LINE_1(int, "PROPOWN", NumPropertyOwned, 0);
@@ -1424,11 +1874,25 @@ CStats::ConstructStatLine(int rowIdx)
 	STAT_LINE_1(int, "CHASE", HighestChaseValue, 0);
 	TEXT_ON_RIGHT(FindChaseString(HighestChaseValue));
 
+	if (UnlockedCostumes != 0) {
+		HEADER_LINE("OUTFITS", 0);
+		for (int i = 0; i < TOTAL_COSTUMES; i++) {
+			if (UnlockedCostumes & (1 << i)) {
+				char outfitKey[16];
+				sprintf(outfitKey, "OUTF_%02i", i);
+				HEADER_LINE(outfitKey, 4);
+			}
+		}
+	}
+
 	return counter;
 
 #undef STAT_LINE_1
 #undef STAT_LINE_2
 #undef TEXT_ON_LEFT_GXT
 #undef TEXT_ON_RIGHT
+#undef INDENTED_LINE
+#undef HEADER_LINE
+#undef TIME_LINE
 #undef FASTEST_TIME
 }

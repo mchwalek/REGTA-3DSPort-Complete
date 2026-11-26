@@ -31,47 +31,47 @@ int8 CRunningScript::ProcessCommands1600To1699(int32 command)
 	switch (command) {
 	case COMMAND_ADD_NOODLES_DELIVERED:
 		CollectParameters(&m_nIp, 1);
-		// CStats::NoodlesDelievered += GET_INTEGER_PARAM(0);
+		CStats::NoodlesDelivered += GET_INTEGER_PARAM(0);
 		return 0;
 	case COMMAND_REGISTER_SCRAPYARD_CHALLENGE_SCORE:
 		CollectParameters(&m_nIp, 1);
-		//CStats::TopScrapyardChallengeScore = Max(CStats::TopScrapyardChallengeScore, GET_INTEGER_PARAM(0));
+		CStats::TopScrapyardChallengeScore = Max(CStats::TopScrapyardChallengeScore, GET_INTEGER_PARAM(0));
 		return 0;
 	case COMMAND_REGISTER_9MM_MAYHEM_SCORE:
 		CollectParameters(&m_nIp, 1);
-		//CStats::Top9mmMayhemScore = Max(CStats::Top9mmMayhemScore, GET_INTEGER_PARAM(0));
+		CStats::Top9mmMayhemScore = Max(CStats::Top9mmMayhemScore, GET_INTEGER_PARAM(0));
 		return 0;
 	case COMMAND_REGISTER_SCOOTER_SHOOTER_SCORE:
 		CollectParameters(&m_nIp, 1);
-		//CStats::TopScooterShooterScore = Max(CStats::TopScooterShooterScore, GET_INTEGER_PARAM(0));
+		CStats::TopScooterShooterScore = Max(CStats::TopScooterShooterScore, GET_INTEGER_PARAM(0));
 		return 0;
 	case COMMAND_ADD_MONEY_MADE_FROM_TOURIST:
 		CollectParameters(&m_nIp, 1);
-		// CStats::MoneyMadeFromTourist += GET_INTEGER_PARAM(0);
+		CStats::MoneyMadeFromTourist += GET_INTEGER_PARAM(0);
 		return 0;
 	case COMMAND_ADD_TOURISTS_TAKEN_TO_SPOTS:
 		CollectParameters(&m_nIp, 1);
-		// CStats::TouristsTakenToSpots += GET_INTEGER_PARAM(0);
+		CStats::TouristsTakenToSpots += GET_INTEGER_PARAM(0);
 		return 0;
 	case COMMAND_ADD_EXPORTED_CARS:
 		CollectParameters(&m_nIp, 1);
-		// CStats::NumberOfExportedCars += GET_INTEGER_PARAM(0);
+		CStats::NumberOfExportedCars += GET_INTEGER_PARAM(0);
 		return 0;
 	case COMMAND_SET_TOTAL_EXPORT_CARS:
 		CollectParameters(&m_nIp, 1);
-		// CStats::TotalNumberOfCarExport = GET_INTEGER_PARAM(0);
+		CStats::TotalNumberOfCarExport = GET_INTEGER_PARAM(0);
 		return 0;
 	case COMMAND_REGISTER_DIRT_BIKE_FASTEST_LAP:
 		CollectParameters(&m_nIp, 2);
-		// CStats::RegisterDirtBikeFastestLap(GET_INTEGER_PARAM(0), GET_INTEGER_PARAM(1));
+		CStats::RegisterDirtBikeFastestLap(GET_INTEGER_PARAM(0), GET_INTEGER_PARAM(1));
 		return 0;
 	case COMMAND_REGISTER_DIRT_BIKE_FASTEST_TIME:
 		CollectParameters(&m_nIp, 2);
-		// CStats::RegisterDirtBikeFastestTime(GET_INTEGER_PARAM(0), GET_INTEGER_PARAM(1));
+		CStats::RegisterDirtBikeFastestTime(GET_INTEGER_PARAM(0), GET_INTEGER_PARAM(1));
 		return 0;
 	case COMMAND_REGISTER_DIRT_BIKE_AIR_TIME:
 		CollectParameters(&m_nIp, 1);
-		//CStats::DirtBikeMostAir = Max(CStats::DirtBikeMostAir, GET_INTEGER_PARAM(0));
+		CStats::DirtBikeMostAir = Max(CStats::DirtBikeMostAir, GET_INTEGER_PARAM(0));
 		return 0;
 	case COMMAND_ADD_ARROW_3D_MARKER:
 	{
@@ -130,7 +130,7 @@ int8 CRunningScript::ProcessCommands1600To1699(int32 command)
 		return 0;
 	case COMMAND_REGISTER_WICHITA_WIPEOUT_SCORE:
 		CollectParameters(&m_nIp, 1);
-		//CStats::TopWichitaWipeoutScore = Max(CStats::TopWichitaWipeoutScore, GET_INTEGER_PARAM(0));
+		CStats::TopWichitaWipeoutScore = Max(CStats::TopWichitaWipeoutScore, GET_INTEGER_PARAM(0));
 		return 0;
 	case COMMAND_ATTACH_OBJECT_TO_CAR:
 	{
@@ -250,7 +250,7 @@ int8 CRunningScript::ProcessCommands1600To1699(int32 command)
 	}
 	case COMMAND_ADD_UNLOCKED_COSTUME:
 		CollectParameters(&m_nIp, 1);
-		// CStats::AddUnlockedCostume(GET_INTEGER_PARAM(0));
+		CStats::AddUnlockedCostume(GET_INTEGER_PARAM(0));
 		return 0;
 	case COMMAND_CLEAR_MULTIPLAYER_SPLASH_SCREEN:
 		// ClearMultiplayerSplashScreen();
@@ -327,7 +327,7 @@ int8 CRunningScript::ProcessCommands1600To1699(int32 command)
 	}
 	case COMMAND_REGISTER_BEST_TIME_GOGO_FAGGIO:
 		CollectParameters(&m_nIp, 1);
-		// CStats::RegisterBestTimeGoGoFaggio(GET_INTEGER_PARAM(0));
+		CStats::RegisterBestTimeGoGoFaggio(GET_INTEGER_PARAM(0));
 		return 0;
 	case COMMAND_LOCK_GARAGE:
 		CollectParameters(&m_nIp, 2);
@@ -349,9 +349,7 @@ int8 CRunningScript::ProcessCommands1600To1699(int32 command)
 	}
 	case COMMAND_REGISTER_GUARDIAN_ANGEL_LEVEL:
 		CollectParameters(&m_nIp, 3);
-		//CStats::GuardianAngelHighestLevel_Ind = Max(CStats::GuardianAngelHighestLevel_Ind, GET_INTEGER_PARAM(0));
-		//CStats::GuardianAngelHighestLevel_Com = Max(CStats::GuardianAngelHighestLevel_Com, GET_INTEGER_PARAM(1));
-		//CStats::GuardianAngelHighestLevel_Sub = Max(CStats::GuardianAngelHighestLevel_Sub, GET_INTEGER_PARAM(2));
+		CStats::RegisterGuardianAngelLevels(GET_INTEGER_PARAM(0), GET_INTEGER_PARAM(1), GET_INTEGER_PARAM(2));
 		return 0;
 	case COMMAND_DISPLAY_ONSCREEN_TIMER_WITH_NUMBER_AND_2_STRINGS:
 	{
