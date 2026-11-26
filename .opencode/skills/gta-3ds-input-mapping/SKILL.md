@@ -187,6 +187,24 @@ the PC/mouse code after it is not compiled on 3DS. PS2 reference: input
 - Test: `scripts/tests/test_3ds_literal_button_text.py`. See
   `git log --grep="adrenaline pill"`.
 
+## PC-only helper text in the menus (stories)
+
+- `CMenuManager::DisplayHelperText(nil)` (`stories/src/core/Frontend.cpp`)
+  is reVC PC code. On the Audio, Display, Graphics and Stats pages it printed
+  `FET_MIG` ("LEFT, RIGHT, MOUSEWHEEL TO ADJUST"). On the Stats page it also
+  printed `FEH_SSA` ("CURSORS TO MOVE - S TO SAVE TO FILE"). A 3DS has no
+  mouse wheel, cursor keys or `S` key.
+- PS2 has neither key. It draws a row of button icons instead (see the
+  `ps2-lcs-decompilation` skill, "PS2 menu helper text"). So reLCS prints no
+  text for those two keys on `_3DS`.
+- The choice of key is in the file-static `GetDefaultHelperTextKey`. It
+  returns `nil` for "no text". Add a new platform rule there. Do not copy
+  `#ifdef` blocks into the draw code.
+- Keep `FEH_NA` ("OPTION NOT AVAILABLE") and the timed status messages. They
+  name no PC input.
+- Test: `scripts/tests/test_menu_helper_text.py`. See
+  `git log --grep="PC mouse and keyboard hints"`.
+
 ## Where NOT to look
 
 - `Frontend_PS2.cpp` is dead code (`PC_MENU` is defined, so `PS2_MENU` never

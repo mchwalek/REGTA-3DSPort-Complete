@@ -1830,3 +1830,73 @@ PS2 `cMusicManager::PlayFrontEndTrack` is `0x169e38`, and `Service` is
   script changes the radio or mode, look for this race first. Test:
   `scripts/tests/test_music_frontend_track_race.py`. See
   `git log --grep="end credits music"`.
+
+## Reference: ammo count on the HUD (infinite ammo, bike rail shooters)
+
+PS2 `CHud::Draw` is `0x23f540`. It draws the weapon icon first. Then it skips
+the ammo text in four cases (`0x240570`-`0x2405d8`):
+
+- The reserve (total minus clip) is 9999 or more.
+- A rampage is active.
+- The weapon slot is below 2.
+- The weapon is the detonator.
+
+The missions TP1, TP2 and TS1 put Toni on the bike with `ATTACH_CHAR_TO_CAR`.
+`CPed::AttachPedToEntity` (`0x1f08d0`, grant at `0x1f0aac`) gives the weapon
+30000 rounds. The script then sets the clip to 100 every frame (`main.scm`
+offsets `0x78e79`, `0x7a380`, `0x7bf18`). So the clip number keeps resetting,
+and PS2 shows no count at all. A "9999-100" on the 3DS means that the HUD
+check is missing.
+
+- The top-screen check in `Hud.cpp` is not compiled on 3DS. The bottom-screen
+  status bar has its own copy: `ShouldDrawAmmo3DS()` in
+  `stories/src/core/BottomScreen3DS.cpp`. Change the rule in both places.
+  The weapon icon stays visible. Test: `test_3ds_bottom_ammo_gate.py`.
+- PS2 `CPed::GiveWeapon` (`0x1e1180`) turns a total from 10000 to 29999 into
+  9999. It does this for the same weapon type and for a mergeable slot (4-6).
+  A total of 30000 or more stays, because that is the "infinite" amount. Vice
+  City has no such clamp, so each Scooter Shooter attempt doubled the SMG
+  ammo and the HUD then hid the count. The reLCS helper is `ClampFiniteAmmo`
+  in `stories/src/peds/Ped.cpp`. Test: `test_give_weapon_ammo_cap.py`.
+- The doubling itself also happens on PS2 (the mission gives back the saved
+  weapon with `GIVE_WEAPON_TO_PLAYER`). Only the 9999 cap stops it.
+
+See `git log --grep="bottom-screen ammo count"` and
+`git log --grep="GiveWeapon ammo"`.
+
+## Reference: sniper, laser and rocket launcher scopes (HUD layout)
+
+`CHud::Draw` (`0x23f540`, sole caller `0x1f6440`, the `Render2dStuff`
+equivalent) lays out the HUD on a 480x272 grid. The scale globals are
+`0x3d89c0 = 4/3` and `0x3d89c4 = 512/272`. Use the `PSP_SCREEN_SCALE_*`
+macros or a single scale of `SCREEN_HEIGHT / 272` for ported layouts.
+
+- **Sniper and laser.** The centre is (240, 136). The sprites are `sitesniper`
+  (`0x3f`) and `sitelaser` (`0x41`). The half-height is 210 units. The
+  half-width is 280 units, or 210 units when the widescreen flag `0x3d8daa`
+  is set. On the 400x240 top screen, 210 units are about 185 px from the
+  centre. Vice City's PC value (about 105 px) was inherited by mistake.
+- **Black side bars.** For non-camera weapons PS2 draws two black rects, x
+  -1 to 30 and x 450 to 480. They black out the space that the sprite does not
+  cover. There are no top or bottom bars. The 3DS port draws its bars from
+  the screen edges to the scope edges (`GetPS2ScopeRect3DS`, `Hud.cpp`).
+- **Camera viewfinder.** Weapon 36 uses `viewfinder_128` with no bars. It is
+  a different size from the scopes, and the port did not change it.
+- **Rocket launcher.** It is one `siterocket` sprite (half-size 40 units)
+  with a pulsing green colour. PS2 draws no black frame. The Vice City border
+  block in `0x1f6440` draws nothing visible on PS2, so reLCS skips it on
+  `_3DS` (`stories/src/core/main.cpp`).
+
+Test: `test_3ds_scope_size.py`. See `git log --grep="scopes at PS2 size"`.
+
+## Reference: PS2 menu helper text (button icon row)
+
+PS2 has no helper strings such as `FET_MIG` ("LEFT, RIGHT, MOUSEWHEEL TO
+ADJUST") or `FEH_SSA` ("CURSORS TO MOVE - S TO SAVE TO FILE"). They exist
+only in the PC-style GXT on the SD card. PS2 draws a row of button icons with
+short labels: `FEI_SEL` Select, `FEI_BAC` Back, `FEI_NAV` Move, `FEI_ZOO`
+Zoom, `FEI_SCR` Scroll, `FEI_RES` Resume, `FEI_LE1/2` Legend, `FEI_TA1/2`
+Target and `FEI_CHA` Change Team. The row builder is `0x345dd8`, which picks
+the items by page. The item drawer is `0x345ba0`. No item explains how to
+change a setting value. Before you port other PC hint text, check the PS2
+GXT for the key first.
