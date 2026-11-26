@@ -10,6 +10,7 @@
 #include "Camera.h"
 #include "Clock.h"
 #include "CutsceneMgr.h"
+#include "Darkel.h"
 #include "Frontend.h"
 #include "Font.h"
 #include "Hud.h"
@@ -292,6 +293,19 @@ DrawHudBoostPlus(float y)
 		left + 10.0f, top + 14.0f), white);
 }
 
+/* PS2 CHud::Draw (0x240570) does not show the ammo count when the reserve is
+ * 9999 or more (scripted infinite ammo gives 30000), during a rampage, for
+ * slots below 2 and for the detonator. */
+static bool
+ShouldDrawAmmo3DS(CWeapon *weapon, CWeaponInfo *weaponInfo)
+{
+	if(Min(9999, weapon->m_nAmmoTotal - weapon->m_nAmmoInClip) == 9999)
+		return false;
+	if(CDarkel::FrenzyOnGoing())
+		return false;
+	return weaponInfo->m_nWeaponSlot > 1 && weapon->m_eWeaponType != WEAPONTYPE_DETONATOR;
+}
+
 static void
 DrawStatusBar(CPlayerPed *player)
 {
@@ -332,7 +346,7 @@ DrawStatusBar(CPlayerPed *player)
 	}
 
 	char ascii[32];
-	if(weaponInfo->m_nWeaponSlot > 1 && weapon->m_eWeaponType != WEAPONTYPE_DETONATOR) {
+	if(ShouldDrawAmmo3DS(weapon, weaponInfo)) {
 		int ammoAmount = weaponInfo->m_nAmountofAmmunition;
 		if(ammoAmount <= 1 || ammoAmount >= 1000)
 			sprintf(ascii, "%d", weapon->m_nAmmoTotal);
