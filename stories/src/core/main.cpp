@@ -1791,6 +1791,9 @@ Render2dStuff(void)
 		)
 		TheCamera.DrawBordersForWideScreen();
 
+	/* On 3DS, CHud::Draw draws the PS2 scope and its side bars. PS2 draws no
+	 * border here (SLES_541.35 VA 0x1f6440) and no rocket launcher frame. */
+#ifndef _3DS
 	CPed *player = FindPlayerPed();
 	int weaponType = 0;
 	if(player)
@@ -1821,6 +1824,7 @@ Render2dStuff(void)
 		CSprite2d::DrawRect(CRect(0.0f, 0.0f, SCREEN_WIDTH / 2 - SCREEN_SCALE_X(210), SCREEN_HEIGHT), black);
 		CSprite2d::DrawRect(CRect(SCREEN_WIDTH / 2 + SCREEN_SCALE_X(210), 0.0f, SCREEN_WIDTH, SCREEN_HEIGHT), black);
 	}
+#endif
 
 	MusicManager.DisplayRadioStationName();
 	TheConsole.Display();
