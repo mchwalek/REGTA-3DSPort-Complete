@@ -315,7 +315,7 @@ CVisibilityPlugins::RenderFadingEntities(CLinkList<AlphaObjectInfo> &list)
 		if(e->m_rwObject == nil)
 			continue;
 #ifdef _3DS
-		if(!CRenderer::ShouldRenderAttachedWindowLights(e))
+		if(!CRenderer::ShouldRenderEntityMesh3DS(e))
 			continue;
 #endif
 #ifdef EXTENDED_PIPELINES
