@@ -1011,6 +1011,39 @@ CMenuManager::CheckSliderMovement(int value)
 	SaveSettings();
 }
 
+// Returns the GXT key of the default helper line for a menu row, or nil for no line.
+static const char *
+GetDefaultHelperTextKey(int32 action, int32 screen, bool noAudioProvider, bool gameNotLoaded)
+{
+	const char *key;
+	switch (action) {
+	case MENUACTION_NO:
+	case MENUACTION_KEYBOARDCTRLS:
+	case MENUACTION_RESTOREDEF:
+		return nil;
+	case MENUACTION_MUSICVOLUME:
+	case MENUACTION_SFXVOLUME:
+	case MENUACTION_AUDIOHW:
+	case MENUACTION_SPEAKERCONF:
+	case MENUACTION_MP3VOLUMEBOOST:
+		key = noAudioProvider ? "FEH_NA" : "FET_MIG";
+		break;
+	case MENUACTION_SCREENRES:
+		key = gameNotLoaded ? "FET_MIG" : "FEH_NA";
+		break;
+	default:
+		key = screen != MENUPAGE_STATS ? "FET_MIG" : "FEH_SSA";
+		break;
+	}
+#ifdef _3DS
+	// FET_MIG and FEH_SSA tell the player to use a mouse wheel, cursor keys and the S key.
+	// The 3DS has none of these. The PS2 GXT has no such text (PS2 shows a button-icon row, SLES_541.35 0x345dd8).
+	if (strcmp(key, "FET_MIG") == 0 || strcmp(key, "FEH_SSA") == 0)
+		return nil;
+#endif
+	return key;
+}
+
 void
 CMenuManager::DisplayHelperText(char *text)
 {
@@ -1067,48 +1100,13 @@ CMenuManager::DisplayHelperText(char *text)
 		case 5:
 			CFont::PrintString(SCREEN_STRETCH_FROM_RIGHT(HELPER_TEXT_RIGHT_MARGIN), SCREEN_SCALE_FROM_BOTTOM(HELPER_TEXT_BOTTOM_MARGIN), TheText.Get("FET_RSC"));
 			break;
-		default:
-			if (aScreens[m_nCurrScreen].m_aEntries[m_nCurrOption].m_Action == MENUACTION_NO)
-				return;
-
-			if (aScreens[m_nCurrScreen].m_aEntries[m_nCurrOption].m_Action == MENUACTION_MUSICVOLUME ||
-				aScreens[m_nCurrScreen].m_aEntries[m_nCurrOption].m_Action == MENUACTION_SFXVOLUME) {
-
-				CFont::PrintString(SCREEN_STRETCH_FROM_RIGHT(HELPER_TEXT_RIGHT_MARGIN), SCREEN_SCALE_FROM_BOTTOM(HELPER_TEXT_BOTTOM_MARGIN),
-					m_nPrefsAudio3DProviderIndex == NO_AUDIO_PROVIDER ? TheText.Get("FEH_NA") : TheText.Get("FET_MIG"));
-				return;
-			}
-
-			if (aScreens[m_nCurrScreen].m_aEntries[m_nCurrOption].m_Action == MENUACTION_KEYBOARDCTRLS)
-				return;
-
-			if (aScreens[m_nCurrScreen].m_aEntries[m_nCurrOption].m_Action == MENUACTION_SCREENRES) {
-				CFont::PrintString(SCREEN_STRETCH_FROM_RIGHT(HELPER_TEXT_RIGHT_MARGIN), SCREEN_SCALE_FROM_BOTTOM(HELPER_TEXT_BOTTOM_MARGIN),
-					m_bGameNotLoaded ? TheText.Get("FET_MIG") : TheText.Get("FEH_NA"));
-				return;
-			}
-
-			if (aScreens[m_nCurrScreen].m_aEntries[m_nCurrOption].m_Action == MENUACTION_AUDIOHW ||
-				aScreens[m_nCurrScreen].m_aEntries[m_nCurrOption].m_Action == MENUACTION_SPEAKERCONF) {
-
-				CFont::PrintString(SCREEN_STRETCH_FROM_RIGHT(HELPER_TEXT_RIGHT_MARGIN), SCREEN_SCALE_FROM_BOTTOM(HELPER_TEXT_BOTTOM_MARGIN),
-					m_nPrefsAudio3DProviderIndex == NO_AUDIO_PROVIDER ? TheText.Get("FEH_NA") : TheText.Get("FET_MIG"));
-				return;
-			}
-
-			if (aScreens[m_nCurrScreen].m_aEntries[m_nCurrOption].m_Action == MENUACTION_RESTOREDEF)
-				return;
-
-			if (aScreens[m_nCurrScreen].m_aEntries[m_nCurrOption].m_Action == MENUACTION_MP3VOLUMEBOOST) {
-				CFont::PrintString(SCREEN_STRETCH_FROM_RIGHT(HELPER_TEXT_RIGHT_MARGIN), SCREEN_SCALE_FROM_BOTTOM(HELPER_TEXT_BOTTOM_MARGIN),
-					m_nPrefsAudio3DProviderIndex == NO_AUDIO_PROVIDER ? TheText.Get("FEH_NA") : TheText.Get("FET_MIG"));
-				return;
-			}
-
-			CFont::PrintString(SCREEN_STRETCH_FROM_RIGHT(HELPER_TEXT_RIGHT_MARGIN), SCREEN_SCALE_FROM_BOTTOM(HELPER_TEXT_BOTTOM_MARGIN),
-				m_nCurrScreen != MENUPAGE_STATS ? TheText.Get("FET_MIG") : TheText.Get("FEH_SSA"));
-
+		default: {
+			const char *key = GetDefaultHelperTextKey(aScreens[m_nCurrScreen].m_aEntries[m_nCurrOption].m_Action, m_nCurrScreen,
+				m_nPrefsAudio3DProviderIndex == NO_AUDIO_PROVIDER, m_bGameNotLoaded);
+			if (key)
+				CFont::PrintString(SCREEN_STRETCH_FROM_RIGHT(HELPER_TEXT_RIGHT_MARGIN), SCREEN_SCALE_FROM_BOTTOM(HELPER_TEXT_BOTTOM_MARGIN), TheText.Get(key));
 			break;
+		}
 	}
 }
 
