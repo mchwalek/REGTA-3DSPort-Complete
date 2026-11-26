@@ -224,7 +224,7 @@ RwTexDictionaryGtaStreamReadCancel(RwTexDictionary *texDict)
 
 #ifdef LIBRW
 
-#define CAPSVERSION 1	// 1: faint glass ETC1A4 alpha rounding, regenerate old txd.img caches
+#define CAPSVERSION 2	// 1: faint glass ETC1A4 alpha rounding, 2: radar tile mip levels; regenerate old txd.img caches
 
 struct GPUcaps
 {

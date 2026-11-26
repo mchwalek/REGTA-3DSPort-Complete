@@ -494,6 +494,10 @@ int TexAlloc(Raster *raster, int w, int h, GPU_TEXCOLOR fmt, int mipmap);
 size_t fmtSize(GPU_TEXCOLOR fmt);
 void texGenerateMipmap(C3D_Tex* tex);
 void forgetRasterState(Raster *raster);
+#ifdef RW_3DS
+bool32 rasterGenerateCompressedMipmaps(Raster *raster);
+void rasterSetFilterMode(Raster *raster, int32 filter);
+#endif
 
 }
 }

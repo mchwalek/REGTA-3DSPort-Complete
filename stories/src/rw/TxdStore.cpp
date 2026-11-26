@@ -31,6 +31,31 @@ ProtectPlayerTxdFromShrinking(int slot)
 		RwTexDictionaryForAllTextures(def->texDict,
 			ProtectPlayerTextureFromShrinking, nil);
 }
+
+static RwTexture*
+PrepareRadarTexture(RwTexture *texture, void*)
+{
+	if(texture == nil || texture->raster == nil)
+		return texture;
+	/* The pause-menu map shows a 128x128 tile at about 44 px. Without mip
+	 * levels and a bilinear filter, the roads break up into steps. The
+	 * txd.img cache keeps the levels, so this encode runs only when a tile
+	 * comes from gta3.img. */
+	rw::c3d::rasterGenerateCompressedMipmaps(texture->raster);
+	rw::c3d::rasterSetFilterMode(texture->raster, rwFILTERLINEAR);
+	RwTextureSetFilterMode(texture, rwFILTERLINEAR);
+	/* Without mip levels, the tiles were never in the shrink pool. */
+	rw::c3d::TexSetShrinkProtected(GETC3DRASTEREXT(texture->raster));
+	return texture;
+}
+
+static void
+PrepareRadarTxd(int slot)
+{
+	TxdDef *def = CTxdStore::GetSlot(slot);
+	if(def && def->texDict && strncasecmp(def->name, "radar", 5) == 0)
+		RwTexDictionaryForAllTextures(def->texDict, PrepareRadarTexture, nil);
+}
 #endif
 
 // LCS: file done except unused:
@@ -192,6 +217,7 @@ CTxdStore::LoadTxd(int slot, RwStream *stream)
 			def->texDict = RwTexDictionaryGtaStreamRead(stream);
 #ifdef RW_3DS
 			ProtectPlayerTxdFromShrinking(slot);
+			PrepareRadarTxd(slot);
 #endif
 			return def->texDict != nil;
 		}
@@ -214,6 +240,7 @@ CTxdStore::LoadTxd(int slot, void *data, void *chunk)
 	CStreaming::RegisterPointer(&def->texDict, 3, true);
 #ifdef RW_3DS
 	ProtectPlayerTxdFromShrinking(slot);
+	PrepareRadarTxd(slot);
 #endif
 	return def->texDict != nil;
 }
@@ -259,6 +286,7 @@ CTxdStore::FinishLoadTxd(int slot, RwStream *stream)
 	def->texDict = RwTexDictionaryGtaStreamRead2(stream, def->texDict);
 #ifdef RW_3DS
 	ProtectPlayerTxdFromShrinking(slot);
+	PrepareRadarTxd(slot);
 #endif
 	return def->texDict != nil;
 }
