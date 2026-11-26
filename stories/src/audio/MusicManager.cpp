@@ -1192,6 +1192,14 @@ cMusicManager::PlayFrontEndTrack(uint32 track, bool8 loopFlag)
 {
 	if (IsInitialised() && !m_bDisabled && track < TOTAL_STREAMED_SOUNDS && (m_nUpcomingMusicMode == MUSICMODE_FRONTEND || m_nMusicMode == MUSICMODE_FRONTEND))
 	{
+#ifdef FIX_BUGS
+		// Service can already have started a change from frontend mode to another mode.
+		// If the caller then sets frontend mode again, cancel that change.
+		// If not, the change completes later and clears this track (SALH5 end credits).
+		if (m_bMusicModeChangeStarted && m_nMusicMode == MUSICMODE_FRONTEND && m_nMusicModeToBeSet != MUSICMODE_FRONTEND &&
+		    m_nUpcomingMusicMode == MUSICMODE_FRONTEND)
+			m_bMusicModeChangeStarted = FALSE;
+#endif
 		m_nFrontendTrack = track;
 		m_FrontendLoopFlag = loopFlag;
 		if (m_nMusicMode != MUSICMODE_FRONTEND)
